@@ -43,6 +43,16 @@ test("resource cleanup is idempotent, reversed and aggregates failures", () => {
   failing.track({ dispose: () => { throw Error("failed"); } });
   assert.throws(() => failing.dispose(), AggregateError);
   assert.equal(failing.disposed, true);
+
+  const early = createResourceScope(), released=[];
+  const obsolete = early.track({ dispose: () => released.push("obsolete") });
+  early.track({ dispose: () => released.push("live") });
+  assert.equal(early.release(obsolete), true);
+  assert.equal(early.release(obsolete), false);
+  assert.equal(early.count, 1);
+  early.dispose();
+  assert.deepEqual(released, ["obsolete", "live"]);
+  assert.throws(() => early.release(obsolete), /disposed/);
 });
 
 test("frame metrics are bounded and use nearest-rank percentiles", () => {

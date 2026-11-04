@@ -6,9 +6,18 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
  * Draw calls drop without making assets look like a lower-detail demo.
  * Dynamic player, particles, water and instanced meshes stay independent.
  */
-export function batchStaticScene(scene:THREE.Scene,scope:{track:<T extends{dispose:()=>void}>(item:T)=>T}){
+export function batchStaticScene(scene:THREE.Scene,scope:{
+  track:<T extends{dispose:()=>void}>(item:T)=>T;
+  release:(item:{dispose:()=>void})=>boolean;
+}){
   scene.updateMatrixWorld(true);
   const groups=new Map<string,THREE.Mesh[]>();
+  const usage=new Map<THREE.BufferGeometry,number>();
+  scene.traverse(node=>{
+    if(node instanceof THREE.Mesh && node.geometry){
+      usage.set(node.geometry,(usage.get(node.geometry)??0)+1);
+    }
+  });
   for(const child of [...scene.children]){
     if(!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh)continue;
     if(child.userData.dynamic || !(child.material instanceof THREE.MeshStandardMaterial))continue;
@@ -33,7 +42,14 @@ export function batchStaticScene(scene:THREE.Scene,scope:{track:<T extends{dispo
     replacement.castShadow=group[0].castShadow;
     replacement.receiveShadow=group[0].receiveShadow;
     replacement.renderOrder=group[0].renderOrder;
-    for(const old of group)scene.remove(old);
+    for(const old of group){
+      scene.remove(old);
+      const geometry=old.geometry;
+      const remaining=(usage.get(geometry)??1)-1;
+      usage.set(geometry,remaining);
+      // Only drop a source when no other mesh (including nested boat groups) uses it.
+      if(remaining===0)scope.release(geometry);
+    }
     scene.add(replacement);
     original+=group.length;combined++;
   }

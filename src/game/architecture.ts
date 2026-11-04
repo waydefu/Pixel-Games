@@ -127,7 +127,11 @@ export function buildVillage(k:StageKit){
       const plaque=k.block(1.17,.78,.14,wood,signX+.81,signY-.12,frontZ+face*.43);
       plaque.rotation.y=.11;
       const badge=k.solid(name==="tavern"?"#d9a86a":"#71949b");
-      k.ellipse(.27,.19,badge,signX+.81,signY-.1,frontZ+face*.53);
+      // Emblem belongs on the VERTICAL sign, not flat on the ground.
+      const emblem=k.put(new THREE.CircleGeometry(1,24),badge,
+        signX+.81,signY-.1,frontZ+face*.53,false);
+      emblem.scale.set(.27,.19,1);
+      emblem.rotation.y=face===1?0:Math.PI;
       // Sign sits vertical: a pixel-art emblem instead of unreadable text texture.
       k.block(.29,.22,.19,brass,signX+.81,signY-.07,frontZ+face*.59,false);
     }
@@ -161,6 +165,7 @@ export function buildVillage(k:StageKit){
     cy.castShadow=true;
     for(const y of [.2*s,.7*s])
       k.column(.408*s,.07*s,darkIron,x,y,z,12);
+    k.collider(x,z,.41*s,.41*s);
     const top=k.column(.36*s,.05*s,timber,x,.92*s,z,10);top.castShadow=false;
   }
   function crate(x:number,z:number,s=1){
@@ -168,6 +173,7 @@ export function buildVillage(k:StageKit){
     k.block(.94*s,.71*s,.87*s,w,x,.355*s,z);
     for(const y of [.08*s,.63*s])
       k.block(1.04*s,.07*s,.96*s,beams,x,y,z);
+    k.collider(x,z,.55*s,.50*s);
   }
   [[-7,-6.1],[-18,5.4],[5,9.1],[-8,6.4]].forEach(([x,z],i)=>{
     barrel(x,z,i%2?.86:1);crate(x+1.07,z+.3,.88);
@@ -190,6 +196,7 @@ export function buildVillage(k:StageKit){
   const awning=k.block(4.3,.11,3.0,k.pattern("canvas",4,2,1),mx,2.63,mz);
   awning.rotation.z=-.04;
   k.block(3,.45,1.06,wood,mx,1.08,mz-.4);
+  k.collider(mx,mz-.4,1.55,.62);
   for(const x of [mx-1,mx+.1,mx+1.1])crate(x,mz-.39,.51);
   // A few hand-crafted medieval essentials: wall baskets, mooring posts, sacks.
   k.put(new THREE.SphereGeometry(.46,8,6),k.pattern("thatch",8),-8,.27,-5.75,false);

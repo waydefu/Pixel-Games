@@ -1,28 +1,38 @@
-# 架構：一個乾淨的遊戲，不是兩套 demo
+# Pixel-Games 架構（2026-11-05）｜唯一玩家入口，研究及工具可獨立保留
 
 ```text
-index.html → src/game/main.ts
-                   │
-        src/game/world.ts
-        ├── art.ts (原創像素筆刷／角色圖集)
-        ├── kit.ts (建模／材質與幾何)
-  ├── batch.ts (靜態物件依材質合批，減少 Draw Calls)
-        ├── architecture.ts (中世紀村落)
-        ├── environment.ts (海與自然)
-        ├── input.ts / navigation.js
-        └── src/rendering/* (renderer-port, quality, frame, resource)
-
-src/platform/asset-manifest.js ← scripts/check-assets.mjs
-npm ci → TS7 + Vite8 → dist/ → GitHub Pages Actions
+index.html / styles.css (唯一玩家入口)
+      ↓
+src/game/main.ts (WASD、手機搖桿、相機、UI 與 RAF)
+      ├── world.ts (目前唯一海岸世界與角色)
+      │     ├── art.ts (原創像素紋理與角色圖集)
+      │     ├── kit.ts (程序建模工具)
+      │     ├── architecture.ts (木構村莊與中世紀道具)
+      │     ├── environment.ts (海洋、岸線、船、植被)
+      │     └── batch.ts (靜態 geometry 合批與資源釋放)
+      ├── input.ts / navigation.js (輸入、碰撞、步行邊界)
+      └── src/rendering/ (renderer-port、quality、frame-metrics、resource-scope)
+      ↓
+Vite + TypeScript → dist/index.html → GitHub Pages Actions
 ```
 
-**不保留**舊 `lab/`、V1 場景、MCP Tool Registry、與現行遊戲無關的 Platform Clock/Registry/SceneController/Viewport、舊技能和研究交接文件。刪除的是工作樹，而非 Git 歷史。未使用的抽象不可只因「未來可能需要」就常駐 Repo。
+**不屬於玩家 bundle，但屬於可保留的工程資產：**
 
-## 邊界
+- `src/platform/`：clock、scene-controller、viewport、registry 與資產描述，用於後續可測工程共用能力。
+- `src/integrations/tool-registry.js`：進程內 Host adapter 路由，**不是自動 MCP 工具或 OS sandbox**。
+- `src/rendering/three-host.js`：歷史 WebGL 相容封裝，現行玩家入口使用 `renderer-port.js`；未經獨立測試不將其宣稱為 WebGPU 支援。
+- `.agents/skills/`：按需求使用的程式、素材、性能和視覺研究技能；不會進玩家 JS。
+- `docs/`：美術規格、研究來源、ADR、工具與部署治理、歷史審查；舊文標明當時時間，**不拿過去進度當最新狀態**。
 
-- `main.ts` 統一 Bootstrapping、HUD、輸入與畫面縮放；`world.ts` 是遊戲世界唯一組裝入口。
-- 美術層只持有 Three.js 場景/資源與原創材質；動線／碰撞維持純函數，可獨立測試。
-- `renderer-port.js` 負責 WebGL renderer 生命周期，不誤稱已支援 WebGPU TS L 材質或物理引擎。
-- Vite 保持單頁入口及 Pages `/Pixel-Games/` 子路徑，原有 deployment workflow 不改設定。
-- 不引入外部資產、模型、字體、音樂；後續新增時必須在 `assets/manifest.json` 註冊來源與 SHA256。
-- 性能、視覺、版權三者獨立驗收。GPU context 恢復及手機真機限制不能用 Node 測試結果抵銷。
+只移除確定退場的舊遊戲和技術展示：`src/app.js` 的 Landing Page、`lab/` 第二頁、未使用的舊場景。**移除舊遊戲不等於刪掉研究知識或可重用模組。**
+
+## 遊戲與渲染邊界
+
+- `world.ts` 只組裝當前小型原創中世紀海岸；物件與海域邊界的碰撞資料另由 `navigation.js` 決定。
+- Quarter View OrthographicCamera 是玩家指定視角；可調效能／解析度不等於有多後端引擎。
+- `batch.ts` 只合併共享材質與渲染狀態的靜態 Mesh；合併後原 Geometry 須經 `resource-scope.release()` 釋放且不可影響仍被引用的幾何。
+- `environment.ts` 將船殼、船帆和桅杆放在同一個 Group，再做小幅上下晃動，避免動畫拆散船隻。
+- Vite 只建構單頁，GitHub Pages base 為 `/Pixel-Games/`；研究文件保留不會生成第二張網頁。
+- 真機散熱、GPU time、遮擋、畫質與對照遊戲視覺差距仍需另行驗收。
+
+參見 [現行文件索引](INDEX.md)、[程式審查](reviews/INDEPENDENT-AUDIT-2026-11-05.md) 及 [歷史 Three.js 研究](research/THREEJS-ENGINEERING-2026-11-04.md)。

@@ -17,7 +17,8 @@
     "dev": "vite --host 127.0.0.1",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
-    "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build"
+    "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build",
+    "graphics:matrix": "node scripts/graphics-matrix.mjs"
   },
   "dependencies": {
     "three": "0.187.0"
