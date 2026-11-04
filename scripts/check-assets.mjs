@@ -1,11 +1,37 @@
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, realpathSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { validateAssetManifest } from "../src/platform/asset-manifest.js";
+import { resolve, dirname, relative, posix, isAbsolute } from "node:path";
+import { validateAssetManifest, isSafeAssetPath } from "../src/platform/asset-manifest.js";
 
+const root = realpathSync(".");
 const assets = validateAssetManifest(JSON.parse(readFileSync("assets/manifest.json", "utf8")));
-for (const asset of assets) {
-  if (!existsSync(asset.path)) throw new Error("asset file missing: " + asset.path);
-  const digest = createHash("sha256").update(readFileSync(asset.path)).digest("hex");
-  if (digest !== asset.sha256) throw new Error("asset digest mismatch: " + asset.path);
+const listed = new Set(assets.map(a => a.path));
+function ensureRepoFile(assetPath) {
+  if (!isSafeAssetPath(assetPath) || !existsSync(assetPath)) throw new Error("asset missing or unsafe: " + assetPath);
+  const absolute = realpathSync(assetPath);
+  const diff = relative(root, absolute);
+  if (diff.startsWith("..") || isAbsolute(diff) || diff === "") throw new Error("asset escapes repository: " + assetPath);
+  return absolute;
 }
-console.log("PASS: " + assets.length + " registered asset(s), path and sha256 checked.");
+for (const asset of assets) {
+  const file = ensureRepoFile(asset.path);
+  const digest = createHash("sha256").update(readFileSync(file)).digest("hex");
+  if (digest !== asset.sha256) throw new Error("asset SHA256 mismatch: " + asset.path);
+  if (asset.path.endsWith(".gltf")) {
+    const gltf = JSON.parse(readFileSync(file, "utf8"));
+    const uris = [
+      ...(gltf.buffers ?? []).map(b => b.uri),
+      ...(gltf.images ?? []).map(i => i.uri),
+    ].filter(uri => typeof uri === "string");
+    for (const uri of uris) {
+      if (uri.startsWith("data:")) continue;
+      if (/^(?:[a-z]+:|\/|\\)/i.test(uri) || uri.includes("?") || uri.includes("#") || uri.includes("%")) {
+        throw new Error("remote or absolute glTF reference prohibited: " + uri);
+      }
+      const ref = posix.normalize(posix.join(posix.dirname(asset.path), uri));
+      if (!isSafeAssetPath(ref) || !listed.has(ref)) throw new Error("unregistered glTF resource: " + ref);
+      ensureRepoFile(ref);
+    }
+  }
+}
+console.log("PASS: " + assets.length + " asset(s) validated with SHA256 and glTF references.");
