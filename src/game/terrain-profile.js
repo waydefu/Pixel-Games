@@ -16,6 +16,17 @@ export function fjordHeight(x,z,region) {
   const slope=Math.pow(approach,1.60)*(1.12-.12*approach);
   const summit=24+56*ridge(x,z)+18*Math.abs(wave(x,z));
   const small=2.9*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
-  return Math.max(0,slope*(summit+small));
+  let height=Math.max(0,slope*(summit+small));
+  if(region==="east"){
+    // A sea channel bends between the ridges instead of a solid mountain wall
+    // blocking the entire horizon. Its bed stays UNDER the water plane.
+    const channelZ=8-(x-72)*.34+6*Math.sin(x*.028);
+    const d=Math.abs(z-channelZ);
+    const bank=clamp01((d-29)/34);
+    const raisedBank=bank*bank*(3-2*bank);
+    const seabed=-Math.min(5,Math.max(0,(x-84)*.15));
+    height=height*raisedBank+seabed*(1-raisedBank);
+  }
+  return height;
 }
 export function coastX(z) {return 13.3+Math.sin(z*.13)*.65+Math.sin(z*.37)*.22;}

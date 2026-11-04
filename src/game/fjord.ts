@@ -54,7 +54,7 @@ export function buildFjordLandscape(k:StageKit){
   }
   // A layered moving skydome uses a small procedural cloud shader, not hundreds
   // of translucent planes or an expensive volumetric march on mobile.
-  const skyUniforms={uTime:{value:0},uCloudAmount:{value:.66}};
+  const skyUniforms={uTime:{value:0},uCloudAmount:{value:.82}};
   const sky=k.scope.track(new THREE.ShaderMaterial({
     uniforms:skyUniforms,depthWrite:false,depthTest:false,side:THREE.BackSide,fog:false,
     vertexShader:String.raw`varying vec3 vRay;
@@ -80,7 +80,7 @@ export function buildFjordLandscape(k:StageKit){
       void main(){
         vec3 ray=normalize(vRay);
         float h=clamp(ray.y*.5+.5,0.0,1.0);
-        vec3 horizon=vec3(.70,.70,.64),zenith=vec3(.15,.36,.58);
+        vec3 horizon=vec3(.54,.65,.70),zenith=vec3(.13,.39,.63);
         vec3 sky=mix(horizon,zenith,pow(h,1.16));
         vec3 sunDir=normalize(vec3(-.60,.30,-.74));
         float sun=max(0.0,dot(ray,sunDir));
@@ -92,10 +92,10 @@ export function buildFjordLandscape(k:StageKit){
         vec2 wind=vec2(uTime*.0026,uTime*.0011);
         float low=fbm(uv*2.05+wind);
         low=.70*low+.30*fbm(uv*4.12-wind*.42);
-        float cumulus=smoothstep(.45,.68,low);
+        float cumulus=smoothstep(.38,.59,low);
         float wisps=fbm(uv*5.0+vec2(-uTime*.0018,uTime*.0007));
         float cirrus=smoothstep(.59,.78,wisps)*.28;
-        float mask=smoothstep(-.025,.16,ray.y)*(1.0-smoothstep(.73,.93,ray.y));
+        float mask=smoothstep(-.025,.12,ray.y)*(1.0-smoothstep(.83,.96,ray.y));
         float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.88);
         vec3 underside=vec3(.60,.64,.65),lit=vec3(.96,.89,.74);
         vec3 cloud=mix(underside,lit,.42+.34*sun);

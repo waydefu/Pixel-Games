@@ -24,3 +24,12 @@
 - Node 測試檢查 `fjordHeight()` 的聚落平臺、遠方山峰、兩側山壁與確定性。
 - Playwright 桌機與 mobile viewport 測試：三種模式實際改變 Camera/Projection，第一人稱能移動；觀景模式不移動玩家，能切回斜角；Shader console 沒有編譯錯誤。
 - 需要獨立檢查第一人稱與遠景的螢幕實圖：不只檢查按鈕文字。**真 Android/iOS、山體近景、跨設備 Shader 穩定性、GPU 時間與可攀山路均 NOT RUN。**
+
+
+## P1-R3 新增交付檢查
+
+- `tests/facade.test.mjs`：將牆面分成實心 cells，精確確認門／窗開口不與任何磚牆矩形重疊；保護凹窗不退化成貼圖。
+- Playwright 桌機／mobile viewport 渲染、三視角切換、console Shader errors = 0 與可探索移動必須通過。
+- 目視比較：窗洞立面深度、山牆上窗、雲層是否可辨識、山麓是否減少不自然直壁、碼頭甲板是否不再被大型礁石遮住、海面是否不再出現規律亮條紋。
+- 量測：不同解析度 DPR，第一人稱水面特寫和斜角景觀兩個鏡頭各自量測 draw calls、frame p50/p95、真機 GPU time（若可用）；避免以桌面 SwiftShader 代替行動 GPU。
+- **不得假稱**已達 Bells of Evermere、已有 SSGI/SSR/FFT/體積雲或通過長時間實機溫控驗收。

@@ -49,26 +49,26 @@ export function createCoastalWater(k:StageKit) {
         vec3 n=normalize(vNormal);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         float depth=smoothstep(0.0,34.0,vDist);
-        vec3 shallow=vec3(.05,.30,.28),deep=vec3(.008,.085,.15);
+        vec3 shallow=vec3(.024,.195,.195),deep=vec3(.006,.073,.13);
         vec3 water=mix(shallow,deep,depth);
         // As a WebGL2 fallback, reflection includes a simple analytic sky tint,
         // not a falsely claimed SSR or world-space environment probe.
         vec3 reflected=reflect(-v,n);
-        vec3 sky=mix(vec3(.65,.65,.58),vec3(.10,.31,.49),
+        vec3 sky=mix(vec3(.16,.30,.36),vec3(.055,.23,.39),
           clamp(reflected.y*.75+.3,0.0,1.0));
-        water=mix(water,sky,clamp(f*.83+.07,0.0,.84));
+        water=mix(water,sky,clamp(f*.57+.06,0.0,.60));
         float glint=pow(max(0.0,dot(reflect(-normalize(vec3(-.58,.68,-.28)),n),v)),96.0);
-        water+=vec3(.72,.56,.33)*glint*.70;
+        water+=vec3(.49,.39,.25)*glint*.38;
         // Fine irregular wind highlights depend on world coordinates, not
         // a giant UV repeat that turns the water into regular blue stripes.
         float small=noise(vWorld.xz*2.3+vec2(uTime*.24,uTime*.17));
         float micro=noise(vWorld.xz*5.2-vec2(uTime*.31,uTime*.13));
         water+=vec3(.024,.04,.047)*(small-.35)+vec3(.013)*(micro-.5);
-        float shoreline=1.0-smoothstep(.35,4.9,vDist);
+        float shoreline=1.0-smoothstep(.0,2.65,vDist);
         float moving=sin(vWorld.z*.85+uTime*1.8+noise(vWorld.xz*.5)*5.0);
         float foam=shoreline*smoothstep(.45,.76,
           .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));
-        water=mix(water,vec3(.80,.87,.78),clamp(foam*.85,0.0,.75));
+        water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
         gl_FragColor=vec4(max(water,vec3(0.0)),1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -76,11 +76,11 @@ export function createCoastalWater(k:StageKit) {
   }));
   // A segmented mesh is required: a two-triangle water plane cannot
   // physically displace between its corners.
-  const geo=k.scope.track(new THREE.PlaneGeometry(278,416,116,148));
+  const geo=k.scope.track(new THREE.PlaneGeometry(680,620,164,160));
   const mesh=new THREE.Mesh(geo,material);
   mesh.name="continuous-fjord-water";
   mesh.rotation.x=-Math.PI/2;
-  mesh.position.set(152,-.26,0);
+  mesh.position.set(140,-.38,0);
   mesh.receiveShadow=false;mesh.castShadow=false;
   mesh.frustumCulled=true;
   mesh.userData.dynamic=true;  // Waves must not be merged into the static batch.

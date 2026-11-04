@@ -6,7 +6,7 @@ test("village plateau remains flat while distant mountains rise",()=>{
     assert.equal(fjordHeight(-43,z,"mainland"),0);
     assert.equal(fjordHeight(65,z,"east"),0);
     assert.ok(fjordHeight(-150,z,"mainland")>20);
-    assert.ok(fjordHeight(190,z,"east")>20);
+    assert.ok(fjordHeight(190,100,"east")>20);
   }
 });
 test("fjord flanks frame open sea",()=>{
@@ -20,4 +20,10 @@ test("terrain is deterministic and coastal edge bounded",()=>{
   assert.equal(fjordHeight(NaN,0,"east"),0);
   assert.throws(()=>fjordHeight(0,0,"nope"),RangeError);
   for(let z=-80;z<80;z+=8)assert.ok(coastX(z)>12&&coastX(z)<15);
+});
+
+test("east fjord opens to water with submerged bed instead of sealing its mouth",()=>{
+  assert.ok(fjordHeight(190,-64,"east")<0);
+  assert.ok(fjordHeight(190,100,"east")>20);
+  assert.ok(fjordHeight(190,-130,"east")>20);
 });
