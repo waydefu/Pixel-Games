@@ -1,32 +1,38 @@
-# Pixel-Games｜原創像素遊戲實驗室
+# Pixel-Games｜Three.js 優先的原創遊戲平台
 
-一個**Three.js 優先、手機兼容、具 GPU 資源治理**的瀏覽器像素遊戲開發專案。目前只有工程基礎與作品入口，**沒有選定任何遊戲，沒有導入先前的「地城迴路」**。
+一個可以長期擴充的瀏覽器像素／風格化 3D 遊戲開發環境。**目前沒有已批准的遊戲玩法；沒有匯入先前的地城遊戲。**
 
-## 工程現況
+## 目前有什麼
 
-- 首頁 `index.html`、`styles.css`、`src/app.js` 保留原生 HTML/ESM，可沿用 GitHub Pages 的 `main/(root)`。
-- `src/platform/`：固定時間步、場景生命週期、2D 像素座標、空作品清單、素材 manifest。
-- `src/rendering/`：Three.js **注入式 WebGLRenderer host**、品質尺寸限制、像素貼圖策略、GPU 資源追蹤、CPU frame interval 記錄。
-- `src/integrations/`：通用工具能力路由，顯式接入 adapter；**不自動載入、安裝或授權外部工具**。
-- `assets/manifest.json`：目前為空。未經授權不搬入任何第三方資產。
-- **尚未**安裝 `three` 或 Vite，也沒有可玩的遊戲或已實際執行的 Three.js 畫面；這份 PR 是工具與架構基線。
+- **可直接開啟的首頁**：根目錄 `index.html`；沿用 GitHub Pages 既有的 `main/(root)` 設定。
+- **獨立 3D 渲染實驗室**：`lab/`，使用 Three.js r187、WebGL2、色彩管理、陰影和原創程式產生的像素貼圖。**不是可玩的遊戲。**
+- **可替換 Renderer Port**：`src/rendering/renderer-port.js`，支援同步／非同步渲染後端初始化、viewport resize、context loss 及 GPU resource 回收。
+- **核心／工具／資產**：固定時間步、可回復的場景切換、畫質分級與自適應解析度、可驗證的工具 adapter、gltf 與外部素材引用驗證。
+- **測試**：Node 單元測試、TypeScript 7 嚴格型別檢查、Vite 8 multi-page build、Playwright Chromium 桌機與手機 viewport E2E。
+- 依賴精確鎖定至 `package-lock.json`，CI 使用 `npm ci`。
 
-## 使用（Node 20+，無外部 npm 依賴）
+## 執行（Node.js 26 LTS 推薦）
 
 ```sh
-npm run validate       # 語法 + 素材完整性 + 單元測試
-npm run graphics:matrix # 解析度 / DPR 理論規格試算（不是 FPS）
-python3 -m http.server 8000
+npm ci
+npm run validate              # 語法／素材 SHA256／單元／TypeScript／Vite build
+npm run dev                   # 在 /Pixel-Games/lab/ 預覽 Three.js 實驗場
+npm run test:e2e              # 須先安裝 Playwright Chromium
+npm run graphics:matrix       # 僅渲染 Buffer 規劃，不是 FPS 測試
 ```
 
-打開 `http://localhost:8000` 預覽**靜態首頁**。JS modules 不應以 `file://` 當成正式預覽方式。
+安裝測試瀏覽器：`npx playwright install chromium`；在 CI 使用 `npx playwright install --with-deps chromium`。
 
-## 接下來要先決定
+- 開發入口通常是 `http://127.0.0.1:5173/Pixel-Games/lab/`。
+- `npm run build` 產生 `dist/`，`npm run preview` 預覽 `/Pixel-Games/` 路徑。
+- **現有 Pages 的 main/(root) 仍只提供無需編譯的首頁；不會自動發布 `lab/` 的 TypeScript 模組**。若要公開 `dist/`，請先審查 GitHub Actions 部署流程與 Pages Source，這次 PR 不切換設定。
 
-1. 將未來的 Three.js PoC 以單獨 PR 實作：固定版本與 lockfile、Vite、無玩法的原創場景，先做 WebGL2 實測。
-2. 因 Vite build 輸出 `dist`，若要公開 Pages 需另審核部署流程（不自行切換 main/(root)）。
-3. 由 Owner 選第一款**新遊戲**的玩法、鏡頭與美術後，才開始遊戲垂直切片。
+## 下一階段
 
-檔案導航：[docs/INDEX.md](docs/INDEX.md)｜[Three.js 研究](docs/research/THREEJS-ENGINEERING-2026-11-04.md)｜[架構](docs/ARCHITECTURE.md)｜[工具與命令](docs/TOOLING.md)｜[工具接入標準](docs/TOOL-INTEGRATIONS.md)。上游研究：[waydefu/Research-](https://github.com/waydefu/Research-)。
+先完成此 PR 的工程驗收與 Chrome 渲染檢查，再決定是否發布 3D 技術展示，最後才根據獨立的遊戲企劃核准、開始實作玩法與世界內容。手機熱降頻、真正的 GPU frame time、iOS Safari 都需要另外做實機測試。
 
-> 本 Repo 的 Skill 是按需文字說明，不會自動安裝外部 MCP、修改宿主設定或繞過 GitHub PR 審查。
+文件入口：[架構](docs/ARCHITECTURE.md) · [工具接入](docs/TOOL-INTEGRATIONS.md) · [品質門檻](docs/QUALITY-GATES.md) · [審查修復報告](docs/reviews/ARCHITECTURE-REPAIR-2026-11-04.md) · [研究來源](docs/research/THREEJS-ENGINEERING-2026-11-04.md)。
+
+相關研究： [Research-](https://github.com/waydefu/Research-)。
+
+> 任何外部 MCP／Serena／素材編輯器都沒有自動安裝或取得權限。正式程式、部署與 PR 合併仍由 Owner 審查。

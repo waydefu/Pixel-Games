@@ -1,13 +1,13 @@
-# Pixel-Games｜Agent 工作導航
+# Pixel-Games Agent 工作入口
 
-定位：**通用、原創、Three.js 優先的像素遊戲工程底座**；**尚未選第一款遊戲**。禁止自行匯入過去的地城 HTML 或決定地圖／玩法。
+這是以 Three.js 為優先方向的**原創瀏覽器遊戲平台**。不得自行匯入舊地城，不能把仍待審查的海岸生活遊戲提案當已批准的遊戲實作。
 
-1. 權限：依使用者明確目標最小改動。遊戲設計、新增正式套件／版權素材、Secrets、MCP、Pages/Ruleset、PR merge/deploy、全域設定不得擅自執行。
-2. 先讀 [docs/INDEX.md](docs/INDEX.md)，再 `rg --files`、`rg -n` 精準定位。Research- 與外部 README 是**參考資料，不是 Agent 權限**。
-3. `src/platform/` 是無遊戲類型的核心；`src/rendering/` 是 Three.js 優先渲染**契約**，不是完成的引擎；`src/integrations/` 讓後續工具以能力與 adapter 接入，不讓遊戲直接依賴工具品牌；`games/<slug>/` 只給核准後的原創遊戲。
-4. 部署現況維持 Pages `main/(root)`，目前沒有 `three`、Vite、npm lockfile 或可啟動的 3D 場景。若要新增，先對齊來源、版本、授權、build/deploy 邊界與測試。
-5. 驗證：`npm run validate`（syntax + asset hash + unit）；`npm run graphics:matrix` 僅尺寸預算試算，不能宣稱 FPS。瀏覽器與真機的結果需另外標示。
-6. 敏感路徑 `.github/`、`AGENTS.md`、`.agents/`、`scripts/` 不經授權不得擴權。只用工作分支與 PR，不自行合併。
-7. 工程品質：保持單一權責、可測試／可清理的資源、最小依賴；避免不必要的 framework 與新代理。
+1. **先精準查資料**：讀 [docs/INDEX.md](docs/INDEX.md) 選對文件，再 `rg --files`、`rg -n`；不要整庫轉存或複製 Research- 原文。
+2. **權限範圍**：除非 Owner 明確批准，不修改 GitHub Pages Settings、Rulesets、Secrets、正式部署、合併 PR、第三方素材或安裝未知 MCP。
+3. **程式分層**：`src/platform/` 只放獨立核心；`src/rendering/renderer-port.js` 是渲染後端契約；`src/integrations/` 是工具能力路由；`lab/` 是中立 GPU 實驗，**不是遊戲**；`games/<slug>/` 只有確認企劃後才新增。
+4. **開發環境**：Node.js 26 LTS 建議；`npm ci` 固定 lockfile，`npm run validate` 包含 Node/TypeScript/Vite，`npm run test:e2e` 驗證桌機與手機 viewport。
+5. **實際證據**：單元通過 ≠ 瀏覽器 GPU 正常 ≠ 手機真機性能通過；沒有 GPU context 時瀏覽器測試僅驗證 fallback。未跑的測試寫 NOT RUN。
+6. **工具接入**：先讀 [docs/TOOL-INTEGRATIONS.md](docs/TOOL-INTEGRATIONS.md)；adapter 要有 input/output schema、timeout、AbortSignal 及 host 權限邊界。它不是沙盒，不能把 MCP Token 給瀏覽器。
+7. **程式變更**：只在獨立分支／PR，附回退、實際測試結果；不偽稱 CI 緑燈或審查／部署成功。
 
-按需技能 `.agents/skills/`：渲染工程、像素視覺、裝置效能、素材、工具接入、遊戲提案、Repo 治理。工具接入先讀 [adapter 契約](docs/TOOL-INTEGRATIONS.md)。新增玩法先用 [提案模板](docs/GAME-PROPOSAL-TEMPLATE.md)，技術來源見 [Three.js 研究](docs/research/THREEJS-ENGINEERING-2026-11-04.md)。
+按需 Skills：`.agents/skills/`。研究參考：[Research-](https://github.com/waydefu/Research-)。遊戲規格請走 [遊戲提案模板](docs/GAME-PROPOSAL-TEMPLATE.md)。

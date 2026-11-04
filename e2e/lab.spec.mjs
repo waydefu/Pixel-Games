@@ -8,25 +8,32 @@ test("built project home remains reachable at GitHub project subpath", async ({ 
   expect(errors).toEqual([]);
 });
 
-test("Three.js lab renders or reports unsupported GPU honestly", async ({ page }) => {
+test("Three.js lab renders on WebGL2-capable browser, or explains actual GPU unavailability", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("./lab/");
   await expect(page.getByRole("heading", { name: /光影與像素/ })).toBeVisible();
   await expect(page.locator("#stage")).toBeVisible();
-  await page.waitForFunction(() => ["ready","unsupported","failed"].includes(window.__pixelLab?.read().status), { timeout: 18000 });
+  await page.waitForFunction(
+    () => ["ready","unsupported","failed"].includes(window.__pixelLab?.read().status),
+    null, { timeout: 18000 },
+  );
   const diagnostics = await page.evaluate(() => window.__pixelLab.read());
-  if (diagnostics.status === "ready") {
+  const supported = await page.evaluate(() => !!document.createElement("canvas").getContext("webgl2"));
+  console.log("WebGL2 hardware/software availability:", supported, "Lab diagnostics:", JSON.stringify(diagnostics));
+  if (supported) {
+    expect(diagnostics.status).toBe("ready");
     await expect.poll(async () => (await page.evaluate(() => window.__pixelLab.read())).frames).toBeGreaterThan(0);
+    await expect.poll(async () => (await page.evaluate(() => window.__pixelLab.read())).drawCalls).toBeGreaterThan(0);
     expect(diagnostics.bufferWidth).toBeGreaterThan(0);
     expect(diagnostics.bufferHeight).toBeGreaterThan(0);
     expect(diagnostics.bufferWidth * diagnostics.bufferHeight).toBeLessThanOrEqual(1_800_000);
   } else {
     await expect(page.locator("#fallback")).toBeVisible();
+    expect(["unsupported","failed"]).toContain(diagnostics.status);
   }
   await page.locator("#quality").selectOption("basic");
-  if(diagnostics.status === "ready"){
-    await expect.poll(async () => (await page.evaluate(() => window.__pixelLab.read())).bufferWidth).toBeGreaterThan(0);
+  if(supported) {
     const after = await page.evaluate(() => window.__pixelLab.read());
     expect(after.bufferWidth * after.bufferHeight).toBeLessThanOrEqual(900_000);
   }

@@ -1,103 +1,61 @@
-# Pixel-Games 技術架構 v0.2（Three.js 優先）
+# Pixel-Games 架構 v0.3｜可替換 Renderer、可驗證工具邊界
 
-狀態：P0 共用工程底座已存在；本 PR 擴充**無外部依賴、可單元測試**的渲染契約。Three.js 是已批准的優先技術方向，但 **Three.js package 尚未加入、GPU 畫面尚未執行**。第一款遊戲尚未選定。
-
-## 導航圖
+現階段是可實測的**獨立渲染技術場景 + 共用底座**，並非完成的遊戲引擎。Three.js 為已指定的優先技術，第一款遊戲玩法仍待獨立決策。
 
 ```text
-index.html / styles.css (GitHub Pages main/(root) 靜態入口)
-    │
-    ├── src/app.js                   作品清單與 DOM（無遊戲內容）
-    ├── src/platform/
-    │     registry.js               多遊戲本地路徑契約
-    │     clock.js                  固定時間步（不自動建 RAF）
-    │     scene-controller.js       enter / update / render / exit
-    │     viewport.js               2D 邏輯像素與指標映射
-    │     asset-manifest.js         素材來源、授權、路徑與 hash 規格
-    │
-    ├── src/integrations/
-    │     tool-registry.js           顯式 capability/adapter 路由（default deny）
-    │
-    └── src/rendering/
-          quality.js                限制渲染 buffer（與 UI CSS 分離）
-          pixel-texture.js          nearest / color-space 策略
-          resource-scope.js         WebGL 資源生命週期所有權
-          frame-metrics.js          幀時間觀測（RAF 間距）
-          three-host.js             WebGLRenderer 注入式宿主
-                  ↑
-          Three.js（選定版本、npm / bundler / lockfile 尚待後續 PoC）
-                  ↑
-          games/<slug>/（未建立：未指定玩法）
+                  index.html / styles.css （GitHub Pages 既有首頁）
+                           │
+                  src/platform/ （Game-agnostic）
+                  clock / scene-controller / viewport / registry
+                           │
+      ┌────────────────────┼─────────────────────────┐
+      ▼                    ▼                         ▼
+ src/rendering/       src/platform/assets       src/integrations/
+ renderer-port.js     asset-manifest            tool-registry
+ quality.js                 │                         │
+ pixel-texture.js    check-assets.mjs           Dev/CI/Agent adapters
+ resource-scope.js         │                    （未自動啟用工具）
+ frame-metrics.js      sprites / glTF
+      │
+      ▼
+ lab/main.ts ── Three.js r187 WebGLRenderer + 原創無玩法測試場景
+      │
+      └── Vite 8 build → dist/index.html + dist/lab/index.html
+               │
+               └── GitHub Pages 正式部署仍須 Owner 決策
 ```
 
-入口、遊戲玩法、渲染器、素材和 DOM HUD 的責任分開，避免像前期單檔 HTML 一樣把碰撞、地圖、光影與 UI 糾結在一起。
+## Renderer Port 核心契約
 
-## 具體可用的 API（Node 測試覆蓋）
+`createRendererPort({renderer,canvas,scene,camera,quality,onStatus,resizeCamera,restoreResources})`：
 
-`calculateRenderSize({cssWidth,cssHeight,devicePixelRatio,quality})`
-- 三級基本配置：basic / balanced / high，分別限制 **DPR** 與最大像素數。數字是起始策略，**不是量到的設備建議值**。
-- 回傳實際 buffer 寬高，不能拿回傳值當 CSS 畫面尺寸。相機投影矩陣要由後續遊戲的 camera system 更新。
-- 不使用 user-agent 判斷硬體，也不保證自動壓到 60 FPS。
+- `initialize(): Promise<void>`：明確等待非同步後端初始化（可用於未來 WebGPURenderer）；不能在初始化前宣稱 render ready。
+- `draw(): Promise<boolean>`：統一呼叫後端 `renderAsync` 或 `render`，在 lost/restoring 時拒絕繪製。
+- `resize(width,height,dpr)`：設定實際 Drawing Buffer，呼叫端透過 `resizeCamera` 修改 camera aspect（不是偷用像素 buffer aspect）。
+- `setQuality(q)` / `setRenderScale(scale)`：畫質預設及動態縮放；`quality.js` 中 controller 只給建議，由 Host 決定是否採用。
+- `stats()`：回傳 draw calls、triangle 及部分 renderer.info 的 GPU 資源統計；不是完整 VRAM 或 GPU duration。
+- `dispose()` 與 context-loss 事件：狀態 `new/initializing/ready/lost/restoring/failed/disposed`，由 `restoreResources` 明確告知自定義資產是否恢復。
+- `three-host.js` 保留為既有 WebGL 相容轉接器；**新開發不應繼續向它加入通用功能**。WebGPURenderer/TSL 應另做 Backend Adapter，不能假設 ShaderMaterial 與 EffectComposer 可原封不動移植。
 
-`createThreeRendererHost({THREE,canvas,scene,camera,quality,onStatus})`
-- 使用**由呼叫端提供**的 `THREE.WebGLRenderer`，不隱式使用 CDN；建立時若不支援 WebGL 會明確失敗。
-- 方法：`resize(cssWidth,cssHeight,dpr)`、`render()`、`stats()`、`dispose()`；狀態 `ready/context-lost/disposed`。
-- `canvas` 的 CSS 版面由宿主頁面處理，`resize` 僅設 WebGL buffer；`onStatus` 可讓 DOM 顯示錯誤／降級提醒。
-- **不負責** Camera projection、renderer loop、postprocess、Sprite 的照明模式、資源上傳重建或 UI fallback。context restored 表示事件已觸發，**不等於所有自訂 GPU 資產已恢復**。
-- `stats()` 使用 `renderer.info` 的 draw calls、triangles、geometries、textures：計數器不是 GPU 時間，也不是全部 VRAM 消耗。
+這是 JavaScript runtime 契約、單元測試與獨立 E2E；不是已建立 GPU 安全沙盒。
 
-`configurePixelTexture(THREE, texture, {kind})`
-- 色彩貼圖（`kind:"color"`）使用 sRGB；法線／粗糙度／ID 等資料貼圖（`"data"`）使用 NoColorSpace。
-- 像素圖預設 NearestFilter / 無 Mipmap；遠景縮小抖動、atlas 邊緣、alpha bleeding 需在實際場景單獨測，不能認為參數已解決全部。
+## 資產與場景
 
-`createResourceScope()`
-- 跟蹤具 `dispose()` 方法的**所有者資源**；同一 scope 去重，反向釋放，重複 dispose 無副作用。
-- 跨場景共享的 Texture/Material 應由共享資產管理器擁有，不能每個 scene 都追蹤一次。
+- `createSceneController()` 對新場景先執行同步 `enter()`，成功後才退出舊場景；若新場景初始化失敗則呼叫新場景 `exit()` 並保留舊場景。非同步讀取應先 preload 完成，再 commit。
+- 若舊場景 `exit()` 途中部分釋放後再拋錯，系統無法復原外部副作用，仍需場景自身提供可回復釋放策略與實際瀏覽器測試。
+- `assets/manifest.json` 登錄所有資產路徑與 SHA256，`check-assets.mjs` 驗證未註冊檔、symlink escape、glTF 引用的 `.bin`/紋理與相對路徑；不代表自動證明版權。
+- 3D Mesh 跟碰撞、尋路是不同邏輯；實際遊戲的碰撞/場景串流/存檔，必須在玩法核准後另設計。
+- 像素 CanvasTexture/角色可用 nearest；風格化 PBR 3D 材質要依距離用合理的 Mipmap/Anisotropy，不能一律最近鄰。
 
-`createFrameMetrics({capacity})`
-- 在真正 RAF loop 由呼叫者提供 `frameMs`；回傳 p50/p95 與平均，樣本容量有限。
-- **不把 requestAnimationFrame 的間距當 GPU 渲染耗時**。切到背景分頁時應停記錄並重置。
+## 工具接入
 
-`validateAssetManifest({version:1,assets})`
-- 目前 `assets/manifest.json` 為空；加入第一批素材前先規範相對路徑、hash、license、author、source。
-- `npm run assets` 依 manifest 驗證實體檔案和 SHA256，不推導法律授權。
+`src/integrations/tool-registry.js` 現在具有 capability 的顯式 allowlist、adapter id/version、handler 的 input/output 檢查、timeout、AbortSignal、unregister 取消。它是**應用程式層的呼叫路由**，不是檔案／網路權限機制。外部工具需由可信宿主隔離、加入對應 adapter；禁止把 MCP Token 注入前端。詳見 [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md)。
 
-## 宿主整合範例（說明用，尚不能執行）
+## 可驗證的執行／部署
 
-```js
-// 下一階段核准 Three.js + 打包工具並安裝後才可啟用：
-import * as THREE from 'three';
-import { createThreeRendererHost } from './src/rendering/three-host.js';
+- `npm ci && npm run validate`：syntax、assets、Node unit、TypeScript、Vite build。
+- `npm run test:e2e`：在由 Vite preview 服務的 `/Pixel-Games/` 下執行桌面與手機 viewport Chromium 測試；模擬手機不代表行動 GPU 實測。
+- 現在 Pages Source 不做變更：`main/(root)` 只服務未編譯資源；`dist/` 預覽不等於已上線。
+- 長期引入真正物理、遊戲活動系統、存檔或大世界串流以前，先用小型垂直切片量測必要性，避免過度設計。
 
-const host = createThreeRendererHost({
-  THREE, canvas, scene, camera,
-  quality: 'balanced',
-  onStatus: status => console.log(status),
-});
-host.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio);
-host.render();
-// 停用時 host.dispose()，並由擁有者釋放幾何／材質／貼圖。
-```
-
-**不要**將上方未完整定義的 `canvas/scene/camera` 片段當可立即執行的遊戲檔。
-
-## 與早期 core 的關係
-
-- `clock.js`、`scene-controller.js`、`viewport.js` 沒有改掉或重做。
-- `viewport.js` 對應**2D 邏輯像素座標**；Three.js 的 world→screen 或 raycasting 必須另建 camera/input adapter，不能用 2D 座標函數假裝 3D 拾取。
-- Gameplay / physics / collision 是未決的領域：渲染場景的 Mesh 不等於碰撞體，不能靠視覺模型自行判定箱子能否通行。
-- Renderer 與 Game 可以獨立更換；多款遊戲不必強迫使用相同鏡頭或玩法。
-
-## 後續工具的接入點
-
-- `src/integrations/tool-registry.js` 為**可選的工具調用介面**，由可信 host 手動 register，採用 `id`＋`version`＋`capability`（例如 `assets.inspect`、`qa.capture`）而非綁定特定編輯器。
-- Registry 預設拒絕調用，明確 `allowedCapabilities` 與 provider ID 才可路由。**這不是 OS 隔離、credential broker、MCP server 或真實權限管制**。
-- 新增工具不應修改 game loop、Three.js renderer 或核心 gameplay；CLI/CI/MCP 要由有權限的開發宿主封裝，不能把秘密憑證放進瀏覽器。
-- 詳見 [工具整合契約](TOOL-INTEGRATIONS.md) 與 [tool-integration Skill](../.agents/skills/tool-integration/SKILL.md)。
-
-## 平台與風險
-
-- PC / Android / iOS 要檢查真機：WebGL2、viewport／safe area、context loss、背景恢復、畫面比例、觸控互動、發熱／掉幀。
-- 在沒有可用 3D renderer 時，應提供文字說明與安全的基本介面，而不是承諾可用 Canvas2D 完整呈現 3D。
-- `prefers-reduced-motion` 可以保留邏輯而降低視覺動效，但不等於直接停遊戲。
-- 參閱 [官方研究摘要](research/THREEJS-ENGINEERING-2026-11-04.md)、[工具與狀態](TOOLING.md)、[品質門檻](QUALITY-GATES.md)。
+參考 [官方研究](research/THREEJS-ENGINEERING-2026-11-04.md)、[品質驗收](QUALITY-GATES.md)、[修復報告](reviews/ARCHITECTURE-REPAIR-2026-11-04.md)。

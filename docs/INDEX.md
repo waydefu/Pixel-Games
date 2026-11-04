@@ -1,19 +1,20 @@
-# 文件導航｜只讀取目前任務所需內容
+# Pixel-Games 文件導航
 
-| 工作情境 | 入口 |
+| 問題 | 入口 |
 | --- | --- |
-| 專案目標／開始使用 | [README](../README.md) |
-| 現有程式碼分層與 API | [ARCHITECTURE](ARCHITECTURE.md) |
-| 三維渲染／像素材質／GPU 資源研究 | [Three.js 工程研究](research/THREEJS-ENGINEERING-2026-11-04.md) |
-| Three.js 優先技術決策 | [ADR-0002](decisions/ADR-0002-threejs-priority.md) |
-| 初始工程底座決策 | [ADR-0001](decisions/ADR-0001-foundation-first.md) |
-| Research- 技術來源與限制 | [RESEARCH-ADOPTION](RESEARCH-ADOPTION.md) |
-| 真實已存在工具、候選工具及命令 | [TOOLING](TOOLING.md) |
-| 未來工具如何插入、能力路由與授權邊界 | [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md) |
-| 自動檢查、瀏覽器／真機驗收 | [QUALITY-GATES](QUALITY-GATES.md) |
-| 來源、授權、素材 manifest | [ASSET-POLICY](ASSET-POLICY.md) |
-| 第一款遊戲提案 | [GAME-PROPOSAL-TEMPLATE](GAME-PROPOSAL-TEMPLATE.md) |
-| 交付路線 | [ROADMAP](ROADMAP.md) |
-| Agent 的權限、工作流程、按需技能 | [AGENTS](../AGENTS.md)／[.agents/skills](../.agents/skills/) |
+| 開發／執行與 GitHub Pages 狀態 | [README](../README.md) |
+| 模組與 Renderer Port | [ARCHITECTURE](ARCHITECTURE.md) |
+| 這次工程修復與驗證 | [Architecture Repair](reviews/ARCHITECTURE-REPAIR-2026-11-04.md) |
+| 工具清單及版本 | [TOOLING](TOOLING.md) |
+| 工具 Adapter 路由及安全邊界 | [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md) |
+| 具體測試分層 | [QUALITY-GATES](QUALITY-GATES.md) |
+| 原創素材與 glTF companions | [ASSET-POLICY](ASSET-POLICY.md) |
+| Three.js 官方研究與參考 | [THREEJS-ENGINEERING](research/THREEJS-ENGINEERING-2026-11-04.md) |
+| Three.js 優先決策 | [ADR-0002](decisions/ADR-0002-threejs-priority.md) |
+| 項目來源與研究 | [Research Adoption](RESEARCH-ADOPTION.md) |
+| 第一款遊戲（尚待決定） | [遊戲提案模板](GAME-PROPOSAL-TEMPLATE.md) |
+| 路線圖 | [ROADMAP](ROADMAP.md) |
+| GitHub Ruleset／人工權限檢查 | [Branch Protection](governance/BRANCH-PROTECTION.md) |
+| Agent 操作限制 | [AGENTS](../AGENTS.md) |
 
-任何官方 API、版本、授權聲明都以**實作時核對的上游**為準。Research- 是證據庫，不是權限來源。
+**提醒：** 目前沒有自動啟用 MCP、修改 Pages 部署或合併 PR。Playwright 的手機畫面模擬不代表真手機效能。
