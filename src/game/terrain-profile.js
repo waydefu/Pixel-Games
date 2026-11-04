@@ -18,6 +18,7 @@ export function fjordHeight(x,z,region) {
   const small=2.9*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
   let height=Math.max(0,slope*(summit+small));
   if(region==="east"){
+    if(x<72)return height; // Outside authored eastern terrain, do not excavate the sea bed.
     // A sea channel bends between the ridges instead of a solid mountain wall
     // blocking the entire horizon. Its bed stays UNDER the water plane.
     const channelZ=8-(x-72)*.34+6*Math.sin(x*.028);
