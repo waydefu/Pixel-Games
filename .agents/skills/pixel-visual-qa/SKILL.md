@@ -1,13 +1,14 @@
 ---
 name: pixel-visual-qa
-description: Use when reviewing pixel art, scene readability, HUD, camera, lighting and visual consistency across desktop and mobile.
+description: Use for pixel art scene quality, legibility, lighting consistency, HUD overlap, sprite sampling and camera/composition review across desktop and mobile.
 ---
 
-# 像素美術／視覺 QA
+# 像素美術與畫面審查
 
-1. 先讀 docs/ASSET-POLICY.md 與 docs/QUALITY-GATES.md。
-2. 區分邏輯像素／CSS 像素／DPR，檢查整數縮放、nearest-neighbor、分數縮放 fallback。
-3. 視覺不只是 Bloom：檢查角色與地面對比、光源邏輯、陰影方向、層級、可互動標示、相機鏡頭及 UI 空間。
-4. 在桌機和手機橫豎屏實測文字切割、touch safe area、碰撞與圖像是否對齊。
-5. 若採 HD-2D，參考 Research- Luminati 研究的分層做法；不能假設上游素材可直接使用，必須檢視授權。
-6. 使用截圖／對照與具體測量回報，而不是主觀稱「電影級、最高畫質」；沒有實測就標 NOT RUN。
+1. 先讀 docs/ASSET-POLICY.md、docs/QUALITY-GATES.md。
+2. 定義原始 sprite 像素、Three.js world unit、CSS viewport、drawing buffer 與 2D 邏輯像素的關係；不能混成一個值。
+3. 檢查 SpriteMaterial vs Mesh 材質：不受光材質不會因點光源自動出現真實陰影。
+4. 圖像要清晰可讀，光影要有合理方向與功能；除非需求明確，不做無意義 bloom / plastic glare / 滿屏裝飾。
+5. 檢查色彩空間、pixel filtering、atlas bleeding、景深是否破壞像素邊緣；手機橫直向 UI 不遮主角。
+6. 沒有畫面截圖／Browser/Device 證據不能宣稱已完成最高畫質；可列明待測。
+7. 審查採用研究來源時保留作者、授權與核實日期，不把他人現成遊戲素材當原創。

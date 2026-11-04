@@ -1,13 +1,29 @@
-# 像素素材、授權與來源
+# 像素美術與資產治理
 
-現階段沒有遊戲素材。任何未來新增的圖片、音樂、字型、Shader、模型或地圖，都須附上 **來源 URL、作者、授權文件或取得方式、使用與再散布權、核實日期**。
+目前沒有任何遊戲素材。新增時須以 `assets/manifest.json` 登錄檔案，填入：
 
-- 不從商業遊戲、素材站、GitLab/GitHub 專案直接抓圖就使用。
-- MIT 原始碼授權不自動涵蓋第三方音樂／模型／圖像；需檢查具體資產條款。
-- 生成式圖像或音效亦需標示生成流程／使用權證據，避免無法追溯。
-- 選定遊戲後，定義 logical resolution、PPU、色盤、tile 大小、圖層排序、動畫 FPS、透明邊緣、閃光與過敏風險。
-- 畫面放大優先 nearest-neighbor，螢幕小時保留 UI 可讀性；特效層若需要線性取樣須與像素層分離。
-- 不上傳 token、購買證明個資、來源不明的版權素材。
-- 導入素材後建立 manifest（asset/id/path/author/license/source/hash），並以 CI 驗證檔案覆蓋。
+- `id`：唯一 kebab-case。
+- `path`：repo 根目錄底下 `assets/` 的相對路徑，禁止路徑跳脫、絕對路徑及外部 URL。
+- `author`：創作者／公司標示。
+- `license`：明確可追溯的授權識別或自有權利說明，**非空不等於合法**。
+- `source`：自有原創使用 `original`，外部來源為 HTTPS 上游連結。
+- `sha256`：實體檔案 SHA-256 小寫 hex，用來辨別內容漂移。
 
-參考：[Research- Luminati 研究](https://github.com/waydefu/Research-/blob/main/research/2026-11-universal-web-engine/26-luminati-hd2d-browser-engine.md)；此 Repo 沒有複製上游資產。
+例如（**只是 schema 展示，不要在資產不存在時加入 manifest**）：
+
+```json
+{
+  "id": "sample-original",
+  "path": "assets/sprites/example.png",
+  "author": "Project author",
+  "license": "CC0-1.0",
+  "source": "original",
+  "sha256": "<fill actual 64-char lowercase sha256>"
+}
+```
+
+`npm run assets` 會驗證登錄檔案是否存在、digest 是否匹配。它不會掃描檔案是否合法取得、也不會替未登錄檔案做版權審查。
+
+像素材質導入 Three.js 時，檢查透明邊緣、nearest filtering、atlas padding、顏色空間；不同 sprite 光照方式（SpriteMaterial 不受 3D 光）與 Mesh/Plane 需在原創場景中比較。
+
+不從商業遊戲、GitLab、GitHub、商業素材站直接搬用未審核資產。研究內容不能當成資產再散布的許可。

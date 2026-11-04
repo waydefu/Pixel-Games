@@ -6,6 +6,7 @@ import { listGames } from "../src/platform/registry.js";
 const required = [
   "README.md", "AGENTS.md", "index.html", "styles.css", "package.json",
   "docs/INDEX.md", "docs/ARCHITECTURE.md", "docs/RESEARCH-ADOPTION.md",
+  "docs/TOOL-INTEGRATIONS.md", "docs/TOOLING.md", "src/integrations/tool-registry.js", "assets/manifest.json",
   ".github/workflows/ci.yml", ".github/pull_request_template.md"
 ];
 let failures = 0;
