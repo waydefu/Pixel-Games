@@ -1,13 +1,13 @@
-# Pixel-Games Agent 工作入口
+# Pixel-Games Agent 指引
 
-這是以 Three.js 為優先方向的**原創瀏覽器遊戲平台**。不得自行匯入舊地城，不能把仍待審查的海岸生活遊戲提案當已批准的遊戲實作。
+目標：**進入 GitHub Pages 根網址就看到全視窗的原創 2.5D 海岸探索場景**。鏡頭參考《棕色塵埃 2》常見斜上方 Quarter View，但不重用其任何角色／場景資產。遊戲入口已從作品列表改為單頁，未來不得在未授權情況下恢復 Landing Page。
 
-1. **先精準查資料**：讀 [docs/INDEX.md](docs/INDEX.md) 選對文件，再 `rg --files`、`rg -n`；不要整庫轉存或複製 Research- 原文。
-2. **權限範圍**：除非 Owner 明確批准，不修改 GitHub Pages Settings、Rulesets、Secrets、正式部署、合併 PR、第三方素材或安裝未知 MCP。
-3. **程式分層**：`src/platform/` 只放獨立核心；`src/rendering/renderer-port.js` 是渲染後端契約；`src/integrations/` 是工具能力路由；`lab/` 是中立 GPU 實驗，**不是遊戲**；`games/<slug>/` 只有確認企劃後才新增。
-4. **開發環境**：Node.js 26 LTS 建議；`npm ci` 固定 lockfile，`npm run validate` 包含 Node/TypeScript/Vite，`npm run test:e2e` 驗證桌機與手機 viewport。
-5. **實際證據**：單元通過 ≠ 瀏覽器 GPU 正常 ≠ 手機真機性能通過；沒有 GPU context 時瀏覽器測試僅驗證 fallback。未跑的測試寫 NOT RUN。
-6. **工具接入**：先讀 [docs/TOOL-INTEGRATIONS.md](docs/TOOL-INTEGRATIONS.md)；adapter 要有 input/output schema、timeout、AbortSignal 及 host 權限邊界。它不是沙盒，不能把 MCP Token 給瀏覽器。
-7. **程式變更**：只在獨立分支／PR，附回退、實際測試結果；不偽稱 CI 緑燈或審查／部署成功。
+1. 先讀 [docs/INDEX.md](docs/INDEX.md)、[ADR-0003](docs/decisions/ADR-0003-direct-game-root.md)，再用 git/rg 精確查檔案。
+2. `src/game/` 管理 player input/world/camera，`src/rendering/` 管理渲染契約與品質，`src/integrations/` 是可信 host 的工具 adapter；新增工具不應侵入 gameplay。
+3. 玩家按 `index.html` 直接看到 100dvh 3D 場景。主要操作：WASD／方向鍵及手機搖桿。真正 Fullscreen API 需要使用者點擊觸發，不能假設頁面載入自動隱藏瀏覽器工具列。
+4. 所有外部參考僅作視覺／技術研究，禁止無授權搬用素材、音效、Shader 或原始碼。不要自行新增大型遊戲／任務／職業系統。
+5. `npm ci && npm run validate && npm run test:e2e`，實測結果分 Node/Build/Chromium/真機，不要互相混淆。
+6. 如需更改 Pages、Ruleset、MCP、Secrets、合併 PR 或部署權限，先取得 Owner 明確批准；只在分支開 PR。
+7. 主要技術 Three.js r187 + Vite8 + TS7，固定 lockfile；不要為了追最新盲升版本。
 
-按需 Skills：`.agents/skills/`。研究參考：[Research-](https://github.com/waydefu/Research-)。遊戲規格請走 [遊戲提案模板](docs/GAME-PROPOSAL-TEMPLATE.md)。
+共用 Skills 在 `.agents/skills/`，新畫面要遵守像素清晰、可閱讀、safe-area、碰撞位置與視覺一致。

@@ -1,22 +1,18 @@
-# Pixel-Games 文件導航
+# 文件導航
 
-| 問題 | 入口 |
+| 用途 | 文件 |
 | --- | --- |
-| 開發／執行與 GitHub Pages 狀態 | [README](../README.md) |
-| 模組與 Renderer Port | [ARCHITECTURE](ARCHITECTURE.md) |
-| 這次工程修復與驗證 | [Architecture Repair](reviews/ARCHITECTURE-REPAIR-2026-11-04.md) |
-| 工具清單及版本 | [TOOLING](TOOLING.md) |
-| 工具 Adapter 路由及安全邊界 | [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md) |
-| 具體測試分層 | [QUALITY-GATES](QUALITY-GATES.md) |
-| 原創素材與 glTF companions | [ASSET-POLICY](ASSET-POLICY.md) |
-| Three.js 官方研究與參考 | [THREEJS-ENGINEERING](research/THREEJS-ENGINEERING-2026-11-04.md) |
-| Three.js 優先決策 | [ADR-0002](decisions/ADR-0002-threejs-priority.md) |
-| 項目來源與研究 | [Research Adoption](RESEARCH-ADOPTION.md) |
-| 第一款遊戲（尚待決定） | [遊戲提案模板](GAME-PROPOSAL-TEMPLATE.md) |
-| 已合併候選企劃（尚非遊戲實作授權） | [海岸自由生活世界提案](prompts/sol6-medieval-coastal-life-world.md) |
-| 路線圖 | [ROADMAP](ROADMAP.md) |
-| GitHub Ruleset／人工權限檢查 | [Branch Protection](governance/BRANCH-PROTECTION.md) |
-| GitHub Pages 部署設定／失敗排除 | [Pages Deployment](governance/PAGES-DEPLOYMENT.md) |
-| Agent 操作限制 | [AGENTS](../AGENTS.md) |
+| 打開網頁直接玩、操作與開發命令 | [README](../README.md) |
+| 單頁沉浸式入口與 Quarter View 技術決策 | [ADR-0003](decisions/ADR-0003-direct-game-root.md) |
+| 目前的遊戲與渲染分層 | [ARCHITECTURE](ARCHITECTURE.md) |
+| 自動與真機驗收差別 | [QUALITY-GATES](QUALITY-GATES.md) |
+| 後續功能 Roadmap | [ROADMAP](ROADMAP.md) |
+| 工具 Registry、接口、權限 | [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md) |
+| 版本／導入工具 | [TOOLING](TOOLING.md) |
+| 官方 Three.js 渲染研究 | [THREEJS-ENGINEERING](research/THREEJS-ENGINEERING-2026-11-04.md) |
+| Research- 技術來源 | [RESEARCH-ADOPTION](RESEARCH-ADOPTION.md) |
+| 素材來源、SHA256 | [ASSET-POLICY](ASSET-POLICY.md) |
+| GitHub Pages 維護 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
+| 安全／Agent | [AGENTS](../AGENTS.md) |
 
-**提醒：** 目前沒有自動啟用 MCP、修改 Pages 部署或合併 PR。Playwright 的手機畫面模擬不代表真手機效能。
+原有 ADR-0001/0002 和 PR 審查報告保留歷史，不代表它們對根網址仍作出最新描述。新功能必須按工作範圍審查，不能以研究文件當工具安裝授權。

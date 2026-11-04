@@ -1,19 +1,11 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { gzipSync } from "node:zlib";
-
-const base="dist";
-for(const path of ["index.html","lab/index.html"]) {
-  if(!existsSync(base+"/"+path)) throw Error("missing compiled page: "+path);
-  const html=readFileSync(base+"/"+path,"utf8");
-  if(!html.includes("/Pixel-Games/assets/")) throw Error("build base URL mismatch: "+path);
-}
-const assets = readdirSync(base+"/assets").filter(x=>x.endsWith(".js"));
-function check(prefix,cap) {
-  const js = assets.filter(x=>x.startsWith(prefix+"-"));
-  if(!js.length) throw Error("missing JS bundle: "+prefix);
-  const bytes = js.reduce((sum,x)=>sum+gzipSync(readFileSync(base+"/assets/"+x)).length,0);
-  if(bytes>cap) throw Error(prefix+" gzip bundle "+bytes+" exceeds budget "+cap);
-  console.log("PASS: "+prefix+" JS gzip "+bytes+" / "+cap+" bytes.");
-}
-check("home",50_000);
-check("lab",250_000);
+if(!existsSync("dist/index.html"))throw Error("missing built game entry");
+if(existsSync("dist/lab/index.html"))throw Error("obsolete lab page was generated");
+const html=readFileSync("dist/index.html","utf8");
+if(!html.includes("/Pixel-Games/assets/"))throw Error("incorrect Pages base");
+const assets=readdirSync("dist/assets").filter(x=>x.endsWith(".js"));
+if(!assets.length)throw Error("no game JS bundle");
+const bytes=assets.reduce((sum,x)=>sum+gzipSync(readFileSync("dist/assets/"+x)).length,0);
+if(bytes>270_000)throw Error("game bundle exceeds initial JS gzip budget: "+bytes);
+console.log("PASS: single-entry immersive game, Pages base, JS gzip "+bytes+"/270000 bytes.");
