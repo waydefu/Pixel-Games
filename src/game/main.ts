@@ -39,7 +39,7 @@ function setCameraMode(mode:CameraMode){
   viewToggle.setAttribute("aria-label","切換視角，目前："+modeNames[mode]);
   joystick.hidden=mode==="vista";
   lookHint.hidden=mode==="quarter";
-  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
+  // Drag-look never holds a global pointer lock; HUD remains interactive.
   hint.textContent=mode==="quarter"?"WASD／方向鍵移動 · C 切換視角":
     mode==="first"?"WASD 移動 · 滑鼠／右側拖曳環視 · C 切換":
     "風景觀賞 · 拖曳調整視線 · C 切換";
@@ -89,21 +89,15 @@ canvas.addEventListener("pointerdown",e=>{
   if(e.pointerType==="touch"&&e.clientX<canvas.clientWidth*.36)return;
   lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
   if(e.pointerType!=="mouse")canvas.setPointerCapture(e.pointerId);
-  if(e.pointerType==="mouse"&&document.pointerLockElement!==canvas){
-    // Some embedded/mobile browsers reject Pointer Lock: drag control still works.
-    const result=canvas.requestPointerLock?.();
-    if(result && typeof result.catch==="function")void result.catch(()=>{});
-  }
+  // Deliberately use drag-look rather than automatic Pointer Lock:
+  // locking sends clicks to the canvas and blocks HUD mode buttons.
   e.preventDefault();
 });
 window.addEventListener("pointermove",e=>{
   if(rig.mode==="quarter"||!settings.hidden)return;
-  if(document.pointerLockElement===canvas){
-    rig.look(e.movementX,e.movementY);
-  }else if(e.pointerId===lookPointer){
-    rig.look(e.clientX-lastLookX,e.clientY-lastLookY);
-    lastLookX=e.clientX;lastLookY=e.clientY;
-  }
+  if(e.pointerId!==lookPointer)return;
+  rig.look(e.clientX-lastLookX,e.clientY-lastLookY);
+  lastLookX=e.clientX;lastLookY=e.clientY;
 });
 const endLook=(e:PointerEvent)=>{if(e.pointerId===lookPointer)lookPointer=null;};
 canvas.addEventListener("pointerup",endLook);canvas.addEventListener("pointercancel",endLook);
