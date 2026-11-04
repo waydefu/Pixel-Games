@@ -1,0 +1,33 @@
+# P1-R1｜原創中世紀海岸美術規格
+
+## 參考定位與原創性
+
+主要品質參考：[The Bells of Evermere](https://lumina-static-584822.gitlab.io/game.html?campaign=bells-of-evermere)，技術研究：[Luminati GitLab](https://gitlab.com/stubborn-hug/lumina) 及其 [像素材質架構文件](https://gitlab.com/stubborn-hug/lumina/-/blob/main/docs/architecture/modules/pixel.md)。只採用 **HD-2D 美術方向與通用技術思路**，不複製程式、貼圖、角色、劇情、UI、音訊、畫面或 3D 模型；所有本 PR 生成內容均為此 repo 原創。
+
+## 視覺優先級
+
+1. **統一的世界觀**：低魔法中世紀幻想海港，不使用電燈、現代路燈、平整水泥馬路、當代交通設施。
+2. **建築能讀出材料**：石基座、灰泥牆、半木構桁架、窗台、百葉窗、手作瓦片屋頂、屋脊和煙囪；不允許「一個方塊 + 兩個斜長條」被當完成素材。
+3. **地面與聚落要自然**：不規則草地點紋、石路、暖色沙灘、礁石、舊木碼頭，街道、建築、生活道具位置有真實用途。
+4. **光的來源合理**：斜射暖日光 + 冷色天空環境光 + 窗戶內部和壁掛燭燈的局部暖光；沒有街道電線和電球。
+5. **高密度但可運作**：不同材質以生成器供應 96×96 像素圖樣，建築組件可共用，植被用 InstancedMesh 合批，並讓基本畫質在高負載手機回退。
+6. **鏡頭要服務世界**：保留玩家指定的 Quarter View（斜上方、近正交視角），讓屋簷、石板、港灣及遠景共同構成畫面。
+7. **角色與場景一致**：原創 48×64 px 角色圖集，有動態步伐與四方向紋理；不可用幾筆矩形代替人物比例。
+
+## 實作與限制
+
+- `src/game/art.ts`：原創 TextureGenerator 與 TravellerAtlas。這是程序繪製，無下載第三方遊戲資產。
+- `src/game/architecture.ts`：聚落與中世紀裝飾物件。
+- `src/game/environment.ts`：海岸、碼頭、船隻、天氣色調與黃昏照明。
+- `src/game/world.ts`：統一管理資源、人物、移動和陰影。
+- `src/game/kit.ts`：共用建模與材質快取。
+
+尚未加入多時段天氣系統、真正物理海浪、後製景深、NPC、音景或大世界串流。本 PR 只做**可執行的原創 HD-2D 視覺切片**；不能宣稱與參考遊戲同等完成度，需依真實截圖與實機回報迭代。
+
+## 初版視覺驗收
+
+- 玩家進入根網址就看到可探索的村鎮；沒有 landing page、空地大平面或科技感的球形路燈。
+- 畫面至少可辨識：多種屋頂、石牆木樑、巷道、井、招牌、木碼頭、船、海面與植被。
+- 相機斜角能辨識建築立面、近景角色和地面紋理；角色清楚不被大物件遮住。
+- 記錄視窗尺寸、DPR、draw calls、p95 interval；至少 desktop Chromium 和 mobile viewport 通過，Android 真機仍另測。
+- 截圖由人眼與用戶審核；CI 的單元/Playwright 成功不是視覺美術驗收 PASS。

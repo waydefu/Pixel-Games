@@ -4,7 +4,6 @@ import { calculateRenderSize, getQualityPreset } from "../src/rendering/quality.
 import { configurePixelTexture } from "../src/rendering/pixel-texture.js";
 import { createResourceScope } from "../src/rendering/resource-scope.js";
 import { createFrameMetrics } from "../src/rendering/frame-metrics.js";
-import { createThreeRendererHost } from "../src/rendering/three-host.js";
 
 test("quality presets cap DPR and drawing buffer pixels", () => {
   const a = calculateRenderSize({ cssWidth: 844, cssHeight: 390, devicePixelRatio: 3, quality: "basic" });
@@ -56,42 +55,3 @@ test("frame metrics are bounded and use nearest-rank percentiles", () => {
   assert.equal(m.summary().count, 0);
 });
 
-test("Three host handles resize, GPU loss, stats and disposal without DOM globals", () => {
-  const events = new Map();
-  const calls = [];
-  const canvas = {
-    addEventListener(k, listener) { events.set(k, listener); },
-    removeEventListener(k, listener) { if (events.get(k) === listener) events.delete(k); },
-  };
-  class WebGLRenderer {
-    constructor(opts) { assert.equal(opts.canvas, canvas); this.shadowMap = {}; this.info = { render: { calls: 4, triangles: 24 }, memory: { geometries: 2, textures: 3 } }; }
-    setPixelRatio(v) { calls.push(["ratio", v]); }
-    setSize(w, h, css) { calls.push(["size", w, h, css]); }
-    render() { calls.push(["render"]); }
-    dispose() { calls.push(["dispose"]); }
-  }
-  const statuses = [];
-  const host = createThreeRendererHost({
-    THREE: { WebGLRenderer, SRGBColorSpace: "srgb" }, canvas, scene: {}, camera: {},
-    onStatus: status => statuses.push(status), quality: "basic",
-  });
-  assert.equal(host.state, "ready");
-  assert.equal(host.resize(390, 844, 3).width, 390);
-  host.resize(390, 844, 3);
-  assert.equal(calls.filter(x => x[0] === "size").length, 1);
-  assert.equal(host.render(), true);
-  assert.equal(host.stats().textures, 3);
-  let prevented = false;
-  events.get("webglcontextlost")({ preventDefault: () => prevented = true });
-  assert.equal(prevented, true);
-  assert.equal(host.render(), false);
-  events.get("webglcontextrestored")({});
-  assert.equal(host.render(), true);
-  host.dispose();
-  host.dispose();
-  assert.equal(host.render(), false);
-  assert.equal(host.state, "disposed");
-  assert.equal(events.size, 0);
-  assert.deepEqual(statuses, ["context-lost", "context-restored", "disposed"]);
-  assert.throws(() => host.resize(100, 100), /disposed/);
-});

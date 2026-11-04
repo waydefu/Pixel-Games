@@ -1,21 +1,17 @@
-# 玩家入口與效能驗收
+# 品質門檻
 
-每個結論需區分：**Node Unit / TypeScript Build / Chromium Desktop / Chromium Mobile Viewport / Android 真機 / iOS 真機**。CI 不可冒充真機。
+**Pipeline**：`npm run check` → `npm run assets` → `npm test` → `npm run typecheck` → `npm run build` → `npm run check:build` → `npm run test:e2e`，CI 成功才可提交合併審查。
 
-## 本 PR 自動檢查
+## 自動
 
-- `npm run check`：只有根目錄 `index.html` 是玩家入口；不允許舊 Landing Page 與 `lab/index.html`。
-- `npm run assets`：來源 SHA256 與 glTF 外部引用。程式生成素材不複製商業作品。
-- `npm test`：原有工具、渲染、資產、場景 + `tests/navigation.test.mjs`。
-- `npm run typecheck` + `npm run build`：TypeScript / Vite 單入口、正確 GitHub Pages 路徑。
-- `npm run check:build`：`dist/index.html` / bundle 體積上限 270k gzip、不能輸出第二張 `dist/lab/index.html`。
-- Playwright desktop + mobile viewport：滿版 canvas、Quarter View / orthographic diagnostics、畫質選項、沒有 runtime JS error；WebGL2 支援時要實際畫 frame 和 drawcalls。
-- 角色移動：按鍵可實際改變角色位置；障礙物阻擋及路面可行走必須可回歸測試。
+- 必要檔案和 JS 語法、沒有已淘汰的首頁與原型目錄。
+- 物件與碰撞的單元測試、資產 hash / glTF companion、安全路徑。
+- TypeScript strict 與 Vite 單頁 build；JS gzip 上限 270 kB（初始 budget）。
+- Playwright Chromium 桌面和手機 viewport，驗證網頁滿版、真 WebGL2 frame/draw calls（GPU 可用時）、鍵盤位移、畫質與 UI。
 
-## 真機待測（目前不是 PASS）
+## 人工（不得假稱已通過）
 
-Android Chrome（POCO F8 Ultra）、iOS Safari、手機內建瀏覽器的 Fullscreen API、safe-area、搖桿、多指觸控、熱、功耗、GPU context lost、30/60 FPS 長時間波動。Web browser 可填滿 100dvh 但不能無互動自動隱藏系統瀏覽器工具列。
-
-## 遊戲完整度
-
-本切片有鏡頭與自由移動，但還沒有釣魚、採集、互動 NPC、工作職業、存檔、完整大世界。不可把「入口改成遊戲」當成「所有生活系統已完成」。
+- 質感與參考遊戲差距：屋頂、材質、海岸、角色的實際螢幕截圖逐項比對。
+- POCO F8 Ultra Chrome 橫／直向與手把／搖桿；iOS Safari。
+- 真 GPU 幀時間、長時間熱降頻、耗電、鏡頭與房屋遮擋、視覺美術完成度。
+- 手機 FPS 60 為優化目標，不是測試結果；高畫質要能安全回退到平衡／基本。
