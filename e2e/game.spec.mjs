@@ -84,6 +84,14 @@ test("three camera modes retain safe movement, perspective and settings",async({
   await page.mouse.up();
   after=await page.evaluate(()=>window.__pixelGame.read());
   expect(after.camera).toBe("first");
+  expect(after.yaw).not.toBe(before.yaw);
+  // A real hit-test catches Canvas occluding the HUD after dragging, not just a synthetic click.
+  const switchBounds=await page.locator("#view-toggle").boundingBox();
+  expect(switchBounds).not.toBeNull();
+  const topTarget=await page.evaluate(({x,y,width,height})=>
+    document.elementFromPoint(x+width/2,y+height/2)?.closest("#view-toggle")?.id??null,
+    switchBounds);
+  expect(topTarget).toBe("view-toggle");
   await page.locator("#view-toggle").click();
   await expect(page.locator("#view-toggle")).toContainText("風景");
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("vista");
