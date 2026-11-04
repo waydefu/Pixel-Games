@@ -56,7 +56,7 @@ function setMenu(open:boolean){
   if(open)menuClose.focus();
   else if(document.activeElement===menuClose)menuToggle.focus();
 }
-menuToggle.addEventListener("click",()=>setMenu(settings.hidden));
+menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden")));
 menuClose.addEventListener("click",()=>setMenu(false));
 window.addEventListener("keydown",(e)=>{
   if(e.key==="Escape"&&!settings.hidden){setMenu(false);e.preventDefault();}
