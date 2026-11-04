@@ -5,6 +5,7 @@ import { createStageKit } from "./kit.js";
 import { buildVillage } from "./architecture.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
+import { buildFjordLandscape } from "./fjord.js";
 import { batchStaticScene } from "./batch.js";
 
 /**
@@ -15,10 +16,11 @@ export function createCoastalWorld(){
   const scope=createResourceScope();
   const scene=new THREE.Scene();
   scene.background=new THREE.Color("#a5bdb8");
-  scene.fog=new THREE.FogExp2("#b5c2b2",.0085);
+  scene.fog=new THREE.FogExp2("#a5b5b0",.0037);
   const kit=createStageKit(scene,scope);
   buildVillage(kit);
   const environment=buildEnvironment(kit);
+  const fjord=buildFjordLandscape(kit);
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
   configurePixelTexture(THREE,spriteTexture);
@@ -84,6 +86,7 @@ export function createCoastalWorld(){
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,colliders:kit.colliders,player,avatar,shadow,
+    scenery:fjord.peaks.length,
     movePlayer,faceCamera,update,setShadows,dispose,
   });
 }

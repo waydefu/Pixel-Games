@@ -31,3 +31,5 @@
 - 相機斜角能辨識建築立面、近景角色和地面紋理；角色清楚不被大物件遮住。
 - 記錄視窗尺寸、DPR、draw calls、p95 interval；至少 desktop Chromium 和 mobile viewport 通過，Android 真機仍另測。
 - 截圖由人眼與用戶審核；CI 的單元/Playwright 成功不是視覺美術驗收 PASS。
+
+木船美術修正：近景可見的船殼不得用水平壓扁球體代替，必須具備可辨識船首／船尾、內部甲板、船舷和帆索。現階段由 `boats.ts` 程序建模完成第一版，仍需真機近距離對照與效能驗收。

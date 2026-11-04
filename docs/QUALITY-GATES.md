@@ -17,3 +17,10 @@
 - POCO F8 Ultra Chrome 橫／直向與手把／搖桿；iOS Safari。
 - 真 GPU 幀時間、長時間熱降頻、耗電、鏡頭與房屋遮擋、視覺美術完成度。
 - 手機 FPS 60 為優化目標，不是測試結果；高畫質要能安全回退到平衡／基本。
+
+
+## P1-R2 新增驗收
+
+- Node 測試檢查 `fjordHeight()` 的聚落平臺、遠方山峰、兩側山壁與確定性。
+- Playwright 桌機與 mobile viewport 測試：三種模式實際改變 Camera/Projection，第一人稱能移動；觀景模式不移動玩家，能切回斜角；Shader console 沒有編譯錯誤。
+- 需要獨立檢查第一人稱與遠景的螢幕實圖：不只檢查按鈕文字。**真 Android/iOS、山體近景、跨設備 Shader 穩定性、GPU 時間與可攀山路均 NOT RUN。**

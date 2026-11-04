@@ -5,6 +5,7 @@ import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
 import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
+import { createCameraRig, type CameraMode } from "./camera.js";
 
 type GameState = "starting" | "ready" | "unsupported" | "lost" | "failed";
 const element=<T extends HTMLElement>(selector:string):T => {
@@ -21,25 +22,37 @@ const menuToggle=element<HTMLButtonElement>("#menu-toggle");
 const menuClose=element<HTMLButtonElement>("#menu-close");
 const fullButton=element<HTMLButtonElement>("#fullscreen");
 const quality=element<HTMLSelectElement>("#quality");
+const cameraPicker=element<HTMLSelectElement>("#camera-mode");
+const viewToggle=element<HTMLButtonElement>("#view-toggle");
 const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
+const hint=element<HTMLElement>("#hint");
+const lookHint=element<HTMLElement>("#look-hint");
 
 const world=createCoastalWorld();
-const camera=new THREE.OrthographicCamera(-12,12,8,-8,.1,160);
-// Three-quarter fixed camera: ~45° azimuth and elevated view of world surfaces.
-const offset=new THREE.Vector3(14,19,15);
-const cameraTarget=new THREE.Vector3(world.player.x,1.3,world.player.z);
-camera.position.copy(cameraTarget).add(offset);
-camera.lookAt(cameraTarget);
-const right=new THREE.Vector3(offset.z,0,-offset.x).normalize();
-const away=new THREE.Vector3(-offset.x,0,-offset.z).normalize();
+const rig=createCameraRig(world.player,world.avatar,world.shadow);
+const modeNames:Record<CameraMode,string>={quarter:"斜角",first:"第一人稱",vista:"風景"};
+function setCameraMode(mode:CameraMode){
+  rig.setMode(mode);
+  cameraPicker.value=mode;
+  viewToggle.textContent=modeNames[mode];
+  viewToggle.setAttribute("aria-label","切換視角，目前："+modeNames[mode]);
+  joystick.hidden=mode==="vista";
+  lookHint.hidden=mode==="quarter";
+  // Drag-look never holds a global pointer lock; HUD remains interactive.
+  hint.textContent=mode==="quarter"?"WASD／方向鍵移動 · C 切換視角":
+    mode==="first"?"WASD 移動 · 滑鼠／右側拖曳環視 · C 切換":
+    "風景觀賞 · 拖曳調整視線 · C 切換";
+  if(host)host.setCamera(rig.camera);
+  resize();
+}
 const input=createMovementInput(joystick,knob);
 const frameMetrics=createFrameMetrics();
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
 const diagnostics={
   status:"starting" as GameState,
   frames:0,drawCalls:0,bufferWidth:0,bufferHeight:0,p95Ms:null as number|null,
-  camera:"quarter-view",projection:"orthographic",
+  camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
 };
 Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
@@ -61,7 +74,35 @@ menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden"))
 menuClose.addEventListener("click",()=>setMenu(false));
 window.addEventListener("keydown",(e)=>{
   if(e.key==="Escape"&&!settings.hidden){setMenu(false);e.preventDefault();}
+  if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||!settings.hidden)return;
+  if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
+  const map:Record<string,CameraMode>={"1":"quarter","2":"first","3":"vista"};
+  if(e.key.toLowerCase()==="c")setCameraMode(rig.cycle());
+  else if(map[e.key])setCameraMode(map[e.key]);
 });
+cameraPicker.addEventListener("change",()=>setCameraMode(cameraPicker.value as CameraMode));
+viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
+let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
+canvas.addEventListener("pointerdown",e=>{
+  if(!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
+  // Touch users use the LEFT joystick and drag on the RIGHT of the canvas.
+  if(e.pointerType==="touch"&&e.clientX<canvas.clientWidth*.36)return;
+  lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
+  if(e.pointerType!=="mouse")canvas.setPointerCapture(e.pointerId);
+  // Deliberately use drag-look rather than automatic Pointer Lock:
+  // locking sends clicks to the canvas and blocks HUD mode buttons.
+  e.preventDefault();
+});
+window.addEventListener("pointermove",e=>{
+  if(rig.mode==="quarter"||!settings.hidden)return;
+  if(e.pointerId!==lookPointer)return;
+  rig.look(e.clientX-lastLookX,e.clientY-lastLookY);
+  lastLookX=e.clientX;lastLookY=e.clientY;
+});
+const endLook=(e:PointerEvent)=>{if(e.pointerId===lookPointer)lookPointer=null;};
+canvas.addEventListener("pointerup",endLook);canvas.addEventListener("pointercancel",endLook);
+window.addEventListener("blur",()=>{lookPointer=null;});
+
 fullButton.addEventListener("click",async()=>{
   try{
     if(!document.fullscreenElement){
@@ -84,11 +125,7 @@ function resize(){
   if(!host)return;
   const width=canvas.clientWidth,height=canvas.clientHeight;
   if(width<=0||height<=0)return;
-  const aspect=width/height;
-  const span=aspect<.76?19.5:aspect<1.1?17.6:14.2;
-  camera.left=-span*aspect*.5;camera.right=span*aspect*.5;
-  camera.top=span*.5;camera.bottom=-span*.5;
-  camera.updateProjectionMatrix();
+  rig.resize(width,height);
   const buffer=host.resize(width,height,window.devicePixelRatio||1);
   diagnostics.bufferWidth=buffer.width;diagnostics.bufferHeight=buffer.height;
 }
@@ -96,10 +133,8 @@ function update(dt:number){
   if(!settings.hidden)return;
   const values=input.read();
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
-  const speed=values.sprint?7.1:4.35;
-  const dx=(right.x*values.x-away.x*values.y)*speed*dt;
-  const dz=(right.z*values.x-away.z*values.y)*speed*dt;
-  const point=stepOnGround(world.player,{x:dx,z:dz},world.colliders);
+  const delta=rig.movement(values,dt);
+  const point=stepOnGround(world.player,delta,world.colliders);
   world.movePlayer(point.x,point.z,elapsed);
 }
 async function start(){
@@ -113,7 +148,7 @@ async function start(){
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     host=createRendererPort({
-      renderer,canvas,scene:world.scene,camera,quality:quality.value,
+      renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,
       onStatus:(state:string)=>{
         if(state==="ready")mark("ready","自由探索中");
         if(state==="lost")mark("lost","圖形連線中斷，等待恢復");
@@ -146,11 +181,12 @@ async function start(){
       previous=now;
       elapsed+=dt;
       update(dt);
-      const nextTarget=new THREE.Vector3(world.player.x,1.3,world.player.z);
-      cameraTarget.lerp(nextTarget,1-Math.exp(-dt*6.5));
-      camera.position.copy(cameraTarget).add(offset);
-      camera.lookAt(cameraTarget);
+      const camera=rig.tick(dt);
+      host.setCamera(camera);
       world.faceCamera(camera);
+      diagnostics.camera=rig.mode;
+      diagnostics.projection=rig.projection;
+      diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
       if(!reduceMotion)world.update(elapsed);
       try{
         const drawn=await host.draw();

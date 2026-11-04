@@ -29,6 +29,7 @@ export function createRendererPort({
   getQualityPreset(quality);
   let state = "new";
   let currentQuality = quality;
+  let activeCamera = camera;
   let renderScale = 1;
   let currentSize = null;
   let initialPromise = null;
@@ -81,10 +82,15 @@ export function createRendererPort({
     renderScale = next;
   }
 
+  function setCamera(next) {
+    if(state==="disposed")throw new Error("renderer already disposed");
+    if(!next || typeof next.updateProjectionMatrix!=="function")throw new TypeError("camera must support updateProjectionMatrix");
+    activeCamera=next;
+  }
   async function draw() {
     if (state !== "ready") return false;
-    if (typeof renderer.renderAsync === "function") await renderer.renderAsync(scene, camera);
-    else await renderer.render(scene, camera);
+    if (typeof renderer.renderAsync === "function") await renderer.renderAsync(scene, activeCamera);
+    else await renderer.render(scene, activeCamera);
     return true;
   }
 
@@ -124,7 +130,7 @@ export function createRendererPort({
   }
 
   return Object.freeze({
-    initialize, resize, setQuality, setRenderScale, draw, stats, dispose,
+    initialize, resize, setQuality, setRenderScale, setCamera, draw, stats, dispose,
     get state() { return state; },
     get size() { return currentSize; },
     get quality() { return currentQuality; },
