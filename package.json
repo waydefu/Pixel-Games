@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Game-agnostic pixel game engineering foundation",
+  "description": "Game-agnostic Three.js-first pixel game engineering foundation",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "check": "node scripts/check-repository.mjs",
+    "assets": "node scripts/check-assets.mjs",
     "test": "node --test",
-    "validate": "npm run check && npm test"
+    "validate": "npm run check && npm run assets && npm test",
+    "graphics:matrix": "node scripts/graphics-matrix.mjs"
   }
 }
