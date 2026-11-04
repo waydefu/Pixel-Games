@@ -9,7 +9,7 @@
 - TypeScript strict 與 Vite 單頁 build；JS gzip 上限 270 kB（初始 budget）。
 - 角色 Billboard 不再投射生硬的矩形陰影；改用原創軟邊地面陰影。
 - 靜態物件依材質合批，Draw Calls 必須從 Chrome 診斷量測，不能假設效果。
-- Playwright Chromium 桌面和手機 viewport，驗證網頁滿版、真 WebGL2 frame/draw calls（GPU 可用時）、鍵盤位移、畫質與 UI。
+- Playwright Chromium 桌面和手機 viewport，驗證網頁滿版、真 WebGL2 frame/draw calls（GPU 可用時）、鍵盤位移、畫質與 UI。**另外監控 console 中 WebGLProgram / Shader Error**；draw calls 正常不代表每個 Shader 都成功連結。
 
 ## 人工（不得假稱已通過）
 
