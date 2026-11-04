@@ -13,6 +13,7 @@
 | 自動檢查、瀏覽器／真機驗收 | [QUALITY-GATES](QUALITY-GATES.md) |
 | 來源、授權、素材 manifest | [ASSET-POLICY](ASSET-POLICY.md) |
 | 第一款遊戲提案 | [GAME-PROPOSAL-TEMPLATE](GAME-PROPOSAL-TEMPLATE.md) |
+| 第一款遊戲候選：中世紀海岸生活開放世界（GPT-6 Sol 規劃提示詞；**待審、非實作授權**） | [SOL6-COASTAL-LIFE](prompts/sol6-medieval-coastal-life-world.md) |
 | 交付路線 | [ROADMAP](ROADMAP.md) |
 | Agent 的權限、工作流程、按需技能 | [AGENTS](../AGENTS.md)／[.agents/skills](../.agents/skills/) |
 
