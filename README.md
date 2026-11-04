@@ -17,7 +17,7 @@ python3 -m http.server 8000
 
 ## 下一步（需由 Owner 決策）
 1. 選第一款原創遊戲的類型、操作模式、核心循環。
-2. 根據遊戲需求比較 Canvas 2D / PixiJS / Phaser / Three.js HD-2D，再作正式選型。
+2. **Three.js 為優先渲染技術方向**：先驗證 WebGL2 的 3D 場景＋像素 Sprite／Billboard、光影、手機性能與降級；Canvas 2D／PixiJS／Phaser 為替代方案。選為優先不等於已安裝或已完成渲染器。
 3. 選定最小遊戲垂直切片後才加入遊戲資產、玩法程式與 E2E。
 
 先讀 [文件索引](docs/INDEX.md)、[架構邊界](docs/ARCHITECTURE.md)、[研究採用地圖](docs/RESEARCH-ADOPTION.md)。研究來源：[waydefu/Research-](https://github.com/waydefu/Research-)。
