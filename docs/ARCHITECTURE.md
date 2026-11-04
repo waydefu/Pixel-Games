@@ -33,7 +33,7 @@ renderer/input/audio/assets     → 候選介面，尚未實作
 ## 待決設計（不得擅自填空）
 
 1. **遊戲類型**：動作、解謎、平台、回合、模擬等；先有一頁式設計與垂直切片範圍。
-2. **渲染**：純 Canvas2D、PixiJS、Phaser、Three.js HD-2D 的成本、資產與手機實測對比。
+2. **渲染（方向已定）**：Three.js 為首選 PoC：使用 3D Scene／Camera／WebGLRenderer，結合像素 Sprite／Billboard、3D 光照與陰影；後處理按畫質分級開啟。正式整合須通過實機測試。Canvas2D／PixiJS／Phaser 保留為功能或降級替代，但不要求重現等價的 3D 光影。詳見 [ADR-0002](decisions/ADR-0002-threejs-priority.md)。
 3. **輸入**：不同玩法需求決定虛擬按鍵、手把、雙搖桿或點擊，不先綁死。
 4. **世界／物理**：地圖、碰撞、攝影機、存檔只在需求成立後加入。
 5. **素材規則**：像素規格、色盤、音效、美術來源在首款遊戲設計與授權核實後決定。

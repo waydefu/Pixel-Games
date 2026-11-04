@@ -4,7 +4,7 @@
 | --- | --- |
 | 這專案做什麼、怎麼開 | [README](../README.md) |
 | 代碼層級與契約 | [ARCHITECTURE](ARCHITECTURE.md) |
-| 本次為何不鎖定遊戲引擎 | [ADR-0001](decisions/ADR-0001-foundation-first.md) |
+| 基線與 Three.js 優先決策 | [ADR-0001](decisions/ADR-0001-foundation-first.md)、[ADR-0002](decisions/ADR-0002-threejs-priority.md) |
 | Research- 有哪些研究可用 | [RESEARCH-ADOPTION](RESEARCH-ADOPTION.md) |
 | 真正已安裝／尚未安裝的工具 | [TOOLING](TOOLING.md) |
 | 測試與效能／手機驗收 | [QUALITY-GATES](QUALITY-GATES.md) |
