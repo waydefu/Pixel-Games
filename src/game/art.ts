@@ -4,7 +4,7 @@ import * as THREE from "three";
  * Original procedural pixel materials, designed for consistent texel density.
  * These do not copy or import Luminati/Bells of Evermere assets or code.
  */
-type ArtKind = "plaster"|"stone"|"roof-red"|"roof-blue"|"timber"|"cobble"|"grass"|"sand"|"planks"|"thatch"|"cliff"|"canvas"|"brick";
+type ArtKind = "plaster"|"stone"|"roof-red"|"roof-blue"|"timber"|"cobble"|"grass"|"foliage"|"sand"|"planks"|"thatch"|"cliff"|"canvas"|"brick";
 function rng(seed:number){let s=seed>>>0;return ()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};}
 function pick<T>(values:T[],rand:()=>number):T{return values[Math.floor(rand()*values.length)];}
 function px(ctx:CanvasRenderingContext2D,c:string,x:number,y:number,w:number,h:number){
@@ -18,6 +18,7 @@ const palettes:Record<ArtKind,string[]>={
   timber:["#4c3831","#64473c","#765344","#3f342f","#a47952"],
   cobble:["#98998d","#acb1a3","#888f88","#b5ac98","#777e76"],
   grass:["#537358","#627f60","#82946b","#496952","#91a179"],
+  foliage:["#2c564b","#3f6b56","#5b8461","#7e986c","#476e5a"],
   sand:["#d3ba91","#ecd2a2","#bca985","#ded0ac","#a9a58d"],
   planks:["#78563e","#8e6b48","#ad885b","#594536","#bc9869"],
   thatch:["#806c46","#9b8556","#b5a06a","#685e44","#c5a876"],
@@ -27,7 +28,7 @@ const palettes:Record<ArtKind,string[]>={
 };
 const BASE:Record<ArtKind,string>={
   plaster:"#d9c5a3",stone:"#928f80","roof-red":"#935e52","roof-blue":"#536e75",
-  timber:"#725444",cobble:"#989c91",grass:"#698260",sand:"#d7c4a3",planks:"#8d6749",
+  timber:"#725444",cobble:"#96978c",grass:"#698260",foliage:"#416b56",sand:"#d7c4a3",planks:"#8d6749",
   thatch:"#8b7851",cliff:"#8d9084",canvas:"#cbb088",brick:"#a7816a",
 };
 function paint(kind:ArtKind,seed:number,side=96){
@@ -48,14 +49,14 @@ function paint(kind:ArtKind,seed:number,side=96){
       }
     }
   }else if(kind==="cobble"||kind==="stone"||kind==="brick"){
-    const w=kind==="brick"?20:19, h=kind==="brick"?10:15;
+    const w=kind==="brick"?20:kind==="cobble"?13:19, h=kind==="brick"?10:kind==="cobble"?12:15;
     for(let y=-h;y<side+h;y+=h){
       const shift=((Math.floor(y/h)%2)?w/2:0);
       for(let x=-w+shift;x<side+w;x+=w){
         const a=pick(colors,r);
-        px(ctx,"#606c66",x,y,w-1,h-1);
+        px(ctx,kind==="cobble"?"#858980":"#606c66",x,y,w-1,h-1);
         px(ctx,a,x+1,y+1,w-3,h-3);
-        px(ctx,"#d0c2a4",x+2,y+2,w-7,1);
+        px(ctx,"#c9bea6",x+2,y+2,w-7,1);
         if(r()<.5)px(ctx,pick(colors,r),x+4+r()*7,y+5,2+r()*4,1+r()*2);
       }
     }

@@ -6,6 +6,7 @@ index.html → src/game/main.ts
         src/game/world.ts
         ├── art.ts (原創像素筆刷／角色圖集)
         ├── kit.ts (建模／材質與幾何)
+  ├── batch.ts (靜態物件依材質合批，減少 Draw Calls)
         ├── architecture.ts (中世紀村落)
         ├── environment.ts (海與自然)
         ├── input.ts / navigation.js

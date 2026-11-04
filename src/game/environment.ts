@@ -3,18 +3,18 @@ import type { StageKit } from "./kit.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
-  const ground=k.pattern("grass",1,14,13),sand=k.pattern("sand",5,2,13),stone=k.pattern("cobble",2,8,2);
+  const ground=k.pattern("grass",1,14,13),sand=k.pattern("sand",5,2,13),stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
-  const cliff=k.pattern("cliff",9),leaves=[k.solid("#4a715e"),k.solid("#628166"),k.solid("#86a173"),k.solid("#426657")];
+  const cliff=k.pattern("cliff",9),leaves=[k.pattern("foliage",1,2,2),k.pattern("foliage",3,2,2),k.pattern("foliage",5,2,2),k.pattern("foliage",7,2,2)];
   // Wide lawn with a considered waterfront. Ground is behind the buildings.
   k.flat(65,75,ground,-19,-.19,0);
   k.flat(6.1,75,sand,11.1,-.12,0);
   k.flat(2.2,75,k.pattern("sand",7,1,10),13,-.10,0);
   // Cobblestone promenade & irregular town square, not a grid of raised box tiles.
   k.flat(42,6.3,stone,-8.0,-.062,0);
-  k.flat(3.2,13,k.pattern("cobble",4,1,5),9,-.059,5.2);
-  k.ellipse(6.0,5.0,k.pattern("cobble",6,2,2),-5.0,-.057,6.1);
+  k.flat(3.2,13,k.pattern("cobble",4,3,9),9,-.059,5.2);
+  k.ellipse(6.0,5.0,k.pattern("cobble",6,4,4),-5.0,-.057,6.1);
   for(let i=0;i<40;i++){
     const x=-26+i*.98;
     for(const s of [-1,1]){
@@ -100,6 +100,7 @@ export function buildEnvironment(k:StageKit){
   function boat(x:number,z:number,s:number,seed:number){
     const hull=k.put(new THREE.SphereGeometry(1.6,12,8),k.pattern("planks",seed),x,-.07,z);
     hull.scale.set(s,.33*s,.65*s);hull.rotation.y=.13;
+    hull.userData.dynamic=true;
     boatParts.push(hull);
     const rail=k.put(new THREE.TorusGeometry(1,.075,7,14),k.solid("#5d453a"),x,.24*s,z);
     rail.rotation.x=Math.PI/2;rail.scale.set(1.5*s,.92*s,1);
@@ -116,8 +117,8 @@ export function buildEnvironment(k:StageKit){
       [x,3.65*s,z],[x,4.1*s,z]],k.solid("#b46b51"),false);
     boatParts.push(pennant);
   }
-  boat(26.7,-9,1.1,6);
-  boat(37,18,1.5,7);
+  boat(18,-3.5,.88,6);
+  boat(24,15.2,1.22,7);
 
   // Natural stone banks and no harsh rectangular cliff wall.
   const stones=[k.pattern("cliff",2),k.pattern("cliff",3),k.solid("#8c9788")];
@@ -189,8 +190,8 @@ export function buildEnvironment(k:StageKit){
   }
 
   // Lighting: soft upper atmosphere and low sun, physically motivated windows.
-  const sky=new THREE.HemisphereLight("#d5e2d6","#6b6a51",1.65);k.scene.add(sky);
-  const sunlight=new THREE.DirectionalLight("#ffd8a3",2.6);
+  const sky=new THREE.HemisphereLight("#c8dbd6","#675a48",1.17);k.scene.add(sky);
+  const sunlight=new THREE.DirectionalLight("#ffd09a",3.1);
   sunlight.position.set(-19,25,-10);sunlight.castShadow=true;
   sunlight.shadow.mapSize.set(1024,1024);
   sunlight.shadow.camera.left=-26;sunlight.shadow.camera.right=26;

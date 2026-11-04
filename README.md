@@ -27,7 +27,7 @@ src/game/
   main.ts                 # 啟動／渲染迴圈／相機／設定
   world.ts                # 單一原創遊戲場景、角色移動
   art.ts                  # 程式原創像素材質與角色圖集
-  kit.ts                  # 3D 美術共用建模工具
+  kit.ts / batch.ts       # 共用建模／靜態物件合批
   architecture.ts         # 砌石、木構建築、屋瓦與生活道具
   environment.ts          # 地形、海岸、海水、自然、碼頭、船
   input.ts / navigation.js# 觸控／鍵盤與可測的碰撞

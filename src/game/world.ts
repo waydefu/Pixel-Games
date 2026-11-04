@@ -5,6 +5,7 @@ import { createStageKit } from "./kit.js";
 import { buildVillage } from "./architecture.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
+import { batchStaticScene } from "./batch.js";
 
 /**
  * The game's one and only scene. Old test geometry and electric street lamps
@@ -29,15 +30,29 @@ export function createCoastalWorld(){
     roughness:1,emissive:"#293a3e",emissiveIntensity:.15,
   }));
   const avatar=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(1.62,2.17)),spriteMaterial);
-  avatar.castShadow=true;avatar.position.set(2,1.1,1);scene.add(avatar);
+  avatar.castShadow=false; // Billboard rectangle is not a physical silhouette.
+  avatar.userData.dynamic=true;
+  avatar.position.set(9,1.1,4.2);scene.add(avatar);
+  const shadowCanvas=document.createElement("canvas");
+  shadowCanvas.width=shadowCanvas.height=64;
+  const ctx=shadowCanvas.getContext("2d");
+  if(!ctx)throw new Error("Shadow Canvas unavailable");
+  const gradient=ctx.createRadialGradient(32,32,3,32,32,31);
+  gradient.addColorStop(0,"rgba(18,24,23,0.47)");
+  gradient.addColorStop(.56,"rgba(25,29,26,0.25)");
+  gradient.addColorStop(1,"rgba(25,29,26,0)");
+  ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);
+  const shadowTexture=scope.track(new THREE.CanvasTexture(shadowCanvas));
+  shadowTexture.colorSpace=THREE.SRGBColorSpace;
   const shadowMaterial=scope.track(new THREE.MeshBasicMaterial({
-    color:"#2c322d",transparent:true,opacity:.30,depthWrite:false,
+    map:shadowTexture,transparent:true,opacity:.7,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,
   }));
-  const shadow=new THREE.Mesh(scope.track(new THREE.CircleGeometry(.63,20)),shadowMaterial);
-  shadow.rotation.x=-Math.PI/2;shadow.position.set(2,-.046,1);
+  const shadow=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(1.8,1.15)),shadowMaterial);
+  shadow.rotation.x=-Math.PI/2;shadow.position.set(9,-.034,4.2);
+  shadow.userData.dynamic=true;
   scene.add(shadow);
-  const player={x:2,z:1};
-  let lastMovedAt=-10,lastX=2,lastZ=1,facing=0;
+  const player={x:9,z:4.2};
+  let lastMovedAt=-10,lastX=9,lastZ=4.2,facing=0;
   const cameraPosition=new THREE.Vector3();
   function movePlayer(x:number,z:number,elapsed:number){
     const deltaX=x-lastX,deltaZ=z-lastZ;
@@ -63,6 +78,8 @@ export function createCoastalWorld(){
     avatar.position.y=1.10+(walking?Math.sin(time*17)*.035:0);
     avatar.scale.x=1+Math.sin(time*1.2)*.002;
   }
+  const batching=batchStaticScene(scene,scope);
+  scene.userData.batching=batching;
   function setShadows(enabled:boolean){environment.sunlight.castShadow=enabled;}
   function dispose(){scope.dispose();}
   return Object.freeze({
