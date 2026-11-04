@@ -2,17 +2,16 @@ import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
+import { buildCoastalLand } from "./coastline.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
-  const ground=k.pattern("grass",1,14,13),sand=k.pattern("sand",5,2,13),stone=k.pattern("cobble",2,17,6);
+  const stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
   const cliff=k.pattern("cliff",9),leaves=[k.pattern("foliage",1,2,2),k.pattern("foliage",3,2,2),k.pattern("foliage",5,2,2),k.pattern("foliage",7,2,2)];
-  // Wide lawn with a considered waterfront. Ground is behind the buildings.
-  k.flat(65,75,ground,-19,-.19,0);
-  k.flat(6.1,75,sand,11.1,-.12,0);
-  k.flat(2.2,75,k.pattern("sand",7,1,10),13,-.10,0);
+  // The curved mesh closes toward both headlands; no rectangular lawn edge.
+  buildCoastalLand(k);
   // Cobblestone promenade & irregular town square, not a grid of raised box tiles.
   k.flat(42,6.3,stone,-8.0,-.062,0);
   k.flat(3.2,13,k.pattern("cobble",4,3,9),9,-.059,5.2);

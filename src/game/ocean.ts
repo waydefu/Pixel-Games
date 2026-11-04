@@ -64,7 +64,7 @@ export function createCoastalWater(k:StageKit) {
         float small=noise(vWorld.xz*2.3+vec2(uTime*.24,uTime*.17));
         float micro=noise(vWorld.xz*5.2-vec2(uTime*.31,uTime*.13));
         water+=vec3(.024,.04,.047)*(small-.35)+vec3(.013)*(micro-.5);
-        float shoreline=1.0-smoothstep(.0,2.65,vDist);
+        float shoreline=(1.0-smoothstep(.0,2.65,vDist))*(1.0-smoothstep(34.0,48.0,abs(vWorld.z)));
         float moving=sin(vWorld.z*.85+uTime*1.8+noise(vWorld.xz*.5)*5.0);
         float foam=shoreline*smoothstep(.45,.76,
           .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));

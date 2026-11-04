@@ -24,7 +24,7 @@ export function fjordHeight(x,z,region) {
     const d=Math.abs(z-channelZ);
     const bank=clamp01((d-29)/34);
     const raisedBank=bank*bank*(3-2*bank);
-    const seabed=-Math.min(5,Math.max(0,(x-84)*.15));
+    const seabed=-5; // No raised green strip blocking the fjord channel.
     height=height*raisedBank+seabed*(1-raisedBank);
   }
   return height;
