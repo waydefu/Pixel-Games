@@ -73,7 +73,8 @@ export function createCoastalWorld(){
     avatar.rotation.y=Math.atan2(cameraPosition.x-player.x,cameraPosition.z-player.z);
   }
   function update(time:number){
-    environment.update(time);
+    environment.update(time,player);
+    fjord.update(time);
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
     spriteTexture.offset.set(frame*.25,(3-facing)*.25);

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
+import { createCoastalWater } from "./ocean.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
@@ -23,21 +24,7 @@ export function buildEnvironment(k:StageKit){
       k.block(.26,.035,.30,i%3?dirt:k.pattern("stone",3),x,-.040,zz,false);
     }
   }
-  // The waterfront is shallow turquoise at the surf line and darker further out.
-  const waveUniforms={uTime:{value:0}};
-  const seaMaterial=k.scope.track(new THREE.ShaderMaterial({
-    uniforms:waveUniforms,depthWrite:true,side:THREE.DoubleSide,
-    vertexShader:String.raw`varying vec2 vUv; varying vec3 vPos;
-      uniform float uTime;
-      void main(){
-        vUv=uv; vec3 transformed=position;
-        transformed.z+=.12*sin(position.x*.37+uTime*.65)+.075*cos(position.y*.29-uTime*.5);
-        vPos=transformed;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(transformed,1.0);
-      }`,
-    fragmentShader:"precision highp float;\nvarying vec2 vUv;\nvarying vec3 vPos;\nuniform float uTime;\nvoid main(){\n  // Interleaved wind-driven ripples instead of flat tinted geometry.\n  float r1=sin(vUv.y*548.0+vUv.x*157.0+\n    sin(vUv.y*67.0-uTime*.34)*3.8+uTime*1.08);\n  float r2=sin(vUv.y*283.0-vUv.x*218.0-uTime*.64);\n  float r3=cos(vUv.y*108.0+vUv.x*88.0+uTime*.32);\n  float shimmer=pow(max(0.0,r1*.64+r2*.27+r3*.09),7.0);\n  float shallow=1.0-smoothstep(.022,.29,vUv.x);\n  vec3 water=mix(vec3(.021,.16,.23),vec3(.12,.38,.41),shallow);\n  water+=r1*.019+r2*.013;\n  water+=shimmer*vec3(.29,.34,.28);\n  // Breakers wrap softly along the irregular stone coast.\n  float foamEdge=1.0-smoothstep(.009,.065,vUv.x);\n  float breaker=sin(vUv.y*174.0+uTime*.9+sin(vUv.y*31.0)*3.0);\n  float foam=pow(max(0.0,breaker*.72+r2*.28),5.0)*foamEdge;\n  water=mix(water,vec3(.75,.83,.73),foam*.82);\n  gl_FragColor=vec4(clamp(water,0.0,1.0),1.0);\n}",
-  }));
-  k.flat(100,80,seaMaterial,63,-.20,0);
+  const ocean=createCoastalWater(k);
   // Curved surf edge: tiny sunlit stones and tidal foam ribbons.
   for(let i=0;i<85;i++){
     const z=-33+i*.79;
@@ -98,7 +85,9 @@ export function buildEnvironment(k:StageKit){
   // Small distant rocks and headlands balance the shore while framing the view.
   for(let i=0;i<18;i++){
     const x=18+noise(i*5)*12,z=-31+noise(i*9)*55;
-    const r=.3+noise(i+33)*1.4;
+    // Oversized shoreline rocks must not obscure the wooden pier.
+    if(x>=10&&x<=31&&z>=3.0&&z<=12.8)continue;
+    const r=.22+noise(i+33)*.92;
     const rock=k.put(new THREE.IcosahedronGeometry(r,1),stones[i%3],x,-.1,z);
     rock.scale.set(1.2,.5,1.8);rock.rotation.y=i*.67;
   }
@@ -167,10 +156,15 @@ export function buildEnvironment(k:StageKit){
   k.scene.add(sunlight);
   const target=new THREE.Object3D();k.scene.add(target);
   sunlight.target=target;
-  function update(time:number){
-    waveUniforms.uTime.value=time;
-    // The scene is intentionally golden-hour biased; the breeze keeps the sea alive.
+  function update(time:number,player?:{x:number;z:number}){
+    ocean.update(time);
     boats.update(time);
+    // The sun keeps a fixed direction but its shadow camera follows players.
+    if(player){
+      target.position.set(player.x,0,player.z);
+      sunlight.position.set(player.x-19,25,player.z-10);
+      target.updateMatrixWorld();
+    }
   }
-  return {sunlight,update,sea:seaMaterial};
+  return {sunlight,update,sea:ocean.material};
 }

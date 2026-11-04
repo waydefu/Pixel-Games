@@ -11,9 +11,11 @@ export function fjordHeight(x,z,region) {
     case "south":distance=((-z)-(90+13*Math.sin(x*.031)+5*Math.sin(x*.072)))/82;break;
     default:throw new RangeError("Unknown terrain region");
   }
-  const slope=Math.pow(clamp01(distance),1.12);
-  const summit=28+57*ridge(x,z)+24*Math.abs(wave(x,z));
-  const small=3.1*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
+  const approach=clamp01(distance);
+  // Rounded piedmont avoids the old nearly vertical wall immediately outside town.
+  const slope=Math.pow(approach,1.60)*(1.12-.12*approach);
+  const summit=24+56*ridge(x,z)+18*Math.abs(wave(x,z));
+  const small=2.9*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
   return Math.max(0,slope*(summit+small));
 }
 export function coastX(z) {return 13.3+Math.sin(z*.13)*.65+Math.sin(z*.37)*.22;}
