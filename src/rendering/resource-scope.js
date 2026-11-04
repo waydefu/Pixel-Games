@@ -9,6 +9,13 @@ export function createResourceScope() {
     tracked.add(resource);
     return resource;
   }
+  // Release resources superseded by batching without retaining all original geometry.
+  function release(resource) {
+    if (disposed) throw new Error("resource scope already disposed");
+    if (!tracked.delete(resource)) return false;
+    resource.dispose();
+    return true;
+  }
   function dispose() {
     if (disposed) return;
     disposed = true;
@@ -19,5 +26,5 @@ export function createResourceScope() {
     tracked.clear();
     if (errors.length) throw new AggregateError(errors, "Resource cleanup failed");
   }
-  return Object.freeze({ track, dispose, get disposed() { return disposed; }, get count() { return tracked.size; } });
+  return Object.freeze({ track, release, dispose, get disposed() { return disposed; }, get count() { return tracked.size; } });
 }

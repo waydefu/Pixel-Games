@@ -32,14 +32,16 @@ src/game/
   environment.ts          # 地形、海岸、海水、自然、碼頭、船
   input.ts / navigation.js# 觸控／鍵盤與可測的碰撞
 src/rendering/             # renderer-port／畫質／資源追蹤
-src/platform/asset-manifest.js
+src/platform/              # 共用 clock / registry / scene / viewport / asset metadata
+src/integrations/           # 可信 Host 使用的工具契約（非瀏覽器自動接入）
+.agents/skills/             # 按需的開發／素材／驗收 Skills
 scripts/                   # 靜態／資產／建置驗證
 tests/ + e2e/             # Unit／Playwright
 .github/workflows/         # CI／Pages deployment
 docs/                     # 美術基準、架構與品質門檻
 ```
 
-所有舊首頁、`lab/`、實驗用地城、未使用 platform registry／MCP adapter、舊研究彙總和過期 Agent Skills 已從目前工作樹移除；**Git 歷史仍保存先前提交，可追溯而不污染目前原始碼**。
+已淘汰的**遊戲首頁、舊地城場景與 lab 技術展示頁**不再存在。原本誤刪的研究紀錄、架構 ADR、部署治理、Agent Skills 與通用工程模組已恢復；它們歸在 `docs/`、`.agents/skills/`、`src/platform/`、`src/integrations/`，**不會變成第二個遊戲入口**。請見 [文件索引](docs/INDEX.md)。
 
 ## 操作
 

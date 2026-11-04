@@ -161,6 +161,7 @@ export function buildVillage(k:StageKit){
     cy.castShadow=true;
     for(const y of [.2*s,.7*s])
       k.column(.408*s,.07*s,darkIron,x,y,z,12);
+    k.collider(x,z,.41*s,.41*s);
     const top=k.column(.36*s,.05*s,timber,x,.92*s,z,10);top.castShadow=false;
   }
   function crate(x:number,z:number,s=1){
@@ -168,6 +169,7 @@ export function buildVillage(k:StageKit){
     k.block(.94*s,.71*s,.87*s,w,x,.355*s,z);
     for(const y of [.08*s,.63*s])
       k.block(1.04*s,.07*s,.96*s,beams,x,y,z);
+    k.collider(x,z,.55*s,.50*s);
   }
   [[-7,-6.1],[-18,5.4],[5,9.1],[-8,6.4]].forEach(([x,z],i)=>{
     barrel(x,z,i%2?.86:1);crate(x+1.07,z+.3,.88);
@@ -190,6 +192,7 @@ export function buildVillage(k:StageKit){
   const awning=k.block(4.3,.11,3.0,k.pattern("canvas",4,2,1),mx,2.63,mz);
   awning.rotation.z=-.04;
   k.block(3,.45,1.06,wood,mx,1.08,mz-.4);
+  k.collider(mx,mz-.4,1.55,.62);
   for(const x of [mx-1,mx+.1,mx+1.1])crate(x,mz-.39,.51);
   // A few hand-crafted medieval essentials: wall baskets, mooring posts, sacks.
   k.put(new THREE.SphereGeometry(.46,8,6),k.pattern("thatch",8),-8,.27,-5.75,false);
