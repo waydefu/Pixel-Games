@@ -32,7 +32,7 @@ jobs:
       - name: Check assets, unit tests, types and Vite production build
         run: npm run validate
       - name: Install Chromium for browser verification
-        run: npx playwright install --with-deps chromium
+        run: timeout --signal=TERM --kill-after=10s 150s npx playwright install --with-deps chromium
       - name: Verify compiled site in Chromium
         run: npm run test:e2e
       - name: Upload only the compiled Vite dist directory
