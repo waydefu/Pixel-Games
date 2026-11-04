@@ -1,0 +1,7 @@
+# Ownership is advisory until Rulesets/review enforcement are configured.
+* @waydefu
+/.github/ @waydefu
+/AGENTS.md @waydefu
+/.agents/ @waydefu
+/src/platform/ @waydefu
+/docs/decisions/ @waydefu
