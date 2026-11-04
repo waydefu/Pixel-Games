@@ -1,8 +1,8 @@
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;background:#142933;color:#eef4e8}
 *{box-sizing:border-box}html,body,#game{width:100%;height:100%;margin:0}html,body{overflow:hidden;overscroll-behavior:none}body{position:fixed;inset:0}button,select{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible{outline:3px solid #ffe5a0;outline-offset:3px}
-#game{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;isolation:isolate}#stage{display:block;width:100%;height:100%;touch-action:none;background:linear-gradient(125deg,#213e47,#142733)}
+#game{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;overflow:hidden;isolation:isolate}#stage{position:relative;z-index:0;display:block;width:100%;height:100%;touch-action:none;background:linear-gradient(125deg,#213e47,#142733)}
 .screen-shade{position:absolute;pointer-events:none;inset:0;background:linear-gradient(180deg,rgba(8,23,28,.27),transparent 21%,transparent 77%,rgba(7,22,26,.18))}
-.hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-right,0px) + 21px) 0 calc(env(safe-area-inset-left,0px) + 22px);pointer-events:none}
+.hud{position:absolute;z-index:4;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-right,0px) + 21px) 0 calc(env(safe-area-inset-left,0px) + 22px);pointer-events:none}
 .hud-mark{display:flex;align-items:center;gap:11px;font:700 12px/1.2 ui-monospace,monospace;letter-spacing:.14em;color:#fff8df;text-shadow:0 2px 9px rgba(0,0,0,.6)}.hud-mark small{font-weight:400;font-size:10px;letter-spacing:.11em;color:#d9e0d7}.hud-dot{width:8px;height:8px;background:#e6bd72;transform:rotate(45deg);box-shadow:0 0 12px #e6bd72}
 .hud-button{pointer-events:auto;min-width:45px;min-height:45px;border:1px solid rgba(251,237,193,.35);background:rgba(10,29,36,.65);color:#f2e6c9;border-radius:5px;font-size:20px;backdrop-filter:blur(14px)}.hud-button:hover{background:rgba(26,49,51,.85)}
 .left-status{position:absolute;top:calc(env(safe-area-inset-top,0px) + 73px);left:calc(env(safe-area-inset-left,0px) + 22px);font:11px ui-monospace,monospace;letter-spacing:.08em;color:#f1ead0;text-shadow:0 1px 6px #101f21}
@@ -13,3 +13,12 @@
 .hint{position:absolute;right:calc(env(safe-area-inset-right,0px) + 25px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);font:11px ui-monospace,monospace;color:#f4ebd8;letter-spacing:.08em;text-shadow:0 2px 7px #17333a;pointer-events:none}
 .fallback{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:35px;background:#142831}.fallback strong{font-size:21px}.fallback p{max-width:480px;color:#b1c7c6;line-height:1.8}
 @media(pointer:coarse){.joystick{display:flex}.hint{display:none}}@media(max-width:600px){.hud{padding-top:calc(env(safe-area-inset-top,0px) + 14px)}.hud-mark{font-size:10px}.hud-mark small{display:none}.left-status{top:calc(env(safe-area-inset-top,0px) + 59px);font-size:10px}.settings{top:calc(env(safe-area-inset-top,0px) + 62px)}.joystick{left:calc(env(safe-area-inset-left,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}}@media(prefers-reduced-motion:reduce){.settings,.hud-button{backdrop-filter:none}}
+
+.hud-controls{display:flex;gap:9px;align-items:center;pointer-events:auto}
+.hud .view-button{min-width:75px;font-size:12px;white-space:nowrap;padding:0 12px;letter-spacing:.03em;background:rgba(30,57,65,.75)}
+.hud .view-button:hover{background:rgba(46,77,79,.92)}
+@media(pointer:coarse){#stage{touch-action:none}.hud .view-button{min-height:45px;min-width:80px}}
+@media(max-width:390px){.hud .view-button{min-width:68px;padding:0 8px}}
+
+.look-hint{position:absolute;right:calc(env(safe-area-inset-right,0px) + 24px);bottom:calc(env(safe-area-inset-bottom,0px) + 49px);padding:7px 12px;border:1px solid rgba(236,224,187,.25);color:#eee5d1;border-radius:18px;font-size:11px;pointer-events:none;background:rgba(13,37,42,.34)}
+@media(pointer:fine){.look-hint{display:none}}

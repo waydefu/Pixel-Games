@@ -32,6 +32,6 @@ jobs:
       - name: Static, asset, unit, TypeScript, Vite and bundle checks
         run: npm run validate
       - name: Install Chromium browser with system dependencies
-        run: npx playwright install --with-deps chromium
+        run: timeout --signal=TERM --kill-after=10s 150s npx playwright install --with-deps chromium
       - name: Browser smoke test (desktop and mobile viewport)
         run: npm run test:e2e

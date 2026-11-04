@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
+import { buildFishingBoats } from "./boats.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
@@ -82,36 +83,8 @@ export function buildEnvironment(k:StageKit){
       ring.rotation.x=Math.PI/2;
     }
   }
-  // Two decorative fishing boats float out beyond the walkable pier.
-  const boatGroups:THREE.Group[]=[];
-  function boat(x:number,z:number,s:number,seed:number){
-    const previous=new Set(k.scene.children);
-    const hull=k.put(new THREE.SphereGeometry(1.6,12,8),k.pattern("planks",seed),x,-.07,z);
-    hull.scale.set(s,.33*s,.65*s);hull.rotation.y=.13;
-    // Keep the entire boat assembled; hull-only rotation detached the mast and sail.
-    const rail=k.put(new THREE.TorusGeometry(1,.075,7,14),k.solid("#5d453a"),x,.24*s,z);
-    rail.rotation.x=Math.PI/2;rail.scale.set(1.5*s,.92*s,1);
-    // Hull, rails, mast and canvas will move as one group.
-    const mast=k.column(.08*s,3.9*s,posts,x,2.05*s,z);
-    // The mast is part of this boat.
-    const cloth=k.pattern("canvas",seed,1,1);
-    const sail=k.quad([
-      [x,3.8*s,z],[x+.1*s,1.3*s,z-.1*s],
-      [x+1.22*s,1.5*s,z-.12*s],[x,3.8*s,z]
-    ],cloth,false);
-    // The sail is part of this boat.
-    const pennant=k.quad([[x,4.1*s,z],[x+1.1*s,3.9*s,z],
-      [x,3.65*s,z],[x,4.1*s,z]],k.solid("#b46b51"),false);
-    const group=new THREE.Group();
-    group.name="fishing-boat-"+seed;
-    for(const child of [...k.scene.children]) {
-      if(!previous.has(child)) group.add(child);
-    }
-    k.scene.add(group);
-    boatGroups.push(group);
-  }
-  boat(18,-3.5,.88,6);
-  boat(24,15.2,1.22,7);
+  // Original wooden fishing boats; grouped hull, canvas and mooring gear.
+  const boats=buildFishingBoats(k);
 
   // Natural stone banks and no harsh rectangular cliff wall.
   const stones=[k.pattern("cliff",2),k.pattern("cliff",3),k.solid("#8c9788")];
@@ -197,10 +170,7 @@ export function buildEnvironment(k:StageKit){
   function update(time:number){
     waveUniforms.uTime.value=time;
     // The scene is intentionally golden-hour biased; the breeze keeps the sea alive.
-    for(let i=0;i<boatGroups.length;i++){
-      // All boat parts share a parent and bob together.
-      boatGroups[i].position.y=.045*Math.sin(time*.9+i*1.7);
-    }
+    boats.update(time);
   }
   return {sunlight,update,sea:seaMaterial};
 }

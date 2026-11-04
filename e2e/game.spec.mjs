@@ -21,7 +21,8 @@ test("visiting root opens full-viewport scene with no landing page",async({page}
   const diagnostics=await page.evaluate(()=>window.__pixelGame.read());
   if(supported){
     expect(diagnostics.status).toBe("ready");
-    expect(diagnostics.camera).toBe("quarter-view");
+    expect(diagnostics.camera).toBe("quarter");
+    expect(diagnostics.scenery).toBe(4);
     expect(diagnostics.projection).toBe("orthographic");
     await expect.poll(async()=> (await page.evaluate(()=>window.__pixelGame.read())).drawCalls).toBeGreaterThan(0);
     await expect.poll(async()=> (await page.evaluate(()=>window.__pixelGame.read())).frames).toBeGreaterThan(2);
@@ -56,5 +57,54 @@ test("camera exploration, collision-safe movement and quality menu work",async({
   }
   await page.locator("#menu-close").click();
   await expect(page.locator("#settings")).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test("three camera modes retain safe movement, perspective and settings",async({page})=>{
+  const errors=[],shaderErrors=[];
+  page.on("pageerror",err=>errors.push(err.message));
+  page.on("console",msg=>{if(msg.type()==="error"&&/WebGLProgram|Shader Error|VALIDATE_STATUS|COMPILE_STATUS/i.test(msg.text()))shaderErrors.push(msg.text());});
+  await page.goto("./");
+  await page.waitForFunction(()=>["ready","unsupported","failed"].includes(window.__pixelGame?.read().status),null,{timeout:22000});
+  if((await page.evaluate(()=>window.__pixelGame.read())).status!=="ready")return;
+  await page.locator("#view-toggle").click();
+  await expect(page.locator("#view-toggle")).toContainText("第一人稱");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().projection)).toBe("perspective");
+  let before=await page.evaluate(()=>window.__pixelGame.read());
+  await page.keyboard.down("w");
+  await page.waitForTimeout(580);
+  await page.keyboard.up("w");
+  let after=await page.evaluate(()=>window.__pixelGame.read());
+  expect(Math.hypot(after.player.x-before.player.x,after.player.z-before.player.z)).toBeGreaterThan(.2);
+  // Look drag must affect the real camera, not just an inactive UI label.
+  const box=await page.locator("#stage").boundingBox();
+  await page.mouse.move(box.x+box.width*.77,box.y+box.height*.58);
+  await page.mouse.down();
+  await page.mouse.move(box.x+box.width*.83,box.y+box.height*.58,{steps:3});
+  await page.mouse.up();
+  after=await page.evaluate(()=>window.__pixelGame.read());
+  expect(after.camera).toBe("first");
+  expect(after.yaw).not.toBe(before.yaw);
+  // A real hit-test catches Canvas occluding the HUD after dragging, not just a synthetic click.
+  const switchBounds=await page.locator("#view-toggle").boundingBox();
+  expect(switchBounds).not.toBeNull();
+  const topTarget=await page.evaluate(({x,y,width,height})=>
+    document.elementFromPoint(x+width/2,y+height/2)?.closest("#view-toggle")?.id??null,
+    switchBounds);
+  expect(topTarget).toBe("view-toggle");
+  await page.locator("#view-toggle").click();
+  await expect(page.locator("#view-toggle")).toContainText("風景");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("vista");
+  before=await page.evaluate(()=>window.__pixelGame.read());
+  await page.keyboard.down("w");await page.waitForTimeout(220);await page.keyboard.up("w");
+  after=await page.evaluate(()=>window.__pixelGame.read());
+  expect(after.player).toEqual(before.player);
+  await page.keyboard.press("1");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().projection)).toBe("orthographic");
+  await page.locator("#menu-toggle").click();
+  await page.locator("#camera-mode").selectOption("first");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("first");
+  await page.locator("#menu-close").click();
+  expect(shaderErrors).toEqual([]);
   expect(errors).toEqual([]);
 });
