@@ -16,6 +16,7 @@
 | 已合併候選企劃（尚非遊戲實作授權） | [海岸自由生活世界提案](prompts/sol6-medieval-coastal-life-world.md) |
 | 路線圖 | [ROADMAP](ROADMAP.md) |
 | GitHub Ruleset／人工權限檢查 | [Branch Protection](governance/BRANCH-PROTECTION.md) |
+| GitHub Pages 部署設定／失敗排除 | [Pages Deployment](governance/PAGES-DEPLOYMENT.md) |
 | Agent 操作限制 | [AGENTS](../AGENTS.md) |
 
 **提醒：** 目前沒有自動啟用 MCP、修改 Pages 部署或合併 PR。Playwright 的手機畫面模擬不代表真手機效能。

@@ -26,6 +26,8 @@ npm run test:e2e
 
 **候選但未接入：** WebGPU+TSL 第二套渲染 adapter、Serena MCP、Tiled、Aseprite／LibreSprite、glTF-Transform、KTX2 壓縮 CLI、ECS、物理引擎、遊戲存檔。不要把研究資料當成安裝／授權紀錄。
 
-## 特別提醒：Pages 尚未切換
+## GitHub Pages 部署
 
-Vite 的 build 結果位於 `dist/`，目前 Pages 的 `main/(root)` **不能直接提供 Vite 編譯後的 Three.js lab**。此 PR 做建置與 Chromium smoke test，不修改 Settings → Pages。正式部署須選用受審核 GitHub Actions artifact deploy，確保 `base: "/Pixel-Games/"`，並另行驗證授權與權限。
+本 PR 已新增 `.github/workflows/deploy-pages.yml`：只在 `main` push 或手動 dispatch 執行，先 `npm ci` + `npm run validate` + Playwright，再上傳 `dist/` artifact；獨立 deploy job 以 Pages 專用最小權限發布。**目前只是待合併 PR 的工作流程，沒有宣稱已完成部署。**
+
+正式運行前由 Owner 在 Settings → Pages 選 Source = GitHub Actions，並確認工作流程執行及公開 URL。詳見 [Pages Deployment](governance/PAGES-DEPLOYMENT.md)。原生首頁的舊 main/(root) 設定不會因提交 YAML 自動被修改。

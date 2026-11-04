@@ -25,13 +25,13 @@ npm run graphics:matrix       # 僅渲染 Buffer 規劃，不是 FPS 測試
 
 - 開發入口通常是 `http://127.0.0.1:5173/Pixel-Games/lab/`。
 - `npm run build` 產生 `dist/`，`npm run preview` 預覽 `/Pixel-Games/` 路徑。
-- **現有 Pages 的 main/(root) 仍只提供無需編譯的首頁；不會自動發布 `lab/` 的 TypeScript 模組**。若要公開 `dist/`，請先審查 GitHub Actions 部署流程與 Pages Source，這次 PR 不切換設定。
+- **Pages 發布工作流程已在 PR #5 補上**，位於 `.github/workflows/deploy-pages.yml`，合併後在 `main` 更新時通過驗證才會上傳 `dist/`。**GitHub Settings → Pages 的 Source 仍須由 Owner 選 GitHub Actions**；在 PR 合併、設定完成及部署成功之前，不能宣稱 `/lab/` 已公開。
 
 ## 下一階段
 
 先完成此 PR 的工程驗收與 Chrome 渲染檢查，再決定是否發布 3D 技術展示，最後才根據獨立的遊戲企劃核准、開始實作玩法與世界內容。手機熱降頻、真正的 GPU frame time、iOS Safari 都需要另外做實機測試。
 
-文件入口：[架構](docs/ARCHITECTURE.md) · [工具接入](docs/TOOL-INTEGRATIONS.md) · [品質門檻](docs/QUALITY-GATES.md) · [審查修復報告](docs/reviews/ARCHITECTURE-REPAIR-2026-11-04.md) · [研究來源](docs/research/THREEJS-ENGINEERING-2026-11-04.md)。
+文件入口：[架構](docs/ARCHITECTURE.md) · [工具接入](docs/TOOL-INTEGRATIONS.md) · [品質門檻](docs/QUALITY-GATES.md) · [Pages 部署步驟](docs/governance/PAGES-DEPLOYMENT.md) · [審查修復報告](docs/reviews/ARCHITECTURE-REPAIR-2026-11-04.md) · [研究來源](docs/research/THREEJS-ENGINEERING-2026-11-04.md)。
 
 相關研究： [Research-](https://github.com/waydefu/Research-)。
 

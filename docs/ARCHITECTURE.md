@@ -22,7 +22,9 @@
       │
       └── Vite 8 build → dist/index.html + dist/lab/index.html
                │
-               └── GitHub Pages 正式部署仍須 Owner 決策
+               └── .github/workflows/deploy-pages.yml （PR #5 待合併）
+                    npm ci → validate → Playwright → Pages artifact → deploy
+                    GitHub Pages Source 需 Owner 設定 GitHub Actions
 ```
 
 ## Renderer Port 核心契約
@@ -55,7 +57,7 @@
 
 - `npm ci && npm run validate`：syntax、assets、Node unit、TypeScript、Vite build。
 - `npm run test:e2e`：在由 Vite preview 服務的 `/Pixel-Games/` 下執行桌面與手機 viewport Chromium 測試；模擬手機不代表行動 GPU 實測。
-- 現在 Pages Source 不做變更：`main/(root)` 只服務未編譯資源；`dist/` 預覽不等於已上線。
+- 本 PR 已加入正式 Pages 部署 workflow，僅在合併到 `main` 後及工作流程觸發時執行，驗證失敗不部署；**GitHub Pages Source 設定仍需 Owner 自行選 GitHub Actions**。在實際 Deploy job 成功之前，`dist/` 預覽不等於已上線。
 - 長期引入真正物理、遊戲活動系統、存檔或大世界串流以前，先用小型垂直切片量測必要性，避免過度設計。
 
 參考 [官方研究](research/THREEJS-ENGINEERING-2026-11-04.md)、[品質驗收](QUALITY-GATES.md)、[修復報告](reviews/ARCHITECTURE-REPAIR-2026-11-04.md)。
