@@ -25,7 +25,7 @@ export function buildEnvironment(k:StageKit){
   // The waterfront is shallow turquoise at the surf line and darker further out.
   const waveUniforms={uTime:{value:0}};
   const seaMaterial=k.scope.track(new THREE.ShaderMaterial({
-    uniforms:waveUniforms,depthWrite:true,
+    uniforms:waveUniforms,depthWrite:true,side:THREE.DoubleSide,
     vertexShader:String.raw`varying vec2 vUv; varying vec3 vPos;
       uniform float uTime;
       void main(){
