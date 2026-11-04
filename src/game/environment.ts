@@ -34,20 +34,7 @@ export function buildEnvironment(k:StageKit){
         vPos=transformed;
         gl_Position=projectionMatrix*modelViewMatrix*vec4(transformed,1.0);
       }`,
-    fragmentShader:String.raw`precision mediump float;
-      varying vec2 vUv;varying vec3 vPos;uniform float uTime;
-      void main(){
-        float small=sin(vUv.x*211.0+vUv.y*62.0+uTime*.73)*.5+
-          cos(vUv.x*93.0-vUv.y*155.0-uTime*.41)*.25;
-        float longWave=sin(vUv.y*42.0+vUv.x*11.0+uTime*.63);
-        float depth=mix(0.0,1.0,smoothstep(.005,.26,vUv.x));
-        vec3 water=mix(vec3(.28,.57,.55),vec3(.095,.29,.37),depth);
-        float foamLine=sin(vUv.y*98.0+sin(vUv.y*20.0+uTime)*4.0+uTime);
-        float foam=smoothstep(.63,.98,foamLine)*(1.0-smoothstep(.018,.085,vUv.x));
-        water+=small*.045+max(longWave,.2)*.013;
-        water=mix(water,vec3(.79,.87,.76),foam*.65);
-        gl_FragColor=vec4(water,1.0);
-      }`,
+    fragmentShader:"precision mediump float;\nvarying vec2 vUv;\nvarying vec3 vPos;\nuniform float uTime;\nvoid main(){\n  // Interleaved wind-driven ripples instead of flat tinted geometry.\n  float r1=sin(vUv.y*548.0+vUv.x*157.0+\n    sin(vUv.y*67.0-uTime*.34)*3.8+uTime*1.08);\n  float r2=sin(vUv.y*283.0-vUv.x*218.0-uTime*.64);\n  float r3=cos(vUv.y*108.0+vUv.x*88.0+uTime*.32);\n  float shimmer=pow(max(0.0,r1*.64+r2*.27+r3*.09),7.0);\n  float shallow=1.0-smoothstep(.022,.29,vUv.x);\n  vec3 water=mix(vec3(.021,.16,.23),vec3(.12,.38,.41),shallow);\n  water+=r1*.019+r2*.013;\n  water+=shimmer*vec3(.29,.34,.28);\n  // Breakers wrap softly along the irregular stone coast.\n  float foamEdge=1.0-smoothstep(.009,.065,vUv.x);\n  float breaker=sin(vUv.y*174.0+uTime*.9+sin(vUv.y*31.0)*3.0);\n  float foam=pow(max(0.0,breaker*.72+r2*.28),5.0)*foamEdge;\n  water=mix(water,vec3(.75,.83,.73),foam*.82);\n  gl_FragColor=vec4(clamp(water,0.0,1.0),1.0);\n}",
   }));
   k.flat(100,80,seaMaterial,63,-.20,0);
   // Curved surf edge: tiny sunlit stones and tidal foam ribbons.
