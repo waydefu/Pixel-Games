@@ -1,63 +1,44 @@
-# Pixel-Games 架構 v0.3｜可替換 Renderer、可驗證工具邊界
+# Pixel-Games 架構 v0.4｜單一玩家入口
 
-現階段是可實測的**獨立渲染技術場景 + 共用底座**，並非完成的遊戲引擎。Three.js 為已指定的優先技術，第一款遊戲玩法仍待獨立決策。
+**玩家端**只需要一頁：GitHub Pages `/Pixel-Games/` → `index.html` → 滿版 Three.js 場景。整個畫面由原創 Quarter View 海岸探索切片承載，畫質與控制設置顯示成可關閉的 Overlay。沒有 Landing Page、作品列表或獨立 /lab/ 預覽頁。
 
 ```text
-                  index.html / styles.css （GitHub Pages 既有首頁）
-                           │
-                  src/platform/ （Game-agnostic）
-                  clock / scene-controller / viewport / registry
-                           │
-      ┌────────────────────┼─────────────────────────┐
-      ▼                    ▼                         ▼
- src/rendering/       src/platform/assets       src/integrations/
- renderer-port.js     asset-manifest            tool-registry
- quality.js                 │                         │
- pixel-texture.js    check-assets.mjs           Dev/CI/Agent adapters
- resource-scope.js         │                    （未自動啟用工具）
- frame-metrics.js      sprites / glTF
-      │
-      ▼
- lab/main.ts ── Three.js r187 WebGLRenderer + 原創無玩法測試場景
-      │
-      └── Vite 8 build → dist/index.html + dist/lab/index.html
-               │
-               └── .github/workflows/deploy-pages.yml （PR #5 待合併）
-                    npm ci → validate → Playwright → Pages artifact → deploy
-                    GitHub Pages Source 需 Owner 設定 GitHub Actions
+                         index.html (Game viewport 100dvh)
+                                    │
+                src/game/main.ts (bootstrap / HUD / camera / RAF)
+                      ┌─────────────┼───────────────┐
+                      ▼             ▼               ▼
+             world.ts (scene) input.ts      navigation.js
+              original geometry    │       collision / walkable
+              sprite / lighting    │
+                      ▼            ▼
+            src/rendering/renderer-port.js
+            quality / frame-metrics / resources
+                      │
+                Three.js WebGL2
+                      │
+        Vite8 + TypeScript7 build → dist/index.html
+                      │
+                GitHub Pages Actions
+
+          src/platform/ / src/integrations/
+          可接的核心／工具契約（不暴露 MCP 權限）
 ```
 
-## Renderer Port 核心契約
+## 視角、世界和輸入
 
-`createRendererPort({renderer,canvas,scene,camera,quality,onStatus,resizeCamera,restoreResources})`：
+- OrthographicCamera 使用相對角色的 3D 固定偏移 `(14,19,15)`，從斜上方看建築與路面，與常見正上方鳥瞰不同。固定透視避免鏡頭旋轉造成方向不一致。
+- Camera smooth follow 角色，邏輯座標使用 `x,z`。鏡頭方向和按鍵移動向量一致：W/↑ 為畫面向上，D/→ 為畫面向右；左右/斜向正規化速度。
+- 移動／碰撞使用可單測的純函數，角色半徑及可走區單獨定義，**視覺 Mesh 不能直接等於碰撞資料**；未來大場景需換空間分區而不是硬塞更多碰撞。
+- 自製幾何與程式生成 CanvasTexture 小角色以 NearestFilter 呈現像素感；PBR 3D 場景材質保持可渲染光影。海面採原創著色器；不能說是《棕色塵埃 2》的地圖或角色。
+- 畫質依 `quality.js` 的 pixel budget 與保守 adaptive resolution；Renderer Port 支援未來不同 GPU 後端，但**尚未實作 WebGPU TSL**。
 
-- `initialize(): Promise<void>`：明確等待非同步後端初始化（可用於未來 WebGPURenderer）；不能在初始化前宣稱 render ready。
-- `draw(): Promise<boolean>`：統一呼叫後端 `renderAsync` 或 `render`，在 lost/restoring 時拒絕繪製。
-- `resize(width,height,dpr)`：設定實際 Drawing Buffer，呼叫端透過 `resizeCamera` 修改 camera aspect（不是偷用像素 buffer aspect）。
-- `setQuality(q)` / `setRenderScale(scale)`：畫質預設及動態縮放；`quality.js` 中 controller 只給建議，由 Host 決定是否採用。
-- `stats()`：回傳 draw calls、triangle 及部分 renderer.info 的 GPU 資源統計；不是完整 VRAM 或 GPU duration。
-- `dispose()` 與 context-loss 事件：狀態 `new/initializing/ready/lost/restoring/failed/disposed`，由 `restoreResources` 明確告知自定義資產是否恢復。
-- `three-host.js` 保留為既有 WebGL 相容轉接器；**新開發不應繼續向它加入通用功能**。WebGPURenderer/TSL 應另做 Backend Adapter，不能假設 ShaderMaterial 與 EffectComposer 可原封不動移植。
+## 工程保留
 
-這是 JavaScript runtime 契約、單元測試與獨立 E2E；不是已建立 GPU 安全沙盒。
+`src/platform/`（時鐘、場景控制、作品登錄契約等）與 `src/integrations/`（可插拔工具能力路由）保留在 Repo，不會因為取消首頁就刪除，以便未來加入地圖工具、素材流程或其他可玩模式。舊的 `src/app.js` 作品清單 UI 與 `lab/index.html` 已移除，不再做 Vite Multi-Page Build。
 
-## 資產與場景
+## 部署與驗證
 
-- `createSceneController()` 對新場景先執行同步 `enter()`，成功後才退出舊場景；若新場景初始化失敗則呼叫新場景 `exit()` 並保留舊場景。非同步讀取應先 preload 完成，再 commit。
-- 若舊場景 `exit()` 途中部分釋放後再拋錯，系統無法復原外部副作用，仍需場景自身提供可回復釋放策略與實際瀏覽器測試。
-- `assets/manifest.json` 登錄所有資產路徑與 SHA256，`check-assets.mjs` 驗證未註冊檔、symlink escape、glTF 引用的 `.bin`/紋理與相對路徑；不代表自動證明版權。
-- 3D Mesh 跟碰撞、尋路是不同邏輯；實際遊戲的碰撞/場景串流/存檔，必須在玩法核准後另設計。
-- 像素 CanvasTexture/角色可用 nearest；風格化 PBR 3D 材質要依距離用合理的 Mipmap/Anisotropy，不能一律最近鄰。
+`npm ci && npm run validate && npm run test:e2e`；由 read-only GitHub Actions 完成 CI，再由受限制 Pages Deploy workflow 發布單頁 `dist/`。不能把本地 Chromium mobile viewport 成功當作 POCO 真機 GPU 成功。
 
-## 工具接入
-
-`src/integrations/tool-registry.js` 現在具有 capability 的顯式 allowlist、adapter id/version、handler 的 input/output 檢查、timeout、AbortSignal、unregister 取消。它是**應用程式層的呼叫路由**，不是檔案／網路權限機制。外部工具需由可信宿主隔離、加入對應 adapter；禁止把 MCP Token 注入前端。詳見 [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md)。
-
-## 可驗證的執行／部署
-
-- `npm ci && npm run validate`：syntax、assets、Node unit、TypeScript、Vite build。
-- `npm run test:e2e`：在由 Vite preview 服務的 `/Pixel-Games/` 下執行桌面與手機 viewport Chromium 測試；模擬手機不代表行動 GPU 實測。
-- 本 PR 已加入正式 Pages 部署 workflow，僅在合併到 `main` 後及工作流程觸發時執行，驗證失敗不部署；**GitHub Pages Source 設定仍需 Owner 自行選 GitHub Actions**。在實際 Deploy job 成功之前，`dist/` 預覽不等於已上線。
-- 長期引入真正物理、遊戲活動系統、存檔或大世界串流以前，先用小型垂直切片量測必要性，避免過度設計。
-
-參考 [官方研究](research/THREEJS-ENGINEERING-2026-11-04.md)、[品質驗收](QUALITY-GATES.md)、[修復報告](reviews/ARCHITECTURE-REPAIR-2026-11-04.md)。
+先讀 [ADR-0003](decisions/ADR-0003-direct-game-root.md)、[品質驗收](QUALITY-GATES.md)、[工具接入](TOOL-INTEGRATIONS.md)。
