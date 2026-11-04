@@ -127,7 +127,11 @@ export function buildVillage(k:StageKit){
       const plaque=k.block(1.17,.78,.14,wood,signX+.81,signY-.12,frontZ+face*.43);
       plaque.rotation.y=.11;
       const badge=k.solid(name==="tavern"?"#d9a86a":"#71949b");
-      k.ellipse(.27,.19,badge,signX+.81,signY-.1,frontZ+face*.53);
+      // Emblem belongs on the VERTICAL sign, not flat on the ground.
+      const emblem=k.put(new THREE.CircleGeometry(1,24),badge,
+        signX+.81,signY-.1,frontZ+face*.53,false);
+      emblem.scale.set(.27,.19,1);
+      emblem.rotation.y=face===1?0:Math.PI;
       // Sign sits vertical: a pixel-art emblem instead of unreadable text texture.
       k.block(.29,.22,.19,brass,signX+.81,signY-.07,frontZ+face*.59,false);
     }

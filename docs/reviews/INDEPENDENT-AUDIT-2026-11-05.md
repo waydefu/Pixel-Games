@@ -18,6 +18,10 @@ PR #7 把「清除舊遊戲實作」誤解為清除 35 份非遊戲資產：研�
 | P2 | `batchStaticScene` 合併後 scene.remove(old)，但原始 geometry 仍在 resource scope 追蹤集合 | 峰值 CPU 記憶體與資源持有偏高 | `ResourceScope.release()` 釋放已無引用的舊 geometry，回歸測試 |
 | P2 | `tests/navigation.test.mjs` 僅驗證單一主路與海域 | 無法發現西區不可到達與碼頭邊界 | 新增西區、碼頭邊界、道具碰撞檢查 |
 
+### 額外美術缺陷
+
+- 程式原先用 `k.ellipse()` 繪製懸掛招牌的圓形徽記，但該工具會將平面轉成水平地面圓。已在 `architecture.ts` 對該徽記改用垂直 CircleGeometry 並依正面方向旋轉。
+
 ## C. 尚未完成／需真機與視覺驗證
 
 1. **實際視覺差距**：程序材質、屋瓦、角色動作與參考作品完成度仍有明顯差距；沒有證據能說「已到 Bells of Evermere 水準」。
