@@ -1,5 +1,4 @@
 name: Pixel-Games CI
-
 on:
   pull_request:
   push:
@@ -15,19 +14,28 @@ concurrency:
 
 jobs:
   validate:
-    name: Static checks and Node tests
+    name: Build, typecheck, unit and browser tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 18
     steps:
-      - name: Checkout (pinned v5.0.1)
+      - name: Checkout pinned
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-      - name: Node 24 (pinned setup-node v4.4.0)
+      - name: Setup Node 26 LTS
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: "24"
-      - name: Report environment
-        run: node --version && npm --version
-      - name: Run deterministic project checks
+          node-version: "26"
+      - name: Bootstrap dependency lockfile for migration (temporary)
+        run: npm install --no-audit --no-fund
+      - name: Expose generated lockfile for review (temporary)
+        run: |
+          echo 'LOCKFILE_BEGIN'
+          cat package-lock.json
+          echo 'LOCKFILE_END'
+      - name: Static, asset, unit, TypeScript and Vite build checks
         run: npm run validate
+      - name: Install Chromium browser with system dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke test (desktop and mobile viewport)
+        run: npm run test:e2e

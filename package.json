@@ -1,17 +1,31 @@
 {
   "name": "pixel-games",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Game-agnostic Three.js-first pixel game engineering foundation",
+  "description": "Three.js-first, extensible pixel game laboratory",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "check": "node scripts/check-repository.mjs",
     "assets": "node scripts/check-assets.mjs",
     "test": "node --test",
-    "validate": "npm run check && npm run assets && npm test",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "playwright test",
+    "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build",
     "graphics:matrix": "node scripts/graphics-matrix.mjs"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/three": "0.187.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
   }
 }
