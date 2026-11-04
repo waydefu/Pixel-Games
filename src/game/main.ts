@@ -27,6 +27,7 @@ const viewToggle=element<HTMLButtonElement>("#view-toggle");
 const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
 const hint=element<HTMLElement>("#hint");
+const lookHint=element<HTMLElement>("#look-hint");
 
 const world=createCoastalWorld();
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
@@ -37,6 +38,8 @@ function setCameraMode(mode:CameraMode){
   viewToggle.textContent=modeNames[mode];
   viewToggle.setAttribute("aria-label","切換視角，目前："+modeNames[mode]);
   joystick.hidden=mode==="vista";
+  lookHint.hidden=mode==="quarter";
+  if(document.pointerLockElement===canvas)document.exitPointerLock?.();
   hint.textContent=mode==="quarter"?"WASD／方向鍵移動 · C 切換視角":
     mode==="first"?"WASD 移動 · 滑鼠／右側拖曳環視 · C 切換":
     "風景觀賞 · 拖曳調整視線 · C 切換";
@@ -87,7 +90,9 @@ canvas.addEventListener("pointerdown",e=>{
   lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
   if(e.pointerType!=="mouse")canvas.setPointerCapture(e.pointerId);
   if(e.pointerType==="mouse"&&document.pointerLockElement!==canvas){
-    void canvas.requestPointerLock?.();
+    // Some embedded/mobile browsers reject Pointer Lock: drag control still works.
+    const result=canvas.requestPointerLock?.();
+    if(result && typeof result.catch==="function")void result.catch(()=>{});
   }
   e.preventDefault();
 });
