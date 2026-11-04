@@ -1,6 +1,6 @@
-import { readFileSync, realpathSync, existsSync } from "node:fs";
+import { readFileSync, realpathSync, existsSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { resolve, dirname, relative, posix, isAbsolute } from "node:path";
+import { relative, posix, isAbsolute } from "node:path";
 import { validateAssetManifest, isSafeAssetPath } from "../src/platform/asset-manifest.js";
 
 const root = realpathSync(".");
@@ -34,4 +34,13 @@ for (const asset of assets) {
     }
   }
 }
-console.log("PASS: " + assets.length + " asset(s) validated with SHA256 and glTF references.");
+function assertRegistered(directory = "assets") {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = posix.join(directory.replaceAll("\\", "/"), entry.name);
+    if (path === "assets/manifest.json") continue;
+    if (entry.isDirectory()) assertRegistered(path);
+    else if (!listed.has(path)) throw new Error("unregistered asset file: " + path);
+  }
+}
+assertRegistered();
+console.log("PASS: " + assets.length + " asset(s) validated with SHA256, glTF references and no orphan files.");

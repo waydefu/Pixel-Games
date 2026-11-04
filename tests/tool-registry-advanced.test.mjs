@@ -34,6 +34,6 @@ test("unregister aborts running tool requests",async()=>{
  const t=r.call({id:"qa",capability:"qa.capture",timeoutMs:1000});
  await new Promise(resolve=>setImmediate(resolve));
  await r.unregister("qa");
- assert.equal(await t,"cancelled");
+ await assert.rejects(t,error=>error.name==="AbortError");
  await assert.rejects(r.call({id:"qa",capability:"qa.capture"}),/not connected/);
 });

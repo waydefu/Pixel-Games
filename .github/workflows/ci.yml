@@ -26,13 +26,8 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "26"
-      - name: Bootstrap dependency lockfile for migration (temporary)
-        run: npm install --no-audit --no-fund
-      - name: Expose generated lockfile for review (temporary)
-        run: |
-          echo 'LOCKFILE_BEGIN'
-          cat package-lock.json
-          echo 'LOCKFILE_END'
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
       - name: Static, asset, unit, TypeScript and Vite build checks
         run: npm run validate
       - name: Install Chromium browser with system dependencies

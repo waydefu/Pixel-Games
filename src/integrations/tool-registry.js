@@ -58,14 +58,14 @@ export function createToolRegistry({ allowedCapabilities = [] } = {}) {
     if (handler.validateInput && handler.validateInput(input) !== true) throw new TypeError("invalid tool input");
     const controller = new AbortController();
     provider.active.add(controller);
-    let timer, onAbort;
+    let timer, onAbort, onInternalAbort;
     const interrupted = new Promise((_, reject) => {
-      onAbort = () => { controller.abort(); reject(errorNamed("AbortError", "tool call aborted")); };
+      onInternalAbort = () => reject(controller.signal.reason instanceof Error
+        ? controller.signal.reason : errorNamed("AbortError", "tool call aborted"));
+      controller.signal.addEventListener("abort", onInternalAbort, { once: true });
+      onAbort = () => controller.abort(errorNamed("AbortError", "tool call aborted"));
       signal?.addEventListener("abort", onAbort, { once: true });
-      timer = setTimeout(() => {
-        controller.abort();
-        reject(errorNamed("TimeoutError", "tool call timed out"));
-      }, timeoutMs);
+      timer = setTimeout(() => controller.abort(errorNamed("TimeoutError", "tool call timed out")), timeoutMs);
     });
     try {
       if (signal?.aborted) throw errorNamed("AbortError", "tool call aborted");
@@ -79,6 +79,7 @@ export function createToolRegistry({ allowedCapabilities = [] } = {}) {
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
+      controller.signal.removeEventListener("abort", onInternalAbort);
       provider.active.delete(controller);
     }
   }
@@ -86,7 +87,7 @@ export function createToolRegistry({ allowedCapabilities = [] } = {}) {
     const provider = providers.get(id);
     if (!provider) return false;
     providers.delete(id); // revoke new calls before cleanup
-    for (const controller of provider.active) controller.abort();
+    for (const controller of provider.active) controller.abort(errorNamed("AbortError", "provider unregistered"));
     if (provider.dispose) await provider.dispose();
     return true;
   }

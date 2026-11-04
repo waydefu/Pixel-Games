@@ -2,6 +2,16 @@ import { calculateRenderSize, getQualityPreset } from "./quality.js";
 
 // Renderer-neutral lifecycle and drawing-buffer contract. Works with sync WebGL
 // or asynchronously initialized backends. Does not own scene resources or browser loop.
+/**
+ * Renderer-neutral host. The renderer is provided by an authorized adapter.
+ * @param {{
+ *   renderer: any, canvas: any, scene: any, camera: any,
+ *   quality?: string,
+ *   onStatus?: (status: string) => void,
+ *   resizeCamera?: (width: number, height: number) => void,
+ *   restoreResources?: () => Promise<void>
+ * }} options
+ */
 export function createRendererPort({
   renderer, canvas, scene, camera, quality = "balanced", onStatus = () => {},
   resizeCamera = () => {}, restoreResources = async () => {},
