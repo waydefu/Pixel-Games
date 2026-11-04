@@ -13,3 +13,9 @@
 .hint{position:absolute;right:calc(env(safe-area-inset-right,0px) + 25px);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);font:11px ui-monospace,monospace;color:#f4ebd8;letter-spacing:.08em;text-shadow:0 2px 7px #17333a;pointer-events:none}
 .fallback{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:35px;background:#142831}.fallback strong{font-size:21px}.fallback p{max-width:480px;color:#b1c7c6;line-height:1.8}
 @media(pointer:coarse){.joystick{display:flex}.hint{display:none}}@media(max-width:600px){.hud{padding-top:calc(env(safe-area-inset-top,0px) + 14px)}.hud-mark{font-size:10px}.hud-mark small{display:none}.left-status{top:calc(env(safe-area-inset-top,0px) + 59px);font-size:10px}.settings{top:calc(env(safe-area-inset-top,0px) + 62px)}.joystick{left:calc(env(safe-area-inset-left,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}}@media(prefers-reduced-motion:reduce){.settings,.hud-button{backdrop-filter:none}}
+
+.hud-controls{display:flex;gap:9px;align-items:center;pointer-events:auto}
+.hud .view-button{min-width:75px;font-size:12px;white-space:nowrap;padding:0 12px;letter-spacing:.03em;background:rgba(30,57,65,.75)}
+.hud .view-button:hover{background:rgba(46,77,79,.92)}
+@media(pointer:coarse){#stage{touch-action:none}.hud .view-button{min-height:45px;min-width:80px}}
+@media(max-width:390px){.hud .view-button{min-width:68px;padding:0 8px}}

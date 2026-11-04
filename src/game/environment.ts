@@ -36,7 +36,8 @@ export function buildEnvironment(k:StageKit){
       }`,
     fragmentShader:"precision highp float;\nvarying vec2 vUv;\nvarying vec3 vPos;\nuniform float uTime;\nvoid main(){\n  // Interleaved wind-driven ripples instead of flat tinted geometry.\n  float r1=sin(vUv.y*548.0+vUv.x*157.0+\n    sin(vUv.y*67.0-uTime*.34)*3.8+uTime*1.08);\n  float r2=sin(vUv.y*283.0-vUv.x*218.0-uTime*.64);\n  float r3=cos(vUv.y*108.0+vUv.x*88.0+uTime*.32);\n  float shimmer=pow(max(0.0,r1*.64+r2*.27+r3*.09),7.0);\n  float shallow=1.0-smoothstep(.022,.29,vUv.x);\n  vec3 water=mix(vec3(.021,.16,.23),vec3(.12,.38,.41),shallow);\n  water+=r1*.019+r2*.013;\n  water+=shimmer*vec3(.29,.34,.28);\n  // Breakers wrap softly along the irregular stone coast.\n  float foamEdge=1.0-smoothstep(.009,.065,vUv.x);\n  float breaker=sin(vUv.y*174.0+uTime*.9+sin(vUv.y*31.0)*3.0);\n  float foam=pow(max(0.0,breaker*.72+r2*.28),5.0)*foamEdge;\n  water=mix(water,vec3(.75,.83,.73),foam*.82);\n  gl_FragColor=vec4(clamp(water,0.0,1.0),1.0);\n}",
   }));
-  k.flat(100,80,seaMaterial,63,-.20,0);
+  // One continuous water plane extends to the far fjord walls and cinematic horizons.
+  k.flat(278,416,seaMaterial,152,-.20,0);
   // Curved surf edge: tiny sunlit stones and tidal foam ribbons.
   for(let i=0;i<85;i++){
     const z=-33+i*.79;

@@ -9,3 +9,8 @@
 - `src/game/main.ts` 控制唯一玩家入口；`src/rendering/` 為渲染基礎。可重用的 `src/platform/` 與 `src/integrations/`、研究文件與 `.agents/skills/` 必須保留，除非另外核准淘汰。它們不會自動載入遊戲或取得任何 MCP 權限。
 - 改動需獨立 PR；Owner 審查後合併，未授權不更動 Secrets、Pages Source、保護規則或推到 main。
 - `npm ci && npm run validate && npm run test:e2e`；真機測試和人眼美術驗收不能以 CI 通過替代。
+
+
+## 峽灣／第一人稱模組規則
+
+新地形不要塞回 `environment.ts` 的單一平面；高度函數置於 `src/game/terrain-profile.js`，山體生成在 `fjord.ts`。切換視角要透過 `camera.ts` 和 Renderer Port 的 `setCamera()`，不可為每種視角重新初始化 WebGLRenderer。第一人稱移動必須沿既有碰撞規則；右側觸控環視和左側搖桿不可互相搶 pointer。觀景鏡頭與玩家角色位置獨立，不得偷渡自由飛行或未做的山區碰撞。研究資料、ADR 與 Skills 仍需保留。
