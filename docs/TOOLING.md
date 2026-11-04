@@ -18,7 +18,7 @@ CI 只檢驗目前列入的程式，不檢查外部研究結論正確性，也�
 - **Serena**：程式 Symbol 查找；等有足夠 JS/TS 規模並驗證宿主／版本／唯讀權限再加 repo-scoped 設定。
 - **Playwright**：真瀏覽器測試／手機 viewport／截圖／頁面互動；建立第一款遊戲時再固定版本並加 E2E。
 - **Biome／ESLint、TypeScript、Vite**：依遊戲規模挑少數工具，導入時附 lockfile、版本、CI。
-- **PixiJS／Phaser／Three.js**：各自不同的引擎候選，需做同一情境 benchmark 才能選定。
+- **Three.js（優先方向）**：規劃 WebGL2 立體場景＋像素 Sprite／Billboard 的 HD-2D PoC；目前**尚未安裝、未實作、未驗證手機性能**。**PixiJS／Phaser／Canvas2D**：保留 2D 或降級候選，需做相同情境測試並衡量表現與功能差異。
 - **Aseprite、LibreSprite、Tiled、TexturePacker**：素材製作／地圖工具候選；採用前檢查授權、匯出格式及可重現流程。
 - **zizmor／Dependabot／License scanner**：CI 安全加固候選，確認 GitHub 設定與噪音成本後另提 PR。
 - **MCP、向量資料庫、外部 Agent 框架**：暫不需要，不能視研究文字為安裝授權。
