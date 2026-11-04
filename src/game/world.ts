@@ -16,7 +16,7 @@ export function createCoastalWorld() {
   function mat(color:string,roughness=0.96) {
     const key=color+":"+roughness;
     let found=mats.get(key);
-    if(!found){found=scope.track(new THREE.MeshStandardMaterial({color,roughness}));mats.set(key,found);}
+    if(!found){const created=new THREE.MeshStandardMaterial({color,roughness});scope.track(created);mats.set(key,created);found=created;}
     return found;
   }
   function mesh(geometry:THREE.BufferGeometry,color:string,x:number,y:number,z:number, opts:{shadow?:boolean,receive?:boolean}={}) {
