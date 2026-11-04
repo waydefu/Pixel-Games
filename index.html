@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#122631">
-  <meta name="description" content="Pixel-Games 原創海岸探索場景：沉浸式 2.5D 視角技術切片。">
-  <title>Pixel-Games｜海岸探索</title>
+  <meta name="description" content="原創中世紀海岸 HD-2D，探索鋪著石板路的幻想村莊與暖光港灣。">
+  <title>海岸漫遊｜原創 HD-2D 世界</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./src/game/main.ts"></script>
 </head>
@@ -14,7 +14,7 @@
     <canvas id="stage" aria-label="3D 海岸世界，使用方向鍵或 WASD 移動角色"></canvas>
     <div class="screen-shade" aria-hidden="true"></div>
     <div class="hud" aria-live="off">
-      <div class="hud-mark"><span class="hud-dot" aria-hidden="true"></span><span>COASTLINE <small>/ EXPLORATION</small></span></div>
+      <div class="hud-mark"><span class="hud-dot" aria-hidden="true"></span><span>海岸漫遊 <small>/ COASTAL WANDER</small></span></div>
       <button id="menu-toggle" class="hud-button" aria-label="開啟遊戲設定" aria-expanded="false" aria-controls="settings" type="button"><span aria-hidden="true">☰</span></button>
     </div>
     <div class="left-status" id="game-status" role="status" aria-live="polite">正在載入世界…</div>
@@ -25,7 +25,7 @@
       <button id="fullscreen" type="button">進入全螢幕</button>
       <p>WASD／方向鍵：移動　·　Shift：加速<br>手機：拖動左下方搖桿移動。鏡頭採固定斜 45° 的跟隨視角。</p>
       <p class="technical">畫質統計：<span id="metrics">尚未取得資料</span></p>
-      <p class="technical">目前是原創探索原型，不含任務或職業系統。</p>
+      <p class="technical">慢慢走，看看海。這裡沒有必須完成的任務。</p>
     </section>
     <div id="joystick" class="joystick" aria-label="移動搖桿" role="group">
       <div class="joystick-ring" aria-hidden="true"><div id="joystick-knob" class="joystick-knob"></div></div>

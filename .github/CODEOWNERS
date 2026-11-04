@@ -1,7 +1,5 @@
-# Ownership is advisory until Rulesets/review enforcement are configured.
+# Advisory ownership; only a matching Ruleset can enforce reviews.
 * @waydefu
 /.github/ @waydefu
-/AGENTS.md @waydefu
-/.agents/ @waydefu
-/src/platform/ @waydefu
-/docs/decisions/ @waydefu
+/src/game/ @waydefu
+/src/rendering/ @waydefu

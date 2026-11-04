@@ -47,6 +47,7 @@ let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserv
 function mark(state:GameState,message:string){
   diagnostics.status=state;
   status.textContent=message;
+  status.toggleAttribute("hidden",state==="ready");
   if(state==="unsupported"||state==="failed")fallback.hidden=false;
   else fallback.hidden=true;
 }

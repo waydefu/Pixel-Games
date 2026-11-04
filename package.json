@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Three.js-first, extensible pixel game laboratory",
+  "description": "Single-entry original medieval coast HD-2D world",
   "engines": {
     "node": ">=24"
   },
@@ -17,8 +17,7 @@
     "dev": "vite --host 127.0.0.1",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
-    "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build",
-    "graphics:matrix": "node scripts/graphics-matrix.mjs"
+    "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build"
   },
   "dependencies": {
     "three": "0.187.0"

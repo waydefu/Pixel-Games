@@ -1,13 +1,11 @@
-# Pixel-Games Agent 指引
+# Pixel-Games 工程代理
 
-目標：**進入 GitHub Pages 根網址就看到全視窗的原創 2.5D 海岸探索場景**。鏡頭參考《棕色塵埃 2》常見斜上方 Quarter View，但不重用其任何角色／場景資產。遊戲入口已從作品列表改為單頁，未來不得在未授權情況下恢復 Landing Page。
+此儲存庫只有一款原創中世紀海岸 HD-2D 探索遊戲。根目錄 `index.html` 直接進入全畫面；不要增加 landing page、舊地城、平行 prototype、V1/V2 並存目錄。
 
-1. 先讀 [docs/INDEX.md](docs/INDEX.md)、[ADR-0003](docs/decisions/ADR-0003-direct-game-root.md)，再用 git/rg 精確查檔案。
-2. `src/game/` 管理 player input/world/camera，`src/rendering/` 管理渲染契約與品質，`src/integrations/` 是可信 host 的工具 adapter；新增工具不應侵入 gameplay。
-3. 玩家按 `index.html` 直接看到 100dvh 3D 場景。主要操作：WASD／方向鍵及手機搖桿。真正 Fullscreen API 需要使用者點擊觸發，不能假設頁面載入自動隱藏瀏覽器工具列。
-4. 所有外部參考僅作視覺／技術研究，禁止無授權搬用素材、音效、Shader 或原始碼。不要自行新增大型遊戲／任務／職業系統。
-5. `npm ci && npm run validate && npm run test:e2e`，實測結果分 Node/Build/Chromium/真機，不要互相混淆。
-6. 如需更改 Pages、Ruleset、MCP、Secrets、合併 PR 或部署權限，先取得 Owner 明確批准；只在分支開 PR。
-7. 主要技術 Three.js r187 + Vite8 + TS7，固定 lockfile；不要為了追最新盲升版本。
-
-共用 Skills 在 `.agents/skills/`，新畫面要遵守像素清晰、可閱讀、safe-area、碰撞位置與視覺一致。
+- 實作讀 [README](README.md)、[美術規範](docs/ART-DIRECTION.md)、[架構](docs/ARCHITECTURE.md) 即可；過時調研不應留在現行樹。
+- 以 Bells of Evermere 的品質和 HD-2D 技術為參考，不複製其素材、故事、模型、程式。
+- 美術與玩法分層：`src/game/art.ts`、`kit.ts`、`architecture.ts`、`environment.ts`、`world.ts`。不要改用大量互不相關的硬編碼方塊。
+- 不使用不符中世紀設定的球形電燈／現代燈柱，照明採日光、燭光、壁燈與窗光。
+- `src/game/main.ts` 控制唯一輸入與渲染；`src/rendering/` 為共用基礎；遊戲資料不用預設大型 ECS/MCP。
+- 改動需獨立 PR；Owner 審查後合併，未授權不更動 Secrets、Pages Source、保護規則或推到 main。
+- `npm ci && npm run validate && npm run test:e2e`；真機測試和人眼美術驗收不能以 CI 通過替代。

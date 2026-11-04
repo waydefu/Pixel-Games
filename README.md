@@ -1,38 +1,48 @@
-# Pixel-Games｜原創 2.5D 海岸探索
+# Pixel-Games — 原創中世紀海岸 HD-2D
 
-一個以 **Three.js** 建構的原創像素與立體光影探索專案。入口直接顯示**全視窗的遊戲畫面**；沒有作品列表、Landing Page 或獨立實驗室。此階段是可移動的探索垂直切片，還不是包含職業、釣魚、完整 NPC 或存檔的成品。
+只有一個網站入口：**https://waydefu.github.io/Pixel-Games/** 。開啟就進入滿版遊戲，沒有首頁、作品列表、額外 demo 或舊地城版本。
 
-## 玩與測
+這是 **P1-R1 美術重製 PR**：原創像素角色、手作質感材質、木構石牆聚落、瓦片斜屋頂、海岸碼頭、布帆、船隻、林木與暖色黃昏。沒有任何現代式街燈；光源來自日光、壁掛燭燈及窗戶。視角為固定的 Three.js 3/4 Quarter View，WASD／方向鍵與手機虛擬搖桿自由移動。
 
-**公開入口（PR 合併且 Pages 成功部署後）：** https://waydefu.github.io/Pixel-Games/
+目前仍是 **小型可探索視覺切片，不是完整開放世界**；釣魚、NPC 作息、建造、職業、存檔尚未實作。美術以使用者指定的 [Bells of Evermere](https://lumina-static-584822.gitlab.io/game.html?campaign=bells-of-evermere) 作為品質標竿，但**沒有複製其程式、貼圖、角色、劇情或其他作品資產**。來源與美術技術界線見 [ART-DIRECTION](docs/ART-DIRECTION.md)。
 
-- 桌機：WASD 或方向鍵移動，Shift 加速。
-- 手機：左下角虛擬搖桿。
-- 右上角選單：基本／平衡／高畫質、全螢幕、統計。
-- 主要鏡頭：**3/4 Quarter View**、固定方位、Orthographic、平滑跟隨角色；參考《棕色塵埃 2》探索視角的構圖，但使用自製幾何與程式生成角色，**未複製任何原作素材／程式**。
-- 地景：中世紀海岸房屋、道路、碼頭、海面與光影。可以自由走動，沒有任務。
-- 網頁打開就是滿版遊戲畫布；瀏覽器位址列需要使用者按下「進入全螢幕」（或加入主畫面）才能隱藏，Web Fullscreen API 無法在載入時無互動強制啟動。
+## 開發和測試
 
-## 工程
-
-- `src/game/main.ts`：遊戲啟動、動畫影格、場景相機、畫質與 UI。
-- `src/game/world.ts`：原創海岸場景與像素角色。
-- `src/game/input.ts`：鍵盤／觸控搖桿。
-- `src/game/navigation.js`：不依賴 Three.js 的位移、碰撞和海域邊界規則。
-- `src/rendering/`：Three.js 可替換 Renderer Port、資源追蹤、畫質與幀時間。
-- `src/integrations/`：外部工具可接入 Registry（目前不自動安裝 MCP／工具）。
-- 建置：Vite 8、TypeScript 7、Three.js 0.187.0、Node 26 CI，版本鎖定在 `package-lock.json`。
-- Pages：`.github/workflows/deploy-pages.yml` 使用 `dist/` 發布，保持 `base: '/Pixel-Games/'`。
+需要 Node.js 26 LTS（CI；本機 Node >=24）、`npm ci`：
 
 ```sh
 npm ci
-npm run validate      # Syntax + asset + Node test + TS + Vite + bundle
-npm run dev           # 本機遊戲入口
-npm run test:e2e      # Playwright Chromium desktop + mobile viewport
+npm run dev
+npm run validate     # JS syntax + assets + Node tests + TS7 + Vite8 + size budget
+npm run test:e2e     # Chromium desktop / mobile viewport；需先 install Playwright browser
 ```
 
-沒有 WebGL2 會顯示中文 fallback；未真機測試的 POCO Android Chrome、iOS Safari、溫度、電力及 GPU time 仍標 **NOT RUN**。
+GitHub Pages 由 `.github/workflows/deploy-pages.yml` 在經審核合併後進行 `dist/` 部署；不會自動更改 Pages Settings。
 
-文件：[架構](docs/ARCHITECTURE.md) · [入口決策](docs/decisions/ADR-0003-direct-game-root.md) · [品質門檻](docs/QUALITY-GATES.md) · [工具接入](docs/TOOL-INTEGRATIONS.md) · [研究庫](https://github.com/waydefu/Research-)。
+## 現行程式結構
 
-新增職業、釣魚、NPC、可換角色或更大世界時，以獨立功能模組和 PR 擴充；不要又長出一個沒有意義的作品收藏首頁。
+```text
+index.html / styles.css   # 玩家唯一入口與 HUD
+src/game/
+  main.ts                 # 啟動／渲染迴圈／相機／設定
+  world.ts                # 單一原創遊戲場景、角色移動
+  art.ts                  # 程式原創像素材質與角色圖集
+  kit.ts / batch.ts       # 共用建模／靜態物件合批
+  architecture.ts         # 砌石、木構建築、屋瓦與生活道具
+  environment.ts          # 地形、海岸、海水、自然、碼頭、船
+  input.ts / navigation.js# 觸控／鍵盤與可測的碰撞
+src/rendering/             # renderer-port／畫質／資源追蹤
+src/platform/asset-manifest.js
+scripts/                   # 靜態／資產／建置驗證
+tests/ + e2e/             # Unit／Playwright
+.github/workflows/         # CI／Pages deployment
+docs/                     # 美術基準、架構與品質門檻
+```
+
+所有舊首頁、`lab/`、實驗用地城、未使用 platform registry／MCP adapter、舊研究彙總和過期 Agent Skills 已從目前工作樹移除；**Git 歷史仍保存先前提交，可追溯而不污染目前原始碼**。
+
+## 操作
+
+WASD／方向鍵移動，Shift 加速。手機使用左下角搖桿。右上角選單能選擇基本／平衡／高畫質，以及請求瀏覽器全螢幕（瀏覽器不能在頁面載入時自動強制隱藏工具列）。
+
+**驗證邊界：** 桌機／手機 viewport Chromium 成功不等於 Android/iOS 真機及 GPU/熱降頻測試已通過。

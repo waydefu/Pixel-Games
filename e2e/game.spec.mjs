@@ -2,6 +2,11 @@ import { test, expect } from "@playwright/test";
 
 test("visiting root opens full-viewport scene with no landing page",async({page})=>{
   const errors=[];page.on("pageerror",err=>errors.push(err.message));
+  const shaderErrors=[];
+  page.on("console",msg=>{
+    if(msg.type()==="error"&&/Shader Error|WebGLProgram|VALIDATE_STATUS|COMPILE_STATUS/i.test(msg.text()))
+      shaderErrors.push(msg.text());
+  });
   await page.goto("./");
   await expect(page.getByRole("main",{name:/海岸探索/})).toBeVisible();
   await expect(page.locator("#stage")).toBeVisible();
@@ -23,6 +28,7 @@ test("visiting root opens full-viewport scene with no landing page",async({page}
   }else{
     await expect(page.getByRole("alert")).toBeVisible();
   }
+  expect(shaderErrors).toEqual([]);
   expect(errors).toEqual([]);
 });
 test("camera exploration, collision-safe movement and quality menu work",async({page})=>{
