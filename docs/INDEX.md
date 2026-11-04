@@ -13,6 +13,7 @@
 | Three.js 優先決策 | [ADR-0002](decisions/ADR-0002-threejs-priority.md) |
 | 項目來源與研究 | [Research Adoption](RESEARCH-ADOPTION.md) |
 | 第一款遊戲（尚待決定） | [遊戲提案模板](GAME-PROPOSAL-TEMPLATE.md) |
+| 已合併候選企劃（尚非遊戲實作授權） | [海岸自由生活世界提案](prompts/sol6-medieval-coastal-life-world.md) |
 | 路線圖 | [ROADMAP](ROADMAP.md) |
 | GitHub Ruleset／人工權限檢查 | [Branch Protection](governance/BRANCH-PROTECTION.md) |
 | Agent 操作限制 | [AGENTS](../AGENTS.md) |
