@@ -1,91 +1,51 @@
-# Tool Integration Architecture｜讓後續接工具不必重做核心
+# Tool Integrations v0.2｜逐步接入，不污染遊戲核心
 
-狀態：**已加入可執行的能力路由契約與單元測試，沒有接入任何真實第三方程式／MCP server／雲端服務。**
+本 Repo 的 `src/integrations/tool-registry.js` 是**具可測契約的進程內能力路由**；不是 MCP Host、OS 沙盒或自動連接器。工具需由可信宿主明確接入，且實際檔案／網路權限要由宿主執行。
 
-## 目標與邊界
-
-未來可以接入 Tiled、Aseprite／LibreSprite、glTF-Transform、Playwright、Three.js debug tools、GitHub／MCP、Serena 等，但不強迫每個工具使用相同 Runtime，也不因新增工具就改寫 gameplay 或 renderer。工具資料、控制能力和編輯器 UI 應在介面層分開。
+## 能力路由流程
 
 ```text
-外部使用者批准 / trusted host / 宿主真實 ACL
-                          |
-CLI / IDE / CI / Browser Devtools / MCP（各自獨立 adapter）
-                          |
-                Integration adapter
-                   id + version
-                  capabilities + handlers
-                          |
-              src/integrations/tool-registry.js
-                          |
-           Explicit host capability allowlist
-                  /             \
-       assets.inspect       qa.capture        (examples)
-                  |             |
-   asset pipeline / scene tests / QA reports
-                  |
-           core/rendering/game modules
+Human approval / CI policy / trusted host permissions
+             ↓
+  Asset Importer / QA Runner / IDE / MCP adapter
+             ↓
+    register(id, semver, handlers)
+             ↓
+  allowedCapabilities [default deny]
+             ↓
+  validateInput → run(input, {signal}) → validateOutput
+             ↓
+  Timeout / AbortSignal / unregister cancellation
+             ↓
+     caller receives result OR error
 ```
 
-**注意：** 此 registry 不是 security sandbox，`allowedCapabilities` 只防止意外呼叫，無法阻止具 OS 權限的惡意適配器直接存取檔案／網路。真實安全必須由**宿主**限制權限、工具白名單、檔案掛載、憑證和人工審批。不可把 Issue 或外部 JSON 視為批准依據。
+## 已存在的 API
 
-## 穩定契約（已實作）
+`createToolRegistry({ allowedCapabilities })`：
 
-`createToolRegistry({allowedCapabilities})` 建立一個**空、預設拒絕**的 registry。
+- `register({id,version,handlers,dispose})` 註冊 adapter，驗證 namespaced capability、major semantic version；**不會自動讀取硬碟或安裝工具**。
+- `handlers[capability]` 可用函式或 `{run, validateInput, validateOutput}`；validator 必須回傳 `true`（或直接 throw）。這是輕量 runtime 合約，正式複雜 payload 可以讓 adapter 自行使用 Zod/JSON Schema 等，但不要在此硬塞複雜通用 schema 引擎。
+- `call({id,capability,input,signal,timeoutMs,requiredMajorVersion})` 必須在 allowlist 中，檢查提供者、major compatibility、input，然後執行；完成後檢查 output。
+- 每次呼叫預設 `timeoutMs=10000`，可設為 1–60000；caller AbortSignal、逾時與 unregister 都會觸發內部 abort 並拒絕 caller Promise。
+- **JS Promise 無法強制殺掉完全無視 AbortSignal 的 OS 子程序或網路請求**。adapter 必須合作處理 signal；CLI adapter 需要宿主程序管理和隔離。
+- `list()` 和 `providersFor(capability)` 只提供靜態能力清單，不包含 secrets，也不自動選 provider。
+- `unregister(id)`：先停止新呼叫，取消執行中的工具，再呼叫 adapter 自有 dispose()。
 
-- `register({id,version,handlers,dispose?})`：加入可信宿主已顯式載入的工具 adapter，僅登記函式，沒有掃描磁碟、下載 package、啟動伺服器或執行 handler。
-- `list()`：只回傳 id、語義版本、能力名稱，便於檢視；**不包含 credentials 或 handler**。
-- `providersFor("assets.inspect")`：列出實作該能力的 adapters，**不會自動選擇提供者**。
-- `call({id,capability,input})`：由宿主指明提供者與能力，通過 allowlist 才呼叫。未批准、未註冊、不支援、執行失敗一律拋錯。
-- `unregister(id)`：先取消登記再執行 dispose（可為 async），即使 cleanup 失敗也保持 fail-closed。
+## 未來接入工具的正確位置
 
-Capabilities 以小寫命名空間形式命名，例如：`assets.inspect`、`assets.import`、`scene.export`、`qa.capture`、`code.symbols`、`render.metrics`；新增能力不需要修改中央 registry，不使用任意字串執行 shell 指令。正式引入每項能力時要定義 **payload / result schema / error / timeout**。
-
-## 接入新工具的最小示例
-
-```js
-import { createToolRegistry } from "./src/integrations/tool-registry.js";
-
-// 只有可信 host 能制定 allowlist。這只是示例，沒有啟用真實 Tiled。
-const registry = createToolRegistry({ allowedCapabilities: ["assets.inspect"] });
-registry.register({
-  id: "my-tiled-adapter",
-  version: "1.0.0",
-  handlers: {
-    "assets.inspect": async ({ path }) => ({ path, valid: true }),
-  },
-});
-const result = await registry.call({
-  id: "my-tiled-adapter",
-  capability: "assets.inspect",
-  input: { path: "assets/maps/sample.json" },
-});
-await registry.unregister("my-tiled-adapter");
-```
-
-**真工具轉接器必須**處理自身輸入驗證、檔案位置、沙盒、程序 timeout、啟動失敗及權限；上方 `valid: true` 是示範輸出，不是檔案真的通過檢查。正式 Adapter 不得以此 Mock 取代實際檢查。
-
-## 接不同類型工具的方式
-
-| 工具族群 | Adapter 放哪一層 | 什麼時候加 |
+| Tool | Host 層 | 何時接入 |
 | --- | --- | --- |
-| Sprite 編輯器／地圖編輯器（Aseprite、Tiled） | **開發端** assets import/export、schema/授權與 hash 檢查 | 確定素材管線與真正遊戲類型後 |
-| glTF-Transform／KTX2 壓縮 | **建置端**、不輸出到瀏覽器運行程式碼 | 真的有 3D 素材與實測瓶頸後 |
-| Playwright／profiling | **CI／Devtools** browser QA；輸出可追溯報告，不能改 main | PoC 可載入 Three.js 時 |
-| Three.js DevTools／renderer.info | **渲染診斷層**，依賴已選 renderer 的可信介面 | 3D PoC 已啟動後 |
-| Serena／Context7／MCP | **Agent 宿主**，不透過遊戲 runtime 自動啟動；分開設定 read-only、批准與 credential | 有實際價值且審查宿主權限後 |
-| 新玩法或新遊戲 | `games/<slug>`，不是通用 adapter | Owner 核准玩法後 |
+| Tiled／Aseprite／LibreSprite | 開發 CLI、build pipeline；輸出原創 asset manifest | 有被核准的地圖、sprite 工作 |
+| glTF-Transform／KTX2 | CI 或 build adapter；驗證輸入與可回退產物 | 真正有 glTF 模型與尺寸／啟動成本問題 |
+| Playwright | **已直接加入 CI**；測試 runner 不透過遊戲 runtime 的 registry 操作 | 現在的 Three.js 技術場景 |
+| Three.js 觀測工具 | Browser devtools adapter（只讀 performance counters） | 有明確渲染實驗後 |
+| Serena／MCP / 外部 LSP | Agent 宿主；工具憑證與存取界線在 Host | 核准版本、權限與測資後 |
 
-## 後續增加一個 Adapter 的 PR checklist
+## Adapter PR 驗收
 
-1. 說明解決什麼需求、版本、License、資料位置與可替代方案。
-2. 選擇 `devtools`／`build`／`browser-runtime`；**禁止把 CLI/MCP Token 打包到前端**。
-3. 增加 `id`、`version` 與命名空間能力；提供輸入輸出契約、錯誤行為、timeout／取消處理。
-4. 在該工具適用的受信宿主裝配 adapter；不得從 README、Issue、任意 URL 動態載入未審查程式碼。
-5. 補 mock contract test，再加真工具 integration test（若能取得）；註明真正沒跑過的環境。
-6. 更新本文件與工具狀態，工作分支提交 PR；涉及 Secrets、網路服務、安裝、權限或部署另經 Owner 批准。
-
-## 不是目前已完成的事
-
-- 這不是 MCP client、npm plugin loader，也不是自動發現新工具的市場。
-- 尚無 Tiled／Aseprite／Playwright／Serena 的真正 adapter。
-- 目前沒有外部依賴、沒有 tool execution server、沒有自動下載、沒有授權系統或人類確認介面。
+1. 記錄必要性、授權、精確版本、功能與回退，不因看到 Skill 就自動安裝。
+2. 定義 capability、input/output 契約、錯誤、timeout、取消、清理。
+3. 狀態變更與讀取功能要分開權限，不允許工具回傳文字直接升權。
+4. 先跑 mock contract test，再對真正工具做 sandboxed integration test，避免只交成功的 Stub。
+5. 更新本文件與工具狀態；高風險能力保持人類審核與 PR Gate。
