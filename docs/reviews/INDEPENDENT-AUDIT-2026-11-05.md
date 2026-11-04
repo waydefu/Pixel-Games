@@ -31,6 +31,12 @@ PR #7 把「清除舊遊戲實作」誤解為清除 35 份非遊戲資產：研�
 5. **效能**：RAF p95 不等於 GPU time；真機幀率／熱降頻／耗電／GPU context 恢復仍 **NOT RUN**。CI 的 mobile viewport 只驗證瀏覽器模擬尺寸。
 6. **長時間穩定性**：尚沒有完整 10–15 分鐘持續探索、頻繁全螢幕切換及背景恢復的真機證據。
 
+7. **遠距離光照遮蔽**：`environment.ts` 的 directional-light shadow camera 使用固定 `left/right=-26/26`、`top/bottom=-27/27`，而可探索區延伸至 `x=-40`。行走到遠處可能超出 shadow map 覆蓋，需要實機鏡頭／多區域截圖驗收，再決定是否追隨 camera 重設光源目標。
+8. **畫質名義與真正效果不同**：`quality.js` 的 high preset 宣告 `postprocess:true`，目前 `main.ts` 未建置 Composer／DoF/Bloom pipeline，實際差異主要是 DPR、像素預算和陰影。不能宣稱「High 已有高階後製」。
+9. **操作測試缺口**：Playwright 的 mobile viewport 目前仍用鍵盤測移動，尚未檢查搖桿長按拖動、多指觸控、pointercancel、畫面旋轉與背景恢復。真手機控制不能用鍵盤測試替代。
+10. **水面幾何限制**：目前海水使用少量三角面的平面與 Shader 製作紋理波紋，非真正具高密度起伏、動態反射或海浪物理；不能當作高規格海洋已完成。
+
+
 ## D. 驗收邊界
 
 本 PR 需完成 Node 單元測試、TS7、Vite、資產與 Playwright desktop/mobile viewport 驗證。若 CI 通過僅代表這些自動化關卡成功；**不等於視覺達標、正式部署或真機完成**。維持 PR/CI/Owner 審查與既有 Pages 部署流程，不自行改 main。
