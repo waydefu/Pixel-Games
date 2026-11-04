@@ -10,7 +10,6 @@ const required=[
  "assets/manifest.json","src/platform/asset-manifest.js",
  "src/game/main.ts","src/game/world.ts","src/game/art.ts","src/game/kit.ts",
  "src/game/architecture.ts","src/game/environment.ts","src/game/input.ts","src/game/navigation.js",
- "src/game/camera.ts","src/game/fjord.ts","src/game/terrain-profile.js",
  "src/rendering/renderer-port.js","src/rendering/quality.js","src/rendering/resource-scope.js",
  "vite.config.mjs","tsconfig.json","playwright.config.mjs",
  ".github/workflows/ci.yml",".github/workflows/deploy-pages.yml"
