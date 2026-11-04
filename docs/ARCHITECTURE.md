@@ -36,3 +36,10 @@ Vite + TypeScript → dist/index.html → GitHub Pages Actions
 - 真機散熱、GPU time、遮擋、畫質與對照遊戲視覺差距仍需另行驗收。
 
 參見 [現行文件索引](INDEX.md)、[程式審查](reviews/INDEPENDENT-AUDIT-2026-11-05.md) 及 [歷史 Three.js 研究](research/THREEJS-ENGINEERING-2026-11-04.md)。
+
+
+## P1-R2 景觀／鏡頭分離（待 PR 合併）
+
+`src/game/terrain-profile.js` 是可單測的 deterministic 峽灣高度函數。 `fjord.ts` 生成遠景山脈、兩側山壁與天空穹頂，與聚落美術/碰撞互不侵犯。這些**山脈目前不是玩家可步行地形**，不能將透視觀景鏡頭當作登山系統。
+
+`camera.ts` 同時管理正交斜角與透視攝影機，`renderer-port.js` 用 `setCamera()` 更換活動攝影機，避免重建 WebGLRenderer。第一人稱移動跟隨 yaw，碰撞仍走現有 `navigation.js`，視角向量不改變世界碰撞規則。手機的右側拖曳負責環視，左側虛擬搖桿負責移動。觀景模式為獨立高處攝影機，禁止誤讓玩家角色瞬移過去。

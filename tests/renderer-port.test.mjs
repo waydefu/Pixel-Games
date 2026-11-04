@@ -24,6 +24,21 @@ test("generic port awaits async initialize and draw",async()=>{
  await host.dispose();
  assert.equal(host.state,"disposed");
 });
+test("camera switching follows active projection without recreating renderer",async()=>{
+ const {host,renderer}=setup();
+ const cameras=[];
+ renderer.render=(_,cam)=>cameras.push(cam);
+ await host.initialize();
+ const first={updateProjectionMatrix(){}},quarter={updateProjectionMatrix(){}};
+ host.setCamera(first);
+ await host.draw();
+ host.setCamera(quarter);
+ await host.draw();
+ assert.deepEqual(cameras,[first,quarter]);
+ assert.throws(()=>host.setCamera(null),TypeError);
+ await host.dispose();
+ assert.throws(()=>host.setCamera(first),/disposed/);
+});
 test("sync WebGL backend also uses same port and quality can change",async()=>{
  const {host,calls}=setup();
  await host.initialize();host.resize(300,200,2);
