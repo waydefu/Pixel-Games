@@ -10,6 +10,7 @@
 | 測試與效能／手機驗收 | [QUALITY-GATES](QUALITY-GATES.md) |
 | 圖像、音效、授權與來源 | [ASSET-POLICY](ASSET-POLICY.md) |
 | 準備第一款遊戲 | [GAME-PROPOSAL-TEMPLATE](GAME-PROPOSAL-TEMPLATE.md) |
+| 第一款遊戲候選：中世紀海岸生活開放世界（GPT-6 Sol 規劃提示詞；**待審，非實作授權**） | [SOL6-COASTAL-LIFE](prompts/sol6-medieval-coastal-life-world.md) |
 | 後續階段和交付定義 | [ROADMAP](ROADMAP.md) |
 | Agent 安全界線 | [AGENTS](../AGENTS.md) |
 | 改動流程 | [PR template](../.github/pull_request_template.md) |
