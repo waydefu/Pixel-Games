@@ -20,6 +20,7 @@
 | GitHub Pages 發布 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
 | 本輪獨立程式審查 | [AUDIT-2026-11-05](reviews/INDEPENDENT-AUDIT-2026-11-05.md) |
 | **P1 視覺品質整合主報告（唯一現行研究入口）** | [VISUAL-QUALITY-INTEGRATED-RESEARCH](reviews/P1-VISUAL-QUALITY-INTEGRATED-RESEARCH-2026-11-05.md) |
+| **G3～G6 四張場景參考的美術驗收補充** | [CINEMATIC-REFERENCE-BRIEF](reviews/P1-CINEMATIC-FOUR-REFERENCE-ART-BRIEF-2026-11-05.md) |
 
 > 執行順序／狀態只維護在 P1 超進化總計畫；研究報告保留技術證據，踩坑紀錄保留可重現的教訓，不建立平行待辦。
 
