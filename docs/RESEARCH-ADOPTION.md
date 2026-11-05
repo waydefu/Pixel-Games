@@ -27,3 +27,14 @@
 - 已引入正式 npm 套件 Three.js/Vite/TypeScript/Playwright，但沒有引入上游遊戲圖片、音樂、Shader 或第三方模型；每項新資產仍須核對授權。
 
 關於時效：表格是 2026-11-04 的研究採納快照，官方功能、版本與授權需在實際使用前重新查證。
+
+## 2026-11-05｜正式採用 Three.js r187 官方後製與天空元件
+
+| 模組 | 上游來源、許可／版本 | 本次用途與保留差異 |
+| --- | --- | --- |
+| `EffectComposer`、`RenderPass`、`UnrealBloomPass`、`ShaderPass`、`OutputPass` | [mrdoob/three.js r187](https://github.com/mrdoob/three.js/tree/r187/examples/jsm/postprocessing)，Three.js 官方 **MIT License**；與本 repo 相同套件 `three@0.187.0` | 直接 `three/addons/...` 引入，未複製其原始碼；組合高亮閾值 HDR Bloom、可控的斜角焦平面 DoF。品質 basic／balanced 直出；額外 render targets 的成本由測試評估 |
+| `Sky`（Preetham daylight atmosphere） | [mrdoob/three.js r187 / Sky.js](https://github.com/mrdoob/three.js/blob/r187/examples/jsm/objects/Sky.js)，Three.js 官方 **MIT License** | 替換初版的手搓顏色漸層，採用單一 sun 方向和 Rayleigh/Mie 散射；關閉 Sky 內建獨立雲噪聲，保留 Pixel-Games **共用雲場**做可見雲和山坡雲影，避免「天空雲與地上雲影不同步」 |
+| HDR 燈塔發光 | 自有 `harbour-beacon.ts` | 只改原創石造地標 emissive 值，保留原樣板，Bloom 不靠增加對整片海面的昂貴反射 |
+| 業界其他 WebGPU 物理天空 | [pmndrs/sky](https://github.com/pmndrs/sky)（WebGPU 專用，非本輪依賴） | **僅研究，不採用**：現有手機 WebGL2 專案，切換 WebGPU 渲染器會放大相容性與風險；官方 Sky 是更直接的成熟路線 |
+
+**源頭驗收**：官方 API 規格為可採用依據；真正畫面請看 PR #20 six-shot A/B，不能把 Three.js 官方元件「能編譯」當成遊戲美術已達標。
