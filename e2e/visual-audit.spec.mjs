@@ -13,8 +13,10 @@ test("canonical visual audit URL uses the real game and a fixed camera pose",asy
   });
   await page.goto("./?visualShot=shot-02-first-wall");
   await page.waitForFunction(()=>["ready","unsupported","failed"].includes(window.__pixelGame?.read().status),null,{timeout:22000});
+  if((await page.evaluate(()=>window.__pixelGame.read().status))==="unsupported")return; // Headless WebGL2 might be unavailable.
+  // Ready may be signalled before the first RAF updates camera diagnostics.
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("first");
   const d=await page.evaluate(()=>window.__pixelGame.read());
-  if(d.status==="unsupported")return; // Headless WebGL2 might be unavailable.
   expect(d.status).toBe("ready");
   expect(d.visualShot).toBe("shot-02-first-wall");
   expect(d.camera).toBe("first");
