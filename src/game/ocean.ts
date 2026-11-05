@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
-import { SUN_DIRECTION } from "./environment-state.js";
+import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
 
 // WebGL2 production fallback: camera-space Fresnel, analytic Gerstner-style
 // directional wave normal, coherent shoreline foam and a sky-light surrogate.
@@ -10,6 +10,7 @@ export function createCoastalWater(k:StageKit) {
     ...THREE.UniformsLib.fog,
     uTime:{value:0},
     uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+    uHorizon:{value:new THREE.Vector3(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
   };
   const material=k.scope.track(new THREE.ShaderMaterial({
     uniforms,transparent:false,depthWrite:true,side:THREE.DoubleSide,fog:true,
@@ -47,6 +48,7 @@ export function createCoastalWater(k:StageKit) {
       varying vec3 vNormal;
       varying float vDist;
       uniform vec3 uSunDirection;
+      uniform vec3 uHorizon;
       #include <fog_pars_fragment>
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){
@@ -59,14 +61,15 @@ export function createCoastalWater(k:StageKit) {
         vec3 n=normalize(vNormal);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         float depth=smoothstep(0.0,34.0,vDist);
-        vec3 shallow=vec3(.024,.195,.195),deep=vec3(.006,.073,.13);
+        vec3 shallow=vec3(.038,.212,.202),deep=vec3(.018,.088,.142);
         vec3 water=mix(shallow,deep,depth);
         // As a WebGL2 fallback, reflection includes a simple analytic sky tint,
         // not a falsely claimed SSR or world-space environment probe.
         vec3 reflected=reflect(-v,n);
-        vec3 sky=mix(vec3(.16,.30,.36),vec3(.055,.23,.39),
-          clamp(reflected.y*.75+.3,0.0,1.0));
-        water=mix(water,sky,clamp(f*.57+.06,0.0,.60));
+        float skyHeight=clamp(reflected.y*.70+.30,0.0,1.0);
+        vec3 sky=mix(uHorizon*.58,vec3(.11,.31,.46),
+          pow(skyHeight,.70));
+        water=mix(water,sky,clamp(f*.66+.09,0.0,.67));
         float glint=pow(max(0.0,dot(reflect(-normalize(uSunDirection),n),v)),96.0);
         water+=vec3(.49,.39,.25)*glint*.38;
         // Fine irregular wind highlights depend on world coordinates, not

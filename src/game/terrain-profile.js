@@ -31,3 +31,12 @@ export function fjordHeight(x,z,region) {
   return height;
 }
 export function coastX(z) {return 13.3+Math.sin(z*.13)*.65+Math.sin(z*.37)*.22;}
+
+// Geometry-aligned height for decorative forest instances. Keep this displacement
+// identical to the highland crest modification in fjord.ts; no floating trees.
+export function fjordSurfaceHeight(x,z,region){
+  const base=fjordHeight(x,z,region)-.16;
+  const exposure=Math.min(1.75,Math.max(0,(base-9)/30));
+  const crack=Math.sin(x*.145+Math.sin(z*.046)*2.1)*Math.cos(z*.17-x*.033);
+  return base+exposure*crack;
+}

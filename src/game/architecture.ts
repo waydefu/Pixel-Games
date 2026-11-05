@@ -61,6 +61,18 @@ export function buildVillage(k:StageKit){
       [x+ww,roofY-.12,z+depth],[x,roofY+rise,z+depth]
     ],roofMaterial);
     left.castShadow=right.castShadow=true;
+    // Tiled course relief: deliberately inexpensive static geometry, preserving
+    // the existing per-house painted pixel roof and its actual gable cut-outs.
+    const courseTrim=k.solid(roof==="thatch"?"#726446":roof==="blue"?"#455b63":"#744c42");
+    for(const side of [-1,1]){
+      for(let row=1;row<=5;row++){
+        const t=row/6;
+        const px=x+side*ww*(1-t);
+        const py=roofY-.12+(rise+.12)*t+.045;
+        k.segment(new THREE.Vector3(px,py,z-depth),
+          new THREE.Vector3(px,py,z+depth),.038,courseTrim,5);
+      }
+    }
     k.segment(new THREE.Vector3(x,roofY+rise+.07,z-depth),
       new THREE.Vector3(x,roofY+rise+.07,z+depth),.095,k.solid("#5d4740"),6);
     // Gable is a ShapeGeometry with a real cut-out, not a texture masking a solid wall.
@@ -180,6 +192,11 @@ export function buildVillage(k:StageKit){
     {x:1,z:13.1,w:6.2,d:6.1,h:4.5,roof:"red",seed:5,name:"fishmonger"},
     {x:-24,z:-11,w:6.0,d:5.7,h:4.1,roof:"blue",seed:6,name:"residence"},
     {x:-26,z:12,w:6.7,d:6.1,h:4.7,roof:"thatch",seed:7,name:"residence"},
+    // G3 hero block: a varied set of real structures, not image billboards.
+    {x:8,z:-15,w:4.3,d:4.3,h:3.8,roof:"red",seed:8,name:"residence"},
+    {x:2,z:-25,w:4.8,d:4.3,h:4.0,roof:"blue",seed:9,name:"residence"},
+    {x:-8,z:26,w:5.1,d:4.4,h:4.2,roof:"thatch",seed:10,name:"residence"},
+    {x:-33,z:27,w:4.6,d:4.2,h:3.7,roof:"red",seed:11,name:"residence"},
   ];
   for(const h of houses)buildHouse(h);
   // Street furniture and everyday medieval use, outside the accessible promenade.

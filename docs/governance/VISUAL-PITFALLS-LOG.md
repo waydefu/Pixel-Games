@@ -126,6 +126,25 @@
 - **紀錄**：PR [#12](https://github.com/waydefu/Pixel-Games/pull/12) 已將外部研究整合成唯一研究入口、原始報告標「已整合」；PR [#13](https://github.com/waydefu/Pixel-Games/pull/13) 保留 HD-2D 補充而非開第二套主報告。
 - **教訓**：**研究入口 ≠ 工作排程入口**。今天 G1～G6 只在 [唯一總計畫](../plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md) 管理，修改 roadmap 僅指向它；保留歷史，不刪有用證據。
 
+### PV-028｜新增塔樓的外觀基座半徑與碰撞半徑不符
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #18，仍待實際鏡頭 A/B）。
+- **現象**：G3 最初燈塔台基 Cylinder 半徑約 3.5m，碰撞半徑只有 2.85m，玩家可能走入基座。周向窗洞的玻璃板朝向也未對齊圓柱切線。
+- **證據**：`src/game/harbour-beacon.ts` 中 `CylinderGeometry(3.1,3.5,.86,12)`、最初 `BEACON_SITE.radius=2.85`；窗片最初 `pane.rotation.y=-angle`。這是程式級核實，未聲稱已親眼看到穿模。
+- **修正**：將 authored collider 半徑調到 3.60m，塔樓高度 metadata 與頂端屋頂實高對齊；窗片改 `Math.PI/2-angle` 方向，加入對應回歸測試。
+- **驗收限制**：CI 待跑、G2 六視角 PNG 待核、第一人稱實際碰撞與 POCO F8 Ultra 真機 **NOT RUN**。
+
+### PV-029｜移動地形高度實作後，測試仍檢查舊檔位置
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #18 G3-E，CI 測試位置修正）。
+- **現象／證據**：地形表面位移由 `fjord.ts` 抽到 `terrain-profile.js` 的 `fjordSurfaceHeight()`，舊 `tests/hero-visual.test.mjs` 仍從原 `fjord.ts` 尋找 `const crack=Math.sin`，導致 GitHub Actions 靜態／單測紅燈。這不等於已證實的渲染錯誤，但會阻斷所有後續驗收。
+- **修法**：測試改查共用高度來源，保留 `fjord.ts` 的實際引用與山體岩色契約；新增 `tests/environment-evolution.test.mjs`，驗證地形高度有界、山林坡度過濾、雲影接線、輕量海面限制。
+- **驗收**：最終 HEAD CI／六視角 shader 啟動 **須重新 PASS**，不能沿用先前 commit 的綠燈。
+
+### PV-030｜增加山林與雲影後，畫面看似好看卻讓行動端超出預算
+- **類型／狀態**：`RISK / RISK-UNVERIFIED`（PR #18 G3-E）。
+- **證據**：G2 與初版 G3-E 的 desktop Chromium 固定峽灣鏡頭，draw calls 從 201 增至 265，三角形約從 21.9 萬升至 36.0 萬；SwiftShader 的 RAF p95 不可拿來當真機幀率／GPU time。
+- **目前處理**：以 `THREE.InstancedMesh` 的山體分區、坡度遮罩、單份 128px 雲場取樣，不加新雲 Pass；減少灌木細分，建立 `basic/balanced/high` 的山林完整樹木與海岸草叢密度梯度（prefix count 保證樹冠不離開樹幹）。
+- **驗收要求**：重新取得 G2 相機同條件 PNG、draw calls/triangles、Shader error；不同畫質檔各記數據。POCO F8 Ultra 真機 60FPS／熱測仍 **NOT RUN**，不得宣稱預算足夠。
+
 ## 3. 尚未發生、但 G4／G5／G6 要先防的高風險
 
 | ID | 類型／狀態 | 可能踩坑 | 防護措施與可證實的驗收 |
@@ -153,7 +172,7 @@
 ## 5. 複製後即可使用的踩坑回填模板
 
 ```md
-### PV-028｜<精確標題>
+### PV-031｜<精確標題>
 - 類型／狀態：CODE-VERIFIED | HISTORY | RISK | DECISION / OPEN | RESOLVED-CODE | RISK-UNVERIFIED | NEEDS-VERIFY
 - 發現日期／相關 PR／檔案與 HEAD SHA：
 - 觸發前提：裝置、瀏覽器、畫質、DPR、鏡頭、seed、時間、操作
