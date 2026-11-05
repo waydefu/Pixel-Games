@@ -12,24 +12,38 @@ const layouts:Record<Region,Extent>={
 };
 function makeMass(scope:StageKit["scope"],region:Region,e:Extent){
   const verts:number[]=[];const colors:number[]=[];const indexes:number[]=[];
-  const grass=new THREE.Color("#526e51"),moss=new THREE.Color("#708666");
-  const rock=new THREE.Color("#69766d"),ridgeRock=new THREE.Color("#9a9c8e");
+  // Muted cool granite, darker fracture lines and lighter wind-worn ledges.
+  // Prebaked vertex colors cost no additional fragment shader texture reads.
+  const grass=new THREE.Color("#526e51"),moss=new THREE.Color("#687e6d");
+  const rock=new THREE.Color("#63747c"),ridgeRock=new THREE.Color("#99a3a2");
+  const fracture=new THREE.Color("#394a54"),weathered=new THREE.Color("#b4b7ae");
   const scratch=new THREE.Color();
   const dx=(e.x1-e.x0)/e.columns,dz=(e.z1-e.z0)/e.rows;
   for(let j=0;j<=e.rows;j++)for(let i=0;i<=e.columns;i++){
     const x=e.x0+dx*i,z=e.z0+dz*j;
-    const y=fjordHeight(x,z,region)-.16;
+    const base=fjordHeight(x,z,region)-.16;
+    // Small geometric creases on exposed mountainous terrain only. The fjord
+    // channel/shoreline remains exactly at its existing coastline elevation.
+    const exposure=Math.min(1.75,Math.max(0,(base-9)/30));
+    const crack=Math.sin(x*.145+Math.sin(z*.046)*2.1)*Math.cos(z*.17-x*.033);
+    const y=base+exposure*crack;
     verts.push(x,y,z);
     const h=Math.max(0,y),l=(Math.sin(x*.21+z*.13)*Math.cos(z*.19-x*.14)+1)*.5;
     const slope=Math.hypot(
       fjordHeight(x+1.5,z,region)-fjordHeight(x-1.5,z,region),
       fjordHeight(x,z+1.5,region)-fjordHeight(x,z-1.5,region))/3.0;
-    scratch.copy(grass).lerp(moss,.19+.36*l);
-    const stoneFraction=Math.min(.83,Math.max(0,(h-37)/80+slope*.055));
-    scratch.lerp(rock,stoneFraction);
-    scratch.lerp(ridgeRock,Math.min(.4,Math.max(0,(h-77)/90)));
-    const strata=Math.sin(h*.46+x*.09+z*.06)*.028;
-    scratch.multiplyScalar(.92+l*.11+strata);
+    scratch.copy(grass).lerp(moss,.12+.34*l);
+    const exposureRock=Math.min(.96,Math.max(0,(h-19)/60+slope*.25));
+    scratch.lerp(rock,exposureRock);
+    scratch.lerp(ridgeRock,Math.min(.34,Math.max(0,(h-61)/90)));
+    // Broken mineral bands follow elevation and geological flow, not UV strips.
+    const band=Math.sin(h*.68+Math.sin(x*.063+z*.051)*2.2);
+    const fissure=Math.pow(Math.max(0,band),5);
+    scratch.lerp(fracture,exposureRock*(.08+.30*fissure));
+    const ledge=Math.pow(Math.max(0,-band),6);
+    scratch.lerp(weathered,exposureRock*.24*ledge);
+    const mineralNoise=Math.sin(x*.12+z*.18)*Math.cos(z*.19-x*.08);
+    scratch.multiplyScalar(.90+l*.10+mineralNoise*.065);
     colors.push(scratch.r,scratch.g,scratch.b);
   }
   for(let j=0;j<e.rows;j++)for(let i=0;i<e.columns;i++){
