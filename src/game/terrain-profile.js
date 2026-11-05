@@ -11,9 +11,23 @@ export function fjordHeight(x,z,region) {
     case "south":distance=((-z)-(90+13*Math.sin(x*.031)+5*Math.sin(x*.072)))/82;break;
     default:throw new RangeError("Unknown terrain region");
   }
-  const slope=Math.pow(clamp01(distance),1.12);
-  const summit=28+57*ridge(x,z)+24*Math.abs(wave(x,z));
-  const small=3.1*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
-  return Math.max(0,slope*(summit+small));
+  const approach=clamp01(distance);
+  // Rounded piedmont avoids the old nearly vertical wall immediately outside town.
+  const slope=Math.pow(approach,1.60)*(1.12-.12*approach);
+  const summit=24+56*ridge(x,z)+18*Math.abs(wave(x,z));
+  const small=2.9*(Math.sin(x*.38+z*.22)+Math.sin(x*.24-z*.33));
+  let height=Math.max(0,slope*(summit+small));
+  if(region==="east"){
+    if(x<72)return height; // Outside authored eastern terrain, do not excavate the sea bed.
+    // A sea channel bends between the ridges instead of a solid mountain wall
+    // blocking the entire horizon. Its bed stays UNDER the water plane.
+    const channelZ=8-(x-72)*.34+6*Math.sin(x*.028);
+    const d=Math.abs(z-channelZ);
+    const bank=clamp01((d-29)/34);
+    const raisedBank=bank*bank*(3-2*bank);
+    const seabed=-5; // No raised green strip blocking the fjord channel.
+    height=height*raisedBank+seabed*(1-raisedBank);
+  }
+  return height;
 }
 export function coastX(z) {return 13.3+Math.sin(z*.13)*.65+Math.sin(z*.37)*.22;}

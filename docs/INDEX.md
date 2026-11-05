@@ -17,9 +17,11 @@
 | GitHub 分支保護 | [BRANCH-PROTECTION](governance/BRANCH-PROTECTION.md) |
 | GitHub Pages 發布 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
 | 本輪獨立程式審查 | [AUDIT-2026-11-05](reviews/INDEPENDENT-AUDIT-2026-11-05.md) |
-| HD-2D 視覺差距與後續技術規劃（提案） | [VISUAL-TECH-PLAN-2026-11-05](reviews/HD2D-VISUAL-TECH-PLAN-2026-11-05.md) |
+| **P1 視覺品質整合主報告（唯一現行研究入口）** | [VISUAL-QUALITY-INTEGRATED-RESEARCH](reviews/P1-VISUAL-QUALITY-INTEGRATED-RESEARCH-2026-11-05.md) |
 
 ## 研究與歷史決策（保留原文、不直接當現行程式）
+
+> P1 外部研究的兩份初稿已在主報告末尾列出並保留原文，不再於此重複列為現行規範。
 
 | 類型 | 文件 |
 | --- | --- |
