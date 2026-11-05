@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildMountainForest } from "./mountain-forest.js";
+import { applyAerialPerspective } from "./aerial-perspective.js";
 import type { CloudField } from "./cloud-field.js";
 import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
 import type { StageKit } from "./kit.js";
@@ -59,6 +60,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     vertexColors:true,flatShading:false,roughness:1,metalness:0,side:THREE.DoubleSide,
   }));
   cloudField.applyToMaterial(regionMaterial);
+  applyAerialPerspective(regionMaterial,{valleyBoost:.62,sunWarmth:.22});
   const peaks:THREE.Mesh[]=[];
   const forests:ReturnType<typeof buildMountainForest>[]=[];
   for(const [index,region] of (["mainland","east","north","south"] as const).entries()){
@@ -71,7 +73,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // of translucent planes or an expensive volumetric march on mobile.
   const skyUniforms={
     ...cloudField.uniforms,
-    uTime:{value:0},uCloudAmount:{value:1.0},
+    uTime:{value:0},uCloudAmount:{value:1.0},uCloudDetailLevel:{value:1},
     uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
     uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
   };
@@ -102,6 +104,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       varying vec3 vRay;
       uniform float uTime;
       uniform float uCloudAmount;
+      uniform float uCloudDetailLevel;
       uniform sampler2D uCloudMap;
       uniform vec2 uCloudWind;
       uniform float uCloudSpan;
@@ -121,8 +124,21 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float cumulus=smoothstep(.39,.56,low);
         float cirrus=smoothstep(.52,.71,
           texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
+        // VIPER-style optical integration, adapted for the mobile WebGL2
+        // budget: one density layer on Basic, two on Balanced, three on High.
+        // No high-cost 500-step volumetric march or separate cloud-shadow pass.
+        float stacked=0.0;
+        if(uCloudDetailLevel>0.5){
+          float middle=texture2D(uCloudMap,cloudUV+ray.xz*.018+vec2(.013,-.019)).r;
+          stacked+=smoothstep(.41,.59,middle)*.53;
+          if(uCloudDetailLevel>1.5){
+            float top=texture2D(uCloudMap,cloudUV-ray.xz*.024+vec2(-.028,.011)).r;
+            stacked+=smoothstep(.43,.63,top)*.38;
+          }
+        }
         float mask=smoothstep(-.04,.055,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
-        float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.96);
+        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount;
+        float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
         // Cloud edge self-shading: sample the same cloud field in sunlight's
         // projected direction. Bright rims stay local instead of whitewashing sky.
         vec3 underside=vec3(.31,.42,.56),lit=vec3(1.12,1.07,.96);
@@ -149,5 +165,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     skyUniforms.uTime.value=time;
     physicalUniforms.time.value=time;
   }
-  return {peaks,forests,sky:physicalSky,clouds:cloudDome,update};
+  function setSkyQuality(quality:"basic"|"balanced"|"high"){
+    skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
+  }
+  return {peaks,forests,sky:physicalSky,clouds:cloudDome,update,setSkyQuality};
 }
