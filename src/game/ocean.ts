@@ -61,9 +61,10 @@ export function createCoastalWater(k:StageKit) {
         vec3 n=normalize(vNormal);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         // Reference palette: pale aqua over sand at the shore -> vivid turquoise -> deep cobalt.
-        vec3 pale=vec3(.50,.86,.80),turquoise=vec3(.020,.56,.60),cobalt=vec3(.004,.15,.40);
-        vec3 water=mix(pale,turquoise,smoothstep(0.5,9.0,vDist));
-        water=mix(water,cobalt,smoothstep(14.0,95.0,vDist));
+        vec3 pale=vec3(.42,.72,.68),turquoise=vec3(.045,.46,.52),cobalt=vec3(.008,.17,.36);
+        // Narrow pale shallows; the deeper colours take over quickly so the bay reads as sea, not a lagoon.
+        vec3 water=mix(pale,turquoise,smoothstep(0.3,2.4,vDist));
+        water=mix(water,cobalt,smoothstep(3.5,32.0,vDist));
         // As a WebGL2 fallback, reflection includes a simple analytic sky tint,
         // not a falsely claimed SSR or world-space environment probe.
         vec3 reflected=reflect(-v,n);
@@ -82,7 +83,7 @@ export function createCoastalWater(k:StageKit) {
         vec2 cp=vWorld.xz*2.1;
         float cA=noise(cp+vec2(uTime*.21,uTime*.13)),cB=noise(cp*1.3-vec2(uTime*.17,uTime*.23)+4.7);
         float caustic=pow(clamp(1.0-abs(cA-cB)*5.5,0.0,1.0),5.0);
-        water+=vec3(.55,.75,.62)*caustic*(1.0-smoothstep(2.0,22.0,vDist))*.38;
+        water+=vec3(.50,.68,.58)*caustic*(1.0-smoothstep(1.5,10.0,vDist))*.30;
         float shoreline=(1.0-smoothstep(.0,2.65,vDist))*(1.0-smoothstep(34.0,48.0,abs(vWorld.z)));
         float moving=sin(vWorld.z*.85+uTime*1.8+noise(vWorld.xz*.5)*5.0);
         float foam=shoreline*smoothstep(.45,.76,

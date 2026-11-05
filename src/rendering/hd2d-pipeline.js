@@ -236,10 +236,10 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
     composite: fullscreenMaterial(COMPOSITE_FRAG, {
       tScene: { value: null }, tBloom: { value: null }, tDof: { value: null },
       uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uBloomStrength: { value: 0.42 },
-      uExposure: { value: 1.0 }, uSaturation: { value: 1.04 }, uContrast: { value: 1.04 },
-      uVignette: { value: 0.30 }, uGrain: { value: 0.022 }, uTime: { value: 0 },
-      uShadowTint: { value: new THREE.Vector3(0.93, 0.98, 1.07) },
-      uHighlightTint: { value: new THREE.Vector3(1.07, 1.01, 0.91) },
+      uExposure: { value: 1.0 }, uSaturation: { value: 0.93 }, uContrast: { value: 0.98 },
+      uVignette: { value: 0.22 }, uGrain: { value: 0.016 }, uTime: { value: 0 },
+      uShadowTint: { value: new THREE.Vector3(0.965, 0.99, 1.03) },
+      uHighlightTint: { value: new THREE.Vector3(1.03, 1.0, 0.96) },
     }),
   };
 

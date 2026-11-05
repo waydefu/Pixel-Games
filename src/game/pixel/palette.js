@@ -6,7 +6,7 @@
 export const OUTLINE = "#140f17"; // plum-black, never pure black
 
 export const PALETTE = Object.freeze({
-  grass:    Object.freeze(["#12302f","#1b4435","#285a38","#386f39","#4c853c","#669c43","#86b350","#a9c872"]),
+  grass:    Object.freeze(["#1a3430","#25463a","#33593c","#456c3e","#587f43","#6f944c","#8aa95d","#a9bf7e"]),
   grassDry: Object.freeze(["#2b3a2e","#41503a","#5f6a40","#7f8447","#a09a54","#bdb065","#d8c780","#efdfa3"]),
   foliage:  Object.freeze(["#0d2420","#143a2d","#1f5333","#2f6c38","#44853f","#62a049","#88ba57","#b3d377"]),
   pine:     Object.freeze(["#0a1f27","#10322f","#194a36","#26623a","#387b3f","#4f9546","#73ad52","#9ec675"]),
