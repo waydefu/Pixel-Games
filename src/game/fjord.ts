@@ -70,7 +70,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // of translucent planes or an expensive volumetric march on mobile.
   const skyUniforms={
     ...cloudField.uniforms,
-    uTime:{value:0},uCloudAmount:{value:.92},
+    uTime:{value:0},uCloudAmount:{value:1.0},
     uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
     uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
   };
@@ -105,8 +105,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       void main(){
         vec3 ray=normalize(vRay);
         float h=clamp(ray.y,0.0,1.0); // Match fog at the true geometric horizon.
-        vec3 horizon=uHorizon,zenith=vec3(.13,.39,.63);
-        vec3 sky=mix(horizon,zenith,pow(h,1.16));
+        vec3 horizon=uHorizon,zenith=vec3(.16,.34,.61);
+        vec3 sky=mix(horizon,zenith,pow(h,.78));
         vec3 sunDir=normalize(uSunDirection);
         float sun=max(0.0,dot(ray,sunDir));
         sky+=vec3(.32,.18,.075)*pow(sun,24.0);
@@ -117,14 +117,14 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.11,ray.y);
         vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
         float low=texture2D(uCloudMap,cloudUV).r;
-        float cumulus=smoothstep(.405,.625,low);
-        float cirrus=smoothstep(.58,.75,
+        float cumulus=smoothstep(.39,.56,low);
+        float cirrus=smoothstep(.52,.71,
           texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
-        float mask=smoothstep(-.025,.12,ray.y)*(1.0-smoothstep(.83,.96,ray.y));
-        float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.88);
-        vec3 underside=vec3(.46,.55,.60),lit=vec3(1.03,.92,.72);
+        float mask=smoothstep(-.04,.055,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
+        float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.96);
+        vec3 underside=vec3(.36,.47,.55),lit=vec3(1.07,1.04,.94);
         float rim=pow(sun,18.0);
-        vec3 cloud=mix(underside,lit,clamp(.37+.33*sun+.23*rim,0.0,1.0));
+        vec3 cloud=mix(underside,lit,clamp(.50+.34*sun+.25*rim,0.0,1.0));
         sky=mix(sky,cloud,amount);
         gl_FragColor=vec4(sky,1.0);
         #include <tonemapping_fragment>
