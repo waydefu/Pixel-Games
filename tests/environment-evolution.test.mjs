@@ -29,6 +29,9 @@ test("mountain forest uses region buckets, elevation and slope masks, never 150k
   assert.match(s,/slope>1\.18/);
   assert.match(s,/new THREE\.InstancedMesh/);
   assert.match(s,/computeBoundingSphere\(\)/);
+  assert.match(s,/prefixes\.push\(\[c,br\]\)/);
+  assert.match(s,/cones\.count=prefixes\[visible\]\[0\]/);
+  assert.match(s,/broad\.count=prefixes\[visible\]\[1\]/);
   assert.match(read("fjord.ts"),/forests\.push\(buildMountainForest\(k,region,layouts\[region\],index\)\)/);
 });
 
@@ -44,6 +47,8 @@ test("sky and terrain share one moving cloud map and sun-projected shadows",()=>
   assert.match(field,/1\.0-uCloudStrength\*cloudOcclusion/);
   assert.match(world,/const cloudField=createCloudField\(scope\)/);
   assert.match(world,/cloudField\.update\(time\)/);
+  assert.match(world,/forest\.setDensity\(density\)/);
+  assert.match(world,/environment\.setFoliageDensity\(density\)/);
   assert.match(fjord,/texture2D\(uCloudMap,cloudUV\)/);
   assert.match(coast,/cloudField\.applyToMaterial\(s\.material\)/);
   assert.match(environment,/cloudField\.applyToMaterial\(stone\)/);
