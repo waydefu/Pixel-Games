@@ -95,6 +95,7 @@ export function createCoastalWorld(){
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced"){
     environment.sunlight.castShadow=enabled;
     cloudField.setStrength(quality==="basic"?.16:quality==="high"?.30:.24);
+    fjord.setSkyQuality(quality);
     const density=quality==="basic"?.36:quality==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
