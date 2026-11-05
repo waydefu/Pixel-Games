@@ -7,6 +7,7 @@ const beacon=read("harbour-beacon.ts");
 const village=read("architecture.ts");
 const world=read("world.ts");
 const fjord=read("fjord.ts");
+const terrain=read("terrain-profile.js");
 
 test("G3 coastal hero landmark is built into the sole playable world",()=>{
   assert.match(world,/buildHarbourBeacon\(kit\)/);
@@ -44,7 +45,8 @@ test("beacon physical collider reaches the actual foundation and slots face out"
 });
 
 test("rock strata are baked into geometry without new water or GPU fragment passes",()=>{
-  assert.match(fjord,/const crack=Math\.sin/);
+  assert.match(terrain,/const crack=Math\.sin/);
+  assert.match(fjord,/fjordSurfaceHeight\(x,z,region\)/);
   assert.match(fjord,/const fissure=Math\.pow/);
   assert.match(fjord,/scratch\.lerp\(weathered/);
   assert.match(fjord,/new THREE\.MeshStandardMaterial\(/);
