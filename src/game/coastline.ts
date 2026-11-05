@@ -1,15 +1,17 @@
 import * as THREE from "three";
 import { coastalOutline } from "./coastal-outline.js";
 import type { StageKit } from "./kit.js";
+import type { CloudField } from "./cloud-field.js";
 
 /** Curved shoreline and narrowing headlands, instead of a flat rectangular island. */
-export function buildCoastalLand(k:StageKit){
+export function buildCoastalLand(k:StageKit,cloudField:CloudField){
   const countZ=100,countX=42;
   const strips=[
     {name:"grassy-headlands",material:k.pattern("grass",1,14,13),y:-.187,left:(o:ReturnType<typeof coastalOutline>)=>o.grassLeft,right:(o:ReturnType<typeof coastalOutline>)=>o.grassRight},
     {name:"shoreline-sand",material:k.pattern("sand",5,2,13),y:-.116,left:(o:ReturnType<typeof coastalOutline>)=>o.grassRight,right:(o:ReturnType<typeof coastalOutline>)=>o.coast},
   ];
   for(const s of strips){
+    cloudField.applyToMaterial(s.material);
     const positions:number[]=[],uv:number[]=[],indices:number[]=[];
     for(let iz=0;iz<=countZ;iz++){
       const z=-47+94*iz/countZ;
