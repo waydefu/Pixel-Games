@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
+import { BOAT_LOCATIONS } from "./placements.js";
 
 /** Original pointed wooden boats. Hull, gunwale, mast and canvas move together. */
 export function buildFishingBoats(k:StageKit){
   const boats:THREE.Group[]=[];
   const timber=k.pattern("planks",18,2,1);
   const seam=k.solid("#533e35"),rope=k.solid("#d2ba8a"),canvas=k.pattern("canvas",9),deck=k.pattern("planks",10);
-  const locations=[{x:18,z:-3.5,scale:.88,seed:6},{x:24,z:15.2,scale:1.22,seed:7}];
+  const locations=BOAT_LOCATIONS;
   for(const location of locations){
     const {x,z,scale:s,seed}=location;
     const before=new Set(k.scene.children);
