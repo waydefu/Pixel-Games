@@ -1,7 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 35_000,
+  // The software (SwiftShader) renderer in CI needs >1 s per frame on the full HD-2D scene, so the
+  // longest flows (quality tiers x camera switch) take 30-36 s. A hung wait still fails: every poll
+  // and expect below keeps its own, much shorter limit.
+  timeout: 90_000,
   expect: { timeout: 12_000 },
   workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 1 : 0,
