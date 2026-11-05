@@ -10,3 +10,6 @@ playwright-report/
 .env.*
 !.env.example
 *.log
+
+# Generated PNGs and JSON manifests from optional visual inspection
+visual-audit-output/
