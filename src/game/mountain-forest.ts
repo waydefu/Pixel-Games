@@ -24,7 +24,7 @@ function slopeAt(x:number,z:number,region:Region){
  * Mountain trees are NOT 150k unculled grass blades: four local region buckets
  * with bounded forest counts allow frustum culling and a mobile quality ladder.
  */
-export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regionIndex:number,clouds:CloudField){
+export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regionIndex:number,clouds:CloudField,terrain:THREE.BufferGeometry){
   const leafMat=k.scope.track(new THREE.MeshStandardMaterial({
     color:"#edf1e6",roughness:1,metalness:0,flatShading:true,
   }));
@@ -48,6 +48,7 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
   const green=[new THREE.Color("#375b50"),new THREE.Color("#446e5e"),
     new THREE.Color("#628076"),new THREE.Color("#526e58"),
     new THREE.Color("#76836a")];
+  const positions=terrain.getAttribute("position");
   const treeLocations:{x:number;z:number;y:number;scale:number;rotation:number}[]=[];
   let t=0,c=0,br=0;
   // Prefixes let quality presets hide complete trees (trunk + both foliage
@@ -67,7 +68,8 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
     const z=region==="mainland"||region==="east"?
       (extent.z0+extent.z1)*.5+(uz-.5)*spanZ*.58:
       extent.z0+8+uz*spanZ;
-    const y=fjordMeshHeight(x,z,region,extent);
+    const y=fjordMeshHeight(x,z,region,extent,(i:number,j:number)=>
+      positions.getY(j*(extent.columns+1)+i));
     if(y<11||y>79)continue;
     const slope=slopeAt(x,z,region);
     if(slope>1.18)continue;
