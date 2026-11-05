@@ -85,7 +85,7 @@ export function buildFjordLandscape(k:StageKit){
       }
       void main(){
         vec3 ray=normalize(vRay);
-        float h=clamp(ray.y*.5+.5,0.0,1.0);
+        float h=clamp(ray.y,0.0,1.0); // Match fog at the true geometric horizon.
         vec3 horizon=uHorizon,zenith=vec3(.13,.39,.63);
         vec3 sky=mix(horizon,zenith,pow(h,1.16));
         vec3 sunDir=normalize(uSunDirection);
