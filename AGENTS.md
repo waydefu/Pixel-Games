@@ -4,7 +4,7 @@
 
 
 
-**P1 超進化工作入口：** [唯一 G1～G6 開工計畫](docs/plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md) 管工作包、狀態與 Owner 已批准的景深／泛光；[踩坑紀錄](docs/governance/VISUAL-PITFALLS-LOG.md) 記已證實缺陷／歷史／未驗風險。開始每個 PR 前要重查 main SHA、CI、基準截圖與授權，不沿用歷史研究的「待決策」狀態。不得自動合併。
+**現行進度與工作入口：** [ROADMAP](docs/ROADMAP.md) 是本 repo 最新的已合併／待驗收狀態入口（每次開工仍須核對 GitHub）；[G1～G6 初版計畫](docs/plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md)保留技術設計及歷史分包，不能把「尚未開始」的舊快照當真；[踩坑紀錄](docs/governance/VISUAL-PITFALLS-LOG.md) 記缺陷、風險與回退。不得自動合併。
 
 此儲存庫只有一款原創中世紀海岸 HD-2D 探索遊戲。根目錄 `index.html` 直接進入全畫面；不要增加 landing page、舊地城、平行 prototype、V1/V2 並存目錄。
 
