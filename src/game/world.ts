@@ -6,6 +6,7 @@ import { buildVillage } from "./architecture.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
+import { buildHarbourBeacon } from "./harbour-beacon.js";
 import { batchStaticScene } from "./batch.js";
 import { HORIZON_LINEAR, FOG_DENSITY } from "./environment-state.js";
 import { groundHeight } from "./navigation.js";
@@ -22,6 +23,7 @@ export function createCoastalWorld(){
   scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
   buildVillage(kit);
+  buildHarbourBeacon(kit);
   const environment=buildEnvironment(kit);
   const fjord=buildFjordLandscape(kit);
   const travellerCanvas=createTravellerAtlas();
