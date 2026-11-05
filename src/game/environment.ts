@@ -218,5 +218,12 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
       target.updateMatrixWorld();
     }
   }
-  return {sunlight,update,sea:ocean.material};
+  function setFoliageDensity(factor:number){
+    const amount=THREE.MathUtils.clamp(factor,0,1);
+    shrubs.count=Math.round(shrubCount*amount);
+    grass.count=Math.round(count*amount);
+    shrubs.visible=shrubs.count>0;
+    grass.visible=grass.count>0;
+  }
+  return {sunlight,update,setFoliageDensity,sea:ocean.material};
 }
