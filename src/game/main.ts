@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
 import { createCinematicPost } from "../rendering/cinematic-post.js";
+import { createOnDemandEffects } from "../rendering/effects-on-demand.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -160,12 +161,10 @@ async function start(){
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     // Scene remains playable without postprocessing (basic/balanced/fallback).
     // High is the owner's cinematic tier with actual Bloom and tilt-shift DoF.
-    let effects=null;
-    try{
-      effects=createCinematicPost({renderer,scene:world.scene,camera:rig.camera});
-    }catch(error){
-      console.warn("Optional cinematic pipeline unavailable; using direct WebGL2",error);
-    }
+    // Keep default mobile tiers free of offscreen target allocations. Creating
+    // the composer is deferred until the player actually selects High.
+    const effects=createOnDemandEffects(()=>
+      createCinematicPost({renderer,scene:world.scene,camera:rig.camera}));
     host=createRendererPort({
       renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,effects,
       onStatus:(state:string)=>{
