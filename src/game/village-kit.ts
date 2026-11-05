@@ -136,7 +136,7 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float grain=kitHash(texel)-.5;
     // Coarser 2x2-texel patches give fabric/plank-like clumping instead of pure noise.
     float clump=kitHash(floor(uv*8.0)+17.0)-.5;
-    diffuseColor.rgb*=1.0+grain*.10+clump*.12;
+    diffuseColor.rgb*=1.0+grain*.06+clump*.05;
     // Pull the kit's saturated vertex colours toward the shared palette: calmer, slightly lifted.
     float kitLuma=dot(diffuseColor.rgb,vec3(.299,.587,.114));
     diffuseColor.rgb=mix(vec3(kitLuma),diffuseColor.rgb,.84);
@@ -154,7 +154,7 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     // Light banding with ordered dither: reads as hand-shaded pixel art instead of smooth CG.
     float levels=7.0;
     vec3 banded=(floor(outgoingLight*levels)+.5)/levels; // bin centres: shade never collapses to black
-    outgoingLight=mix(outgoingLight,banded,.55);
+    outgoingLight=mix(outgoingLight,banded,.22);
   }
   #include <opaque_fragment>`);
   };

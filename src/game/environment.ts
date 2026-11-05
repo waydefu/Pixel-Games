@@ -5,6 +5,8 @@ import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
 import { liveSky } from "./sky-live.js";
+import { getTreeKit, type TreeItem, type TreeSpecies } from "./trees.js";
+import { groundHeight } from "./navigation.js";
 import type { VillageAssets } from "./architecture.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
@@ -102,41 +104,30 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     rock.scale.set(1.2,.5,1.8);rock.rotation.y=i*.67;
   }
 
-  function tree(x:number,z:number,scale:number,seed:number){
-    const trunk=k.put(new THREE.CylinderGeometry(.22*scale,.34*scale,3.15*scale,9),
-      k.pattern("timber",4),x,1.55*scale,z);
-    trunk.castShadow=true;
-    const crowns=[[-.83,3.25,.18],[.82,3.12,.02],[0,3.74,0],[0,2.98,-.84],
-      [-.2,3.12,.87],[.46,4.15,.25],[-.57,3.84,-.4]];
-    for(let i=0;i<crowns.length;i++){
-      const [ox,oy,oz]=crowns[i],radius=(.94+.18*noise(seed+i))*scale;
-      const bulb=k.put(new THREE.IcosahedronGeometry(radius,1),leaves[(seed+i)%leaves.length],
-        x+ox*scale,oy*scale,z+oz*scale);
-      bulb.scale.set(1.12,.9,1.15);bulb.rotation.set(i*.15,i*.47,i*.1);
-    }
-    // Lower inner canopy, kept darker to mimic clustered self-occlusion at
-    // mobile distances. The seven outer lobes keep their original silhouette.
-    const underside=k.put(new THREE.IcosahedronGeometry(1.06*scale,0),
-      k.solid("#345a49"),x,3.12*scale,z,false);
-    underside.scale.set(1.55,.75,1.50);
-    // Three readable fork limbs connect the trunk to foliage, preventing the
-    // 'lollipop tree' silhouette seen in the original distant shot.
-    const branchMaterial=k.pattern("timber",4);
-    for(let arm=0;arm<3;arm++){
-      const angle=arm*Math.PI*2/3+seed*.31;
-      k.segment(new THREE.Vector3(x,2.12*scale,z),
-        new THREE.Vector3(x+Math.cos(angle)*1.02*scale,3.36*scale,
-          z+Math.sin(angle)*1.02*scale),.105*scale,branchMaterial,6);
-    }
-    k.collider(x,z,.52*scale,.52*scale);
-  }
+  // Town trees are procedural pixel trees (see trees.ts); only the trunk blocks the player.
+  function treeCollider(x:number,z:number,scale:number){k.collider(x,z,.52*scale,.52*scale);}
   const treeLocations=[
     [-4,-8],[8,-9],[-8,12],[-22,6],[-30,20],[6,22],[-12,22],[-31,-4],
-    [-20,-19],[-34,-24],[-35,0],[-37,13],[-9,-23],[7,-23],[-15,29],[-25,29]
+    [-20,-19],[-34,-24],[-35,0],[-37,13],[-9,-23],[7,-23],[-15,29],[-25,29],
+    // The village's western and outer edges: trees thicken toward the mountains, the sea side stays open.
+    [-39,-14],[-40,-28],[-41,4],[-39,23],[-29,-31],[-15,-32],[-3,-31],[9,-31],[-18,32],[-3,31],[10,31],[-24,-5],[-27,3],[-31,-17]
   ];
+  const townTrees=new Map<string,{seed:number;items:TreeItem[]}>();
   for(let i=0;i<treeLocations.length;i++){
     const [x,z]=treeLocations[i];
-    tree(x,z,.70+noise(i+31)*.60,i+3);
+    const scale=.82+noise(i+31)*.42,roll=noise(i*7.13+2);
+    // A mixed coastal wood: mostly oak, some birch, a few pines.
+    const species:TreeSpecies=roll<.55?"oak":roll<.8?"birch":"pine";
+    const seed=1+(i%3);
+    const bucket=townTrees.get(species+seed)??{seed,items:[]};
+    bucket.items.push({x,y:groundHeight(x,z),z,scale,rotation:noise(i*3.7)*Math.PI*2,
+      tint:new THREE.Color().setRGB(.9+noise(i*1.9)*.16,.92+noise(i*2.3)*.12,.84+noise(i*4.1)*.2)});
+    townTrees.set(species+seed,bucket);
+    treeCollider(x,z,scale);
+  }
+  const treeKit=getTreeKit(k,cloudField);
+  for(const [key,bucket] of townTrees){
+    treeKit.plant(key.replace(/\d+$/,"") as TreeSpecies,bucket.seed,"high",bucket.items,{shadows:true});
   }
   // Instanced grasses and flowers; no runtime geometry per blade.
   // Shrubs are the missing mid-scale silhouette between flower and tree.

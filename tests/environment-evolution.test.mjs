@@ -59,7 +59,8 @@ test("near-coast plants include branch silhouettes and instanced shrubs/grass",(
   assert.match(s,/name="coastal-understory-shrubs"/);
   assert.match(s,/new THREE\.InstancedMesh\(shrubGeo,shrubMat,280\)/);
   assert.match(s,/new THREE\.InstancedMesh\(grassGeom,grassMaterial,1600\)/);
-  assert.match(s,/branchMaterial/);
+  assert.match(s,/getTreeKit\(k,cloudField\)/);   // town trees: procedural branches + leaf cards
+  assert.match(s,/treeKit\.plant\(/);
 });
 
 test("water stays an analytic WebGL2 single-pass sea",()=>{

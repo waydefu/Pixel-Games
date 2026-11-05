@@ -209,6 +209,34 @@ function canvasCloth(size, seed) {
   return { ...f, dither: 0.2, bevel: 1.0 };
 }
 
+/** Furrowed bark: vertical ridges with dark grooves, ridge tone varying per ridge. */
+function barkFurrows(size, seed, { ramp, base, spread }) {
+  const f = fields(size), rand = makeRng(seed * 73 + 5), noise = tileNoise(size, 4, seed, 2);
+  const cols = [];
+  for (let x = 0; x < size;) { const w = 3 + Math.floor(rand() * 3); cols.push([x, w, (rand() - 0.5) * spread]); x += w; }
+  for (const [x0, w, tint] of cols) {
+    for (let xx = 0; xx < w; xx++) for (let y = 0; y < size; y++) {
+      const i = y * size + wrap(x0 + xx, size);
+      const groove = xx === w - 1 || (noise[i] > 0.78 && xx === 0);
+      const wobble = Math.sin(y * 0.4 + x0) * 0.04;
+      f.height[i] = groove ? 0 : 0.4 + 0.5 * Math.sin(Math.PI * (xx + 0.5) / w) + wobble;
+      f.tone[i] = groove ? 0.12 : base + tint + (noise[i] - 0.5) * 0.2 + wobble;
+    }
+  }
+  return { ...f, dither: 0.3, bevel: 0.9 };
+}
+
+/** Birch bark: pale papery stem with dark horizontal lenticels and faint vertical grain. */
+function birchBark(size, seed) {
+  const f = fields(size), rand = makeRng(seed * 41 + 9), noise = tileNoise(size, 5, seed, 2);
+  for (let i = 0; i < size * size; i++) { f.tone[i] = 0.78 + (noise[i] - 0.5) * 0.14; f.height[i] = noise[i] * 0.3; }
+  for (let n = 0; n < size * 0.9; n++) { // dark dashes
+    const x = Math.floor(rand() * size), y = Math.floor(rand() * size), w = 3 + Math.floor(rand() * 6);
+    for (let k = 0; k < w; k++) { const i = wrap(y, size) * size + wrap(x + k, size); f.tone[i] = 0.08 + rand() * 0.1; f.height[i] = 0; }
+  }
+  return { ...f, dither: 0.35, bevel: 0.6 };
+}
+
 /** kind -> recipe. `slope` marks roof-like kinds that project along the slope. */
 export const PIXEL_KINDS = Object.freeze({
   stone:       { size: 32, ramp: "stone",    normal: 1.5, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 8, wMin: 9, wMax: 15, base: 0.56, spread: 0.18, chips: 0.03 }) },
@@ -223,6 +251,8 @@ export const PIXEL_KINDS = Object.freeze({
   grass:       { size: 64, ramp: "grass",    normal: 1.4, slope: false, build: (s) => grass(64, s) },
   sand:        { size: 64, ramp: "sand",     normal: 1.2, slope: false, build: (s) => sand(64, s) },
   foliage:     { size: 32, ramp: "foliage",  normal: 2.0, slope: false, build: (s) => foliage(32, s) },
+  bark:        { size: 32, ramp: "bark",     normal: 1.4, slope: false, build: (s) => barkFurrows(32, s, { ramp: "bark", base: 0.5, spread: 0.2 }) },
+  "birch-bark": { size: 32, ramp: "birchbark", normal: 0.8, slope: false, build: (s) => birchBark(32, s) },
   rock:        { size: 32, ramp: "rock",     normal: 1.1, slope: false, build: (s) => boulder(32, s) },
   cliff:       { size: 32, ramp: "cliff",    normal: 1.6, slope: false, build: (s) => cliff(32, s) },
   canvas:      { size: 32, ramp: "canvas",   normal: 1.0, slope: false, build: (s) => canvasCloth(32, s) },
@@ -244,4 +274,61 @@ export function paintTexture(kind, seed = 1) {
     kind, seed, size, units: size / TEXELS_PER_UNIT, slope: recipe.slope,
     color, normal: normalFromHeight(painted.height, size, recipe.normal),
   };
+}
+
+/**
+ * Leaf sprite sheets (RGBA with alpha): 2x2 variants of 32x32 texels. Foliage is drawn as many small
+ * shaded leaves (lit from the top-left, shadowed bottom-right); conifers as needle fronds. Cutout alpha.
+ */
+export const LEAF_VARIANTS = 4, LEAF_CELL = 32, LEAF_SHEET = 64;
+export const LEAF_SPECIES = Object.freeze(["oak", "birch", "pine"]);
+export function paintLeafSheet(species, seed = 1) {
+  if (!LEAF_SPECIES.includes(species)) throw new RangeError("Unknown leaf species: " + String(species));
+  const ramps = { oak: PALETTE.foliage, birch: [...PALETTE.foliage.slice(2), PALETTE.grass[6]], pine: PALETTE.pine };
+  const ramp = ramps[species];
+  const rgb = ramp.map(h => { const v = parseInt(h.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; });
+  const last = rgb.length - 1;
+  const out = new Uint8ClampedArray(LEAF_SHEET * LEAF_SHEET * 4);
+  const plot = (ox, oy, x, y, idx) => {
+    if (x < 0 || y < 0 || x >= LEAF_CELL || y >= LEAF_CELL) return;
+    const c = rgb[Math.max(0, Math.min(last, idx))], i = ((oy + y) * LEAF_SHEET + ox + x) * 4;
+    out[i] = c[0]; out[i + 1] = c[1]; out[i + 2] = c[2]; out[i + 3] = 255;
+  };
+  for (let v = 0; v < LEAF_VARIANTS; v++) {
+    const ox = (v % 2) * LEAF_CELL, oy = Math.floor(v / 2) * LEAF_CELL, rand = makeRng(seed * 977 + v * 131 + 7);
+    if (species === "pine") {
+      // a frond: central stem down the card, paired needles sweeping out and down, longest in the middle
+      const sway = (rand() - 0.5) * 3;
+      for (let y = 1; y < LEAF_CELL - 1; y++) {
+        const stemX = 16 + Math.round(sway * Math.sin(y * 0.18));
+        plot(ox, oy, stemX, y, 1);
+        const len = Math.round(2 + 10 * Math.sin(Math.PI * y / LEAF_CELL) * (0.75 + rand() * 0.25));
+        if (y % 2 === 0) for (const side of [-1, 1]) for (let k = 1; k <= len; k++) {
+          const dx = side * k, dy = Math.floor(k * 0.45);
+          const lit = side < 0 ? 1 : 0, tone = 2 + lit + (k > len - 2 ? 1 : 0) - (rand() < 0.2 ? 1 : 0);
+          plot(ox, oy, stemX + dx, y + dy, tone);
+        }
+      }
+    } else {
+      const leaves = species === "oak" ? 30 : 26, spread = species === "oak" ? 12.5 : 12;
+      const hues = species === "oak" ? 4 : 3;
+      const spots = [];
+      for (let n = 0; n < leaves; n++) {
+        const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * spread;
+        spots.push([16 + Math.cos(a) * r, 16 + Math.sin(a) * r * 0.92, 2 + rand() * 1.8]);
+      }
+      spots.sort((p, q) => p[1] - q[1]); // back to front so lower leaves overlap upper ones
+      for (const [cx, cy, size] of spots) {
+        const tilt = rand() * Math.PI, tone = hues - 1 + Math.floor(rand() * 2);
+        for (let y = -3; y <= 3; y++) for (let x = -4; x <= 4; x++) {
+          const u = x * Math.cos(tilt) + y * Math.sin(tilt), w = -x * Math.sin(tilt) + y * Math.cos(tilt);
+          if ((u * u) / (size * size * 1.9) + (w * w) / (size * size * 0.7) > 1) continue;
+          const light = (-x - y) / 6;                       // top-left lit
+          const rim = Math.hypot(x / 4, y / 3) > 0.82 ? -1 : 0;
+          plot(ox, oy, Math.round(cx + x), Math.round(cy + y), tone + Math.round(light * 1.4) + rim + (rand() < 0.1 ? 1 : 0));
+        }
+      }
+    }
+  }
+  return { species, size: LEAF_SHEET, color: out };
 }

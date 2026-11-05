@@ -11,6 +11,8 @@ export const PALETTE = Object.freeze({
   foliage:  Object.freeze(["#0d2420","#143a2d","#1f5333","#2f6c38","#44853f","#62a049","#88ba57","#b3d377"]),
   pine:     Object.freeze(["#0a1f27","#10322f","#194a36","#26623a","#387b3f","#4f9546","#73ad52","#9ec675"]),
   stone:    Object.freeze(["#2a3040","#394254","#4b5766","#606d77","#778289","#8f958f","#a8aa9d","#c2bfab"]),
+  birchbark: Object.freeze(["#222226","#4a4a50","#7c7b79","#b2afa6","#d3d0c3","#ebe8dc"]),
+  bark:     Object.freeze(["#150f13","#241a1b","#38271f","#4f3828","#664c36","#80644a","#9a7e61"]),
   rock:     Object.freeze(["#2b3243","#3a4456","#4d5968","#62707a","#7a858b","#929991","#abaca0","#c4c1ae"]),
   cliff:    Object.freeze(["#272e3d","#353f4d","#475562","#5c6b75","#74818a","#8c9794","#a4aaa2","#bfc1b0"]),
   plaster:  Object.freeze(["#46394a","#695a5d","#8d7a6c","#b09b83","#cab698","#ddcdaa","#ecdfbc","#f8eed2"]),
