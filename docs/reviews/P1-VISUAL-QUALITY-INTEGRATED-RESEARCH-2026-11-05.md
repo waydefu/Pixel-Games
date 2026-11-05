@@ -1,5 +1,7 @@
 # Pixel-Games｜P1 視覺品質：外部實作對照與程式差距整合報告
 
+**開工排程更新（2026-11-05）**：本研究保留技術證據與採用邊界；G1～G6 的**唯一現行實作順序、狀態及景深／泛光核准**改依 [P1 超進化總計畫](../plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md)，過去研究內「候補／待決策」不再用來否定 Owner 的新授權。故障教訓只記錄在[踩坑紀錄](../governance/VISUAL-PITFALLS-LOG.md)。
+
 > **唯一現行研究入口** · 2026-11-05 · 文件狀態：研究完成、實作未開始 · 原始研究附於本文末「來源與保留紀錄」。
 >
 > **比較版本**：已部署主線 [main@63837d9](https://github.com/waydefu/Pixel-Games/tree/63837d9d281e7366f6def261f0ec5b2110c5a0ca)；P1-R3 待合併 [PR #11@09ab7e6](https://github.com/waydefu/Pixel-Games/pull/11)。版本資訊是研究時點快照，**並非即時部署狀態**；後續改碼須重核 HEAD。

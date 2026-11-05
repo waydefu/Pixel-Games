@@ -14,10 +14,14 @@
 | 工具狀態／安裝邊界 | [TOOLING](TOOLING.md) |
 | Tool Registry 合約與接入流程 | [TOOL-INTEGRATIONS](TOOL-INTEGRATIONS.md) |
 | 已完成／後續里程碑 | [ROADMAP](ROADMAP.md) |
+| **P1 超進化 G1～G6 唯一執行總計畫（含景深與泛光）** | [SUPER-EVOLUTION-MASTER-PLAN](plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md) |
+| **踩坑與風險紀錄（已驗證／歷史／風險分級）** | [VISUAL-PITFALLS-LOG](governance/VISUAL-PITFALLS-LOG.md) |
 | GitHub 分支保護 | [BRANCH-PROTECTION](governance/BRANCH-PROTECTION.md) |
 | GitHub Pages 發布 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
 | 本輪獨立程式審查 | [AUDIT-2026-11-05](reviews/INDEPENDENT-AUDIT-2026-11-05.md) |
 | **P1 視覺品質整合主報告（唯一現行研究入口）** | [VISUAL-QUALITY-INTEGRATED-RESEARCH](reviews/P1-VISUAL-QUALITY-INTEGRATED-RESEARCH-2026-11-05.md) |
+
+> 執行順序／狀態只維護在 P1 超進化總計畫；研究報告保留技術證據，踩坑紀錄保留可重現的教訓，不建立平行待辦。
 
 ## 研究與歷史決策（保留原文、不直接當現行程式）
 
