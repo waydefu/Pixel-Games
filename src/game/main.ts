@@ -167,13 +167,14 @@ async function start(){
       restoreResources:async()=>{},
     });
     await host.initialize();
+    world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high");
     if(visualShot)setCameraMode(visualShot.mode);
     resize();
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
       if(!host)return;
       host.setQuality(quality.value);
-      world.setShadows(quality.value!=="basic");
+      world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high");
       resize();
     });
     document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();});
