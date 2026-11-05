@@ -7,6 +7,10 @@
 > - 待合併：[Pixel-Games PR #11 `09ab7e6`](https://github.com/waydefu/Pixel-Games/pull/11)，P1-R3 內凹窗洞、雲、海洋、山壁及岸線修正；撰寫時為 Draft，最新 CI 已通過，但尚未合併。
 > - 依賴版本：[Three.js r187](../../package.json)（`three: 0.187.0`）。外部參考優先固定 r187，避免用未來新版 API 誤導。
 >
+> **Owner 更新決策（2026-11-05）**：本階段**禁止導入重型海水渲染**，包括 FFT／多 cascade 波浪模擬、Planar Reflection、SSR、水下折射、持續性白浪場與額外水體渲染 Pass。僅允許修正目前低成本海面的霧、色彩、Shader 穩定性、接縫等必要問題。本文件舊版建議若與此衝突，以此更新為準。
+>
+> **擴大研究**：額外自行篩選 Athenaion、Aetherfall、程序岩壁、THREE.Terrain、LOD/Chunk、程序城市、Meshoptimizer 與 glTF 資產管線等，詳見 [P1-WORLD-VISUAL-QUALITY-EXPANDED-RESEARCH](P1-WORLD-VISUAL-QUALITY-EXPANDED-RESEARCH-2026-11-05.md)。
+>
 > **結論：** 現有架構足以支撐小型 WebGL2 海岸視覺切片；畫面品質距離高階作品，主要差在**模型輪廓／材質表面資訊／光照與天空一致性／水面場景反射／多尺度地貌／後處理完整性**，不是單一 Shader 不夠複雜。不得把程式審查、CI 成功等同於美術合格或手機 GPU 驗收。
 
 ## 1. 外部對照來源與採用邊界
@@ -48,8 +52,8 @@
 
 - **證據：** [`ocean.ts` 第 48–71 行](https://github.com/waydefu/Pixel-Games/blob/09ab7e6b7d4827eaea88d0f337d555d6b7d3888c/src/game/ocean.ts#L47-L75) 用兩個固定 `vec3` 天空色和 `reflect()` 近似反射，並加入噪聲、岸線泡沫；**沒有**場景反射 RenderTarget／鏡射攝影機。對照 [Three.js r187 Water.js](https://github.com/mrdoob/three.js/blob/r187/examples/jsm/objects/Water.js)，會把鏡射場景渲染到反射貼圖。
 - **結果：** 無法反映船、碼頭、山脈的實際影像；第一人稱近水面看尤其明顯，但 P1-R3 比原本規律 UV 亮條紋已前進一步。
-- **建議：** 基本／手機平衡維持低成本天空近似；桌面高畫質以降解析度／間隔更新的 planar reflection 作獨立實驗，不要直接強上 SSR／FFT。
-- **驗收：** 固定視角有／無反射 A/B；分別記錄 GPU ms、帧時間 p50/p95、額外 draw calls、記憶體，達不到預算即保留低成本路線。
+- **建議（依 Owner 最新決策修訂）：** 繼續使用現有低成本天空近似；**不做** Planar Reflection、SSR、FFT 或其他海水高階效果。只修正既有霧、色彩及 Shader 相容性。
+- **驗收（修訂）：** 只檢查現有海面的視覺連續性、效能和相容性回歸，不進行高成本反射 A/B 或導入新水體渲染 Pass。
 
 ### P1-B｜材質只生成 Albedo 色塊，近景缺乏法線與粗糙度資訊
 
@@ -105,7 +109,7 @@
 
 1. **P1-R3 收尾／P0 缺陷包**：共享日照方向、校正 Shader 輸出與霧、修雪線死分支；新增針對性測試。只動相關檔案，不擴充玩法。
 2. **P1-R4A 資產樣板**：限定 1 棟房屋、1 棵樹、1 段碼頭、1 段海岸；做新舊 A/B，確認風格和近景再批量產出；不要先大改整個城。
-3. **P1-R4B 渲染樣板**：建立高畫質 compositor、材質表面變化、可選 Planar Reflection 與環境照明，分 feature flag 上線；保留 WebGL2 fallback。
+3. **P1-R4B 渲染樣板**：聚焦非海水的建築、植被、天空／地形材質與輕量色彩處理；任何 compositor 需經手機實測，**排除**高成本海水效果、Planar Reflection／SSR／FFT；保留 WebGL2 fallback。
 4. **P1-R4C 效能測試與擴建門檻**：同一場景同一裝置測量實際 GPU／CPU 成本；通過後才擴大地圖、LOD／Chunk 和更多活動物件。
 5. **後續玩法另行決策**：釣魚、NPC、職業、存檔和可攀登地形不屬於本報告的程式修補範圍。
 
@@ -120,6 +124,6 @@
 
 ## 6. 給 Owner 的決策
 
-**建議先讓 P1-R3 的可證實缺陷修好並做畫面驗收，再做 P1-R4A。** 在場景幾何、材質一致性不足時，一次引進 SSR、SSGI、FFT、水下折射、體積雲與景深，成本高且會混淆美術驗收與效能瓶頸。高階 Shader 應該為美術目標服務，而不是當成美術品質的替代品。
+**建議先讓 P1-R3 的可證實缺陷修好並做畫面驗收，再做 P1-R4A。** 在場景幾何、材質一致性不足時，一次引進 SSR、SSGI、FFT、水下折射、體積雲與景深，成本高且會混淆美術驗收與效能瓶頸。**其中進階海水效果已由 Owner 明確否決，不是後續的候選任務。**高階 Shader 應該為美術目標服務，而不是當成美術品質的替代品。
 
 > 外部來源僅支援技術差異，不代表相同硬體的效能優劣；尚未完成的美術評分、FPS 或 GPU 時間，一律記為 **NOT MEASURED**。原有研究、ADR、Skills、單一遊戲入口與原創素材授權界線維持不變。
