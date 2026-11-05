@@ -4,7 +4,7 @@ import { SUN_DIRECTION } from "./environment-state.js";
 
 // WebGL2 production fallback: camera-space Fresnel, analytic Gerstner-style
 // directional wave normal, coherent shoreline foam and a sky-light surrogate.
-// Research- #28 describes SSR/probe as future tested alternatives, not shipped.
+// The owner explicitly excludes FFT, SSR, planar reflection and extra sea passes.
 export function createCoastalWater(k:StageKit) {
   const uniforms={
     ...THREE.UniformsLib.fog,
