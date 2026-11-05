@@ -9,7 +9,7 @@ export const VISUAL_SHOTS=Object.freeze([
   supported("shot-02-first-wall","first",-12,-4.9,0,-.02),
   supported("shot-03-first-pier","first",20,8,0,-.07),
   supported("shot-04-vista-fjord","vista",9,4.2,-1.18,-.18),
-  supported("shot-05-harbour-boats","first",12,0,-1.043,-.02),
+  supported("shot-05-harbour-boats","first",25,8,.548,-.06),
   supported("shot-06-mobile-portrait","quarter",9,4.2,0,0,"mobile"),
   unavailable("shot-07-dusk","no day/night environment state yet"),
   unavailable("shot-08-night","no night lighting or exposure state yet"),
