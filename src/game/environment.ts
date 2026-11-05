@@ -204,8 +204,8 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   }
 
   // Lighting: soft upper atmosphere and low sun, physically motivated windows.
-  const sky=new THREE.HemisphereLight("#cfe0dc","#6f634f",1.42);k.scene.add(sky);
-  const sunlight=new THREE.DirectionalLight("#ffdcae",2.45);
+  const sky=new THREE.HemisphereLight("#c8dbd6","#675a48",1.3);k.scene.add(sky);
+  const sunlight=new THREE.DirectionalLight("#ffd6a4",2.85);
   sunlight.position.set(SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,SUN_DIRECTION.z*34);sunlight.castShadow=true;
   sunlight.shadow.mapSize.set(1024,1024);
   sunlight.shadow.camera.left=-26;sunlight.shadow.camera.right=26;

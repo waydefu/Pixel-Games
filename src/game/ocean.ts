@@ -61,7 +61,7 @@ export function createCoastalWater(k:StageKit) {
         vec3 n=normalize(vNormal);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         // Reference palette: pale aqua over sand at the shore -> vivid turquoise -> deep cobalt.
-        vec3 pale=vec3(.42,.72,.68),turquoise=vec3(.045,.46,.52),cobalt=vec3(.008,.17,.36);
+        vec3 pale=vec3(.50,.84,.80),turquoise=vec3(.022,.56,.60),cobalt=vec3(.005,.16,.40);
         // Narrow pale shallows; the deeper colours take over quickly so the bay reads as sea, not a lagoon.
         vec3 water=mix(pale,turquoise,smoothstep(0.3,2.4,vDist));
         water=mix(water,cobalt,smoothstep(3.5,32.0,vDist));

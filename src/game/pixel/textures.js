@@ -32,13 +32,13 @@ function coursedBlocks(size, seed, { rowH, wMin, wMax, base, spread, chips }) {
           const mortar = xx === w - 1 || yy === rowH - 1;
           const edge = Math.min(xx, w - 1 - xx, yy, rowH - 1 - yy);
           f.height[i] = mortar ? 0 : 0.35 + 0.65 * smoothstep(0, 2.6, edge) + (noise[i] - 0.5) * 0.2;
-          f.tone[i] = mortar ? 0.07 : base + blockTone + (noise[i] - 0.5) * 0.3 + (rand() < chips ? (rand() - 0.5) * 0.3 : 0);
+          f.tone[i] = mortar ? 0.16 : base + blockTone + (noise[i] - 0.5) * 0.3 + (rand() < chips ? (rand() - 0.5) * 0.3 : 0);
         }
       }
       x0 += w;
     }
   }
-  return { ...f, dither: 0.45, bevel: 1.5 };
+  return { ...f, dither: 0.4, bevel: 0.95 };
 }
 
 function cobbles(size, seed) {
@@ -48,9 +48,9 @@ function cobbles(size, seed) {
     const mortar = edge < 1.15;
     const dome = 1 - clamp01(v.d1[i] / 6.5);
     f.height[i] = mortar ? 0 : 0.3 + 0.7 * smoothstep(0, 2.4, edge) * (0.55 + 0.45 * dome);
-    f.tone[i] = mortar ? 0.12 : 0.58 + (hash2(v.id[i], 3, seed) - 0.5) * 0.22 + (noise[i] - 0.5) * 0.14;
+    f.tone[i] = mortar ? 0.2 : 0.58 + (hash2(v.id[i], 3, seed) - 0.5) * 0.15 + (noise[i] - 0.5) * 0.1;
   }
-  return { ...f, dither: 0.5, bevel: 1.6 };
+  return { ...f, dither: 0.4, bevel: 1.0 };
 }
 
 function planks(size, seed, { widths, base, spread, grainAmount }) {
@@ -66,13 +66,13 @@ function planks(size, seed, { widths, base, spread, grainAmount }) {
         const grain = Math.sin(y * 0.33 + phase + noise[i] * 3.2) * 0.5 + 0.5;
         const crown = Math.sin(Math.PI * (xx + 0.5) / (w - 1));
         f.height[i] = gap || seam ? 0 : 0.5 + 0.2 * crown + (grain - 0.5) * 0.06;
-        f.tone[i] = gap || seam ? 0.06 : base + plank + (grain - 0.5) * grainAmount + (noise[i] - 0.5) * 0.12;
+        f.tone[i] = gap || seam ? 0.14 : base + plank + (grain - 0.5) * grainAmount + (noise[i] - 0.5) * 0.12;
         if (!gap && !seam && Math.abs(y - joint) === 2 && (xx === 1 || xx === w - 3)) f.override.set(i, [34, 28, 38]);
       }
     }
     x0 += w;
   }
-  return { ...f, dither: 0.3, bevel: 0.9 };
+  return { ...f, dither: 0.25, bevel: 0.6 };
 }
 
 function plaster(size, seed) {
@@ -211,11 +211,11 @@ function canvasCloth(size, seed) {
 
 /** kind -> recipe. `slope` marks roof-like kinds that project along the slope. */
 export const PIXEL_KINDS = Object.freeze({
-  stone:       { size: 32, ramp: "stone",    normal: 2.4, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 8, wMin: 9, wMax: 15, base: 0.56, spread: 0.18, chips: 0.03 }) },
+  stone:       { size: 32, ramp: "stone",    normal: 1.5, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 8, wMin: 9, wMax: 15, base: 0.56, spread: 0.18, chips: 0.03 }) },
   brick:       { size: 32, ramp: "brick",    normal: 2.2, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 4, wMin: 8, wMax: 8, base: 0.54, spread: 0.2, chips: 0.05 }) },
-  cobble:      { size: 64, ramp: "stone",    normal: 2.6, slope: false, build: (s) => cobbles(64, s) },
-  planks:      { size: 32, ramp: "wood",     normal: 2.0, slope: false, build: (s) => planks(32, s, { widths: [6, 6, 6, 7, 7], base: 0.46, spread: 0.14, grainAmount: 0.14 }) },
-  timber:      { size: 32, ramp: "timber",   normal: 1.8, slope: false, build: (s) => planks(32, s, { widths: [8, 8, 8, 8], base: 0.5, spread: 0.14, grainAmount: 0.16 }) },
+  cobble:      { size: 64, ramp: "stone",    normal: 1.6, slope: false, build: (s) => cobbles(64, s) },
+  planks:      { size: 32, ramp: "wood",     normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [6, 6, 6, 7, 7], base: 0.46, spread: 0.14, grainAmount: 0.14 }) },
+  timber:      { size: 32, ramp: "timber",   normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [8, 8, 8, 8], base: 0.5, spread: 0.14, grainAmount: 0.16 }) },
   plaster:     { size: 32, ramp: "plaster",  normal: 1.4, slope: false, build: (s) => plaster(32, s) },
   "roof-red":  { size: 32, ramp: "roofRed",  normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.55, spread: 0.2 }) },
   "roof-blue": { size: 32, ramp: "roofBlue", normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.52, spread: 0.2 }) },
@@ -223,8 +223,8 @@ export const PIXEL_KINDS = Object.freeze({
   grass:       { size: 64, ramp: "grass",    normal: 1.4, slope: false, build: (s) => grass(64, s) },
   sand:        { size: 64, ramp: "sand",     normal: 1.2, slope: false, build: (s) => sand(64, s) },
   foliage:     { size: 32, ramp: "foliage",  normal: 2.0, slope: false, build: (s) => foliage(32, s) },
-  rock:        { size: 32, ramp: "rock",     normal: 1.6, slope: false, build: (s) => boulder(32, s) },
-  cliff:       { size: 32, ramp: "cliff",    normal: 2.6, slope: false, build: (s) => cliff(32, s) },
+  rock:        { size: 32, ramp: "rock",     normal: 1.1, slope: false, build: (s) => boulder(32, s) },
+  cliff:       { size: 32, ramp: "cliff",    normal: 1.6, slope: false, build: (s) => cliff(32, s) },
   canvas:      { size: 32, ramp: "canvas",   normal: 1.0, slope: false, build: (s) => canvasCloth(32, s) },
 });
 

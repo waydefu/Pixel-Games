@@ -6,16 +6,16 @@
 export const OUTLINE = "#140f17"; // plum-black, never pure black
 
 export const PALETTE = Object.freeze({
-  grass:    Object.freeze(["#1a3430","#25463a","#33593c","#456c3e","#587f43","#6f944c","#8aa95d","#a9bf7e"]),
+  grass:    Object.freeze(["#14322f","#1d4535","#2b5b38","#3d7239","#518a3d","#6a9f44","#88b552","#a9c876"]),
   grassDry: Object.freeze(["#2b3a2e","#41503a","#5f6a40","#7f8447","#a09a54","#bdb065","#d8c780","#efdfa3"]),
   foliage:  Object.freeze(["#0d2420","#143a2d","#1f5333","#2f6c38","#44853f","#62a049","#88ba57","#b3d377"]),
   pine:     Object.freeze(["#0a1f27","#10322f","#194a36","#26623a","#387b3f","#4f9546","#73ad52","#9ec675"]),
-  stone:    Object.freeze(["#1d2233","#2b3347","#3f4a5b","#58656f","#768083","#96998f","#b8b4a0","#dad2b8"]),
-  rock:     Object.freeze(["#1c2230","#2b3446","#3e4a5a","#57646f","#737f84","#929a94","#b3b5a8","#d3d1be"]),
-  cliff:    Object.freeze(["#161c2c","#232c3d","#35424f","#4d5d67","#68797f","#879896","#a9b2a8","#cfd2c0"]),
+  stone:    Object.freeze(["#2a3040","#394254","#4b5766","#606d77","#778289","#8f958f","#a8aa9d","#c2bfab"]),
+  rock:     Object.freeze(["#2b3243","#3a4456","#4d5968","#62707a","#7a858b","#929991","#abaca0","#c4c1ae"]),
+  cliff:    Object.freeze(["#272e3d","#353f4d","#475562","#5c6b75","#74818a","#8c9794","#a4aaa2","#bfc1b0"]),
   plaster:  Object.freeze(["#46394a","#695a5d","#8d7a6c","#b09b83","#cab698","#ddcdaa","#ecdfbc","#f8eed2"]),
-  wood:     Object.freeze(["#1f1520","#37212a","#552f31","#6d4034","#875339","#a06942","#b88553","#cfa468"]),
-  timber:   Object.freeze(["#120d17","#201520","#33202a","#493035","#61423a","#7b5846","#977258","#b38f6b"]),
+  wood:     Object.freeze(["#2a1b22","#3d2629","#57342f","#6d4535","#825740","#966b4a","#aa7f58","#be9a6c"]),
+  timber:   Object.freeze(["#1a1318","#271b21","#38252b","#4b343a","#5f453f","#745a4c","#8a7060","#a08874"]),
   roofRed:  Object.freeze(["#26142a","#46202d","#6a2d32","#8f4139","#b05944","#cf7a52","#e59d65","#f4c383"]),
   roofBlue: Object.freeze(["#141d2c","#212f42","#314959","#456577","#5d8493","#7ea3ac","#a2c3c1","#c9dfce"]),
   thatch:   Object.freeze(["#33292d","#554336","#7a6143","#9d8151","#bda065","#d8bf82","#ebd9a3","#f8efc7"]),
