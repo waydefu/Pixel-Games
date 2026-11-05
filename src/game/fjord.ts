@@ -108,26 +108,10 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform float uCloudHeight;
       uniform vec3 uSunDirection;
       uniform vec3 uHorizon;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float noiz(vec2 p){
-        vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
-        return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),
-                   mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);
-      }
-      float fbm(vec2 p){
-        float a=.5,v=0.0;
-        for(int j=0;j<4;j++){v+=a*noiz(p);p=p*2.03+vec2(7.1,3.5);a*=.5;}
-        return v;
-      }
       void main(){
         vec3 ray=normalize(vRay);
-        float h=clamp(ray.y,0.0,1.0); // Match fog at the true geometric horizon.
-        vec3 horizon=uHorizon,zenith=vec3(.16,.34,.61);
-        vec3 sky=mix(horizon,zenith,pow(h,.78));
         vec3 sunDir=normalize(uSunDirection);
         float sun=max(0.0,dot(ray,sunDir));
-        sky+=vec3(.32,.18,.075)*pow(sun,24.0);
-        sky+=vec3(.30,.23,.14)*pow(sun,320.0);
         // Shared precomputed world-space cloud field: the same density drives
         // sky cover and projected mountain/ground shadow, with no second pass.
         // An upper cloud layer is sampled where the view ray reaches the sheet.
@@ -139,9 +123,16 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
           texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
         float mask=smoothstep(-.04,.055,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
         float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.96);
-        vec3 underside=vec3(.36,.47,.55),lit=vec3(1.07,1.04,.94);
-        float rim=pow(sun,18.0);
-        vec3 cloud=mix(underside,lit,clamp(.50+.34*sun+.25*rim,0.0,1.0));
+        // Cloud edge self-shading: sample the same cloud field in sunlight's
+        // projected direction. Bright rims stay local instead of whitewashing sky.
+        vec3 underside=vec3(.31,.42,.56),lit=vec3(1.12,1.07,.96);
+        float leading=texture2D(uCloudMap,cloudUV+sunDir.xz*.016).r;
+        float sideLight=clamp(.53+(low-leading)*6.2,0.0,1.0);
+        float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
+          (1.0-smoothstep(.63,.78,low));
+        vec3 cloud=mix(underside,lit,clamp(.28+.50*sideLight+.22*sun,0.0,1.0));
+        cloud+=vec3(.35,.24,.13)*silver;
+        cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
         // Transparent cloud sheet rendered over the physical atmosphere;
         // shared cloudMap controls both visible cover and mountain cloud shade.
         // Keep depth testing on, otherwise clouds paint over buildings.
