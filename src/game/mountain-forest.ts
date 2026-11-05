@@ -47,6 +47,9 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
     new THREE.Color("#76836a")];
   const treeLocations:{x:number;z:number;y:number;scale:number;rotation:number}[]=[];
   let t=0,c=0,br=0;
+  // Prefixes let quality presets hide complete trees (trunk + both foliage
+  // types), never leaving floating tree crowns at lower vegetation density.
+  const prefixes:[number,number][]=[[0,0]];
   for(let i=0;i<BUDGET*13&&t<BUDGET;i++){
     const h=i+regionIndex*6391;
     // Keep a margin away from triangle-strip boundaries to avoid terrain
@@ -96,6 +99,7 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
         br++;
       }
     }
+    prefixes.push([c,br]);
   }
   trunks.count=t;cones.count=c;broad.count=br;
   for(const mesh of [trunks,cones,broad]){
@@ -105,5 +109,12 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
     else mesh.visible=false;
   }
   const counts={trees:t,coniferLobes:c,broadleafLobes:br};
-  return {region,counts,trees:treeLocations,meshes:[trunks,cones,broad]};
+  function setDensity(factor:number){
+    const visible=Math.round(t*THREE.MathUtils.clamp(factor,0,1));
+    trunks.count=visible;
+    cones.count=prefixes[visible][0];
+    broad.count=prefixes[visible][1];
+    for(const mesh of [trunks,cones,broad])mesh.visible=mesh.count>0;
+  }
+  return {region,counts,trees:treeLocations,meshes:[trunks,cones,broad],setDensity};
 }
