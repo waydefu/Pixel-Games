@@ -32,7 +32,7 @@ for(const path of [...walk("src"),...walk("scripts"),...walk("tests"),...walk("e
 }
 const obsolete=[
  "src/app.js", "lab/index.html", "lab/main.ts", "lab/lab.css",
- "e2e/lab.spec.mjs", "e2e/visual-art-temporary.spec.mjs",
+ "e2e/lab.spec.mjs", "e2e/visual-art-temporary.spec.mjs", "e2e/visual-audit-temporary.spec.mjs",
 ];
 for(const path of obsolete)if(existsSync(path))fail("obsolete file remains "+path);
 const html=readFileSync("index.html","utf8");
