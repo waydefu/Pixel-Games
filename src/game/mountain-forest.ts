@@ -70,7 +70,8 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
       extent.z0+8+uz*spanZ;
     const y=fjordMeshHeight(x,z,region,extent,(i:number,j:number)=>
       positions.getY(j*(extent.columns+1)+i));
-    if(y<11||y>79)continue;
+    // Low headlands and islands carry trees too; only the mountain backdrop needs the 11m floor.
+    if(y<(region==="mainland"?11:2.4)||y>79)continue;
     const slope=slopeAt(x,z,region);
     if(slope>1.18)continue;
     // Forest clusters are denser on cool midslopes, sparse on rock and ridges.
