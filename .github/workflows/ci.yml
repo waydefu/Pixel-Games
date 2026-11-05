@@ -35,3 +35,16 @@ jobs:
         run: timeout --signal=TERM --kill-after=10s 150s npx playwright install --with-deps chromium
       - name: Browser smoke test (desktop and mobile viewport)
         run: npm run test:e2e
+      # Expensive PNG capture is opt-in for future PRs; G2 gets an initial
+      # source-backed visual baseline without charging every tiny code change.
+      - name: Capture G2 visual audit PNG and metrics (opt-in)
+        if: ${{ github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        run: npm run visual:audit
+      - name: Upload G2 visual audit evidence
+        if: ${{ always() && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
+        with:
+          name: visual-audit-${{ github.run_id }}
+          path: visual-audit-output/
+          retention-days: 7
+          if-no-files-found: warn
