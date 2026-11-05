@@ -15,9 +15,9 @@ import * as THREE from "three";
  */
 
 export const TIER_FEATURES = Object.freeze({
-  basic: Object.freeze({ msaa: 0, bloom: false, dof: false, bloomLevels: 0 }),
-  balanced: Object.freeze({ msaa: 4, bloom: true, dof: false, bloomLevels: 4 }),
-  high: Object.freeze({ msaa: 4, bloom: true, dof: true, bloomLevels: 5 }),
+  basic: Object.freeze({ msaa: 0, bloom: false, dof: false, bloomLevels: 0, godRays: 0 }),
+  balanced: Object.freeze({ msaa: 4, bloom: true, dof: false, bloomLevels: 4, godRays: 12 }),
+  high: Object.freeze({ msaa: 4, bloom: true, dof: true, bloomLevels: 5, godRays: 28 }),
 });
 
 export function getTierFeatures(quality) {
@@ -105,6 +105,26 @@ void main(){
   gl_FragColor = vec4(texture2D(tCurrent, vUv).rgb + c * uScatter, 1.0);
 }`;
 
+const RAYS_FRAG = /* glsl */ `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D tSource;   // thresholded bright pass (half resolution)
+uniform vec2 uSun;           // sun position in screen UV
+uniform vec3 uParams;        // density, decay, samples
+void main(){
+  vec2 delta = (vUv - uSun) * uParams.x / uParams.z;
+  vec2 uv = vUv;
+  float illumination = 1.0;
+  vec3 acc = vec3(0.0);
+  for (int i = 0; i < 32; i++) {
+    if (float(i) >= uParams.z) break;
+    uv -= delta;
+    acc += texture2D(tSource, uv).rgb * illumination;
+    illumination *= uParams.y;
+  }
+  gl_FragColor = vec4(acc / uParams.z, 1.0);
+}`;
+
 const DOF_FRAG = /* glsl */ `
 precision highp float;
 varying vec2 vUv;
@@ -145,6 +165,9 @@ varying vec2 vUv;
 uniform sampler2D tScene;
 uniform sampler2D tBloom;
 uniform sampler2D tDof;
+uniform sampler2D tRays;
+uniform float uUseRays;
+uniform float uRayStrength;
 uniform float uUseBloom;
 uniform float uUseDof;
 uniform float uBloomStrength;
@@ -176,6 +199,7 @@ void main(){
     col = mix(col, d.rgb, smoothstep(0.04, 0.55, d.a));
   }
   if (uUseBloom > 0.5) col += texture2D(tBloom, vUv).rgb * uBloomStrength;
+  if (uUseRays > 0.5) col += texture2D(tRays, vUv).rgb * uRayStrength * vec3(1.0, 0.84, 0.62);
   col *= uExposure;
   vec3 mapped = acesFit(col);
   // Split toning in display space: cool shadows, warm highlights (pixel-art style).
@@ -229,13 +253,16 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
     up: fullscreenMaterial(UP_FRAG, {
       tSource: { value: null }, tCurrent: { value: null }, uTexel: { value: new THREE.Vector2() }, uScatter: { value: 0.72 },
     }),
+    rays: fullscreenMaterial(RAYS_FRAG, {
+      tSource: { value: null }, uSun: { value: new THREE.Vector2(0.5, 0.5) }, uParams: { value: new THREE.Vector3(0.9, 0.955, 16) },
+    }),
     dof: fullscreenMaterial(DOF_FRAG, {
       tScene: { value: null }, uTexel: { value: new THREE.Vector2() },
       uFocus: { value: new THREE.Vector4(30, 6, 26, 10) }, tDepth: depthUniform, uCamera: cameraUniform,
     }),
     composite: fullscreenMaterial(COMPOSITE_FRAG, {
-      tScene: { value: null }, tBloom: { value: null }, tDof: { value: null },
-      uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uBloomStrength: { value: 0.42 },
+      tScene: { value: null }, tBloom: { value: null }, tDof: { value: null }, tRays: { value: null },
+      uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uUseRays: { value: 0 }, uRayStrength: { value: 0.34 }, uBloomStrength: { value: 0.42 },
       uExposure: { value: 1.0 }, uSaturation: { value: 1.05 }, uContrast: { value: 1.03 },
       uVignette: { value: 0.26 }, uGrain: { value: 0.018 }, uTime: { value: 0 },
       uShadowTint: { value: new THREE.Vector3(0.945, 0.985, 1.05) },
@@ -248,7 +275,9 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
   let features = getTierFeatures(quality);
   let size = { width: 2, height: 2 };
   let disposed = false;
-  let sceneTarget = null, dofTarget = null, down = [], up = [];
+  let sceneTarget = null, dofTarget = null, rayTarget = null, down = [], up = [];
+  const sun = { direction: new THREE.Vector3(0, 1, 0), set: false, scale: 1 };
+  const sunScreen = new THREE.Vector3(), cameraForward = new THREE.Vector3();
   const focus = { distance: 30, range: 5, span: 28, strength: 1 };
   const grade = materials.composite.uniforms;
 
@@ -270,10 +299,10 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
   }
   function disposeTargets() {
     sceneTarget?.depthTexture?.dispose();
-    sceneTarget?.dispose(); dofTarget?.dispose();
+    sceneTarget?.dispose(); dofTarget?.dispose(); rayTarget?.dispose();
     for (const t of down) t.dispose();
     for (const t of up) t.dispose();
-    sceneTarget = dofTarget = null; down = []; up = [];
+    sceneTarget = dofTarget = rayTarget = null; down = []; up = [];
   }
   function allocate() {
     disposeTargets();
@@ -288,6 +317,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       }
     }
     if (features.dof) dofTarget = makeFlat(width >> 1, height >> 1);
+    if (features.godRays > 0 && features.bloom) rayTarget = makeFlat(Math.max(1, width >> 1), Math.max(1, height >> 1));
   }
 
   function pass(material, target) {
@@ -305,11 +335,15 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
   function setQuality(value) {
     if (disposed) return;
     const next = getTierFeatures(value);
-    const rebuild = next.msaa !== features.msaa || next.bloomLevels !== features.bloomLevels || next.dof !== features.dof;
+    const rebuild = next.msaa !== features.msaa || next.bloomLevels !== features.bloomLevels || next.dof !== features.dof || next.godRays !== features.godRays;
     currentQuality = value; features = next;
     if (rebuild && sceneTarget) allocate();
   }
   function setCamera(value) { if (!disposed) activeCamera = value; }
+  /** Direction from the scene toward the sun (unit vector); enables god rays when it is in front of the camera. */
+  /** 0..1: fades god rays with the sun's height (zero at night). */
+  function setRayScale(value) { sun.scale = Math.min(1, Math.max(0, value)); }
+  function setSun(direction) { sun.direction.set(direction.x, direction.y, direction.z).normalize(); sun.set = true; }
   /** distance along the view axis that is razor sharp; strength 0 disables DoF. */
   function setFocus({ distance, range = focus.range, span = focus.span, strength = 1 }) {
     focus.distance = distance; focus.range = range; focus.span = span; focus.strength = strength;
@@ -357,6 +391,22 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
         bloomTexture = smaller.texture;
       }
 
+      let useRays = false;
+      if (rayTarget && sun.set && down.length) {
+        activeCamera.getWorldDirection(cameraForward);
+        const facing = cameraForward.dot(sun.direction);
+        if (facing > 0.05) {
+          sunScreen.copy(activeCamera.position).addScaledVector(sun.direction, 1000).project(activeCamera);
+          const m = materials.rays;
+          m.uniforms.tSource.value = down[0].texture;
+          m.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
+          m.uniforms.uParams.value.set(0.92, 0.955, Math.min(32, features.godRays));
+          pass(m, rayTarget);
+          materials.composite.uniforms.uRayStrength.value = 0.34 * sun.scale * Math.min(1, (facing - 0.05) / 0.3);
+          useRays = sun.scale > 0.01;
+        }
+      }
+
       const useDof = features.dof && dofTarget && focus.strength > 0;
       if (useDof) {
         const m = materials.dof;
@@ -370,6 +420,8 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       c.tScene.value = sceneTarget.texture;
       c.tBloom.value = bloomTexture;
       c.tDof.value = useDof ? dofTarget.texture : null;
+      c.tRays.value = useRays ? rayTarget.texture : null;
+      c.uUseRays.value = useRays ? 1 : 0;
       c.uUseBloom.value = bloomTexture ? 1 : 0;
       c.uUseDof.value = useDof ? 1 : 0;
       c.uTime.value = time;
@@ -390,7 +442,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
   }
 
   return Object.freeze({
-    setSize, setQuality, setCamera, setFocus, setGrade, render, dispose,
+    setSize, setQuality, setCamera, setSun, setRayScale, setFocus, setGrade, render, dispose,
     get hdr() { return hdr; },
     get quality() { return currentQuality; },
     get features() { return features; },

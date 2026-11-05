@@ -2,13 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { VISUAL_SHOTS, getVisualShot } from "../src/game/visual-audit.js";
 import { canOccupy } from "../src/game/navigation.js";
-test("G2 shot catalog uses unique IDs and lists unsupported days truthfully",()=>{
-  assert.equal(VISUAL_SHOTS.length,8);
-  assert.equal(new Set(VISUAL_SHOTS.map(s=>s.id)).size,8);
-  assert.equal(VISUAL_SHOTS.filter(s=>s.status==="supported").length,6);
-  assert.equal(VISUAL_SHOTS.filter(s=>s.status==="unsupported").length,2);
-  assert.equal(getVisualShot("shot-07-dusk"),null);
-  assert.equal(getVisualShot("shot-08-night"),null);
+test("shot catalog uses unique IDs and covers dawn, day, dusk, night and the moon",()=>{
+  assert.equal(VISUAL_SHOTS.length,10);
+  assert.equal(new Set(VISUAL_SHOTS.map(s=>s.id)).size,10);
+  assert.equal(VISUAL_SHOTS.filter(s=>s.status==="supported").length,10);
+  const hours=VISUAL_SHOTS.map(s=>s.hour);
+  assert.ok(hours.some(h=>h<7),"a sunrise shot");
+  assert.ok(hours.some(h=>h>9&&h<15),"a daytime shot");
+  assert.ok(hours.some(h=>h>18&&h<20),"a dusk shot");
+  assert.ok(hours.some(h=>h>20),"a night shot");
+  assert.ok(getVisualShot("shot-07-dusk"));
+  assert.ok(getVisualShot("shot-08-night-moon"));
   assert.equal(getVisualShot("does-not-exist"),null);
 });
 test("supported snapshots are finite, fixed-time, correctly classified",()=>{
@@ -16,7 +20,7 @@ test("supported snapshots are finite, fixed-time, correctly classified",()=>{
     assert.ok(Object.isFrozen(shot));
     assert.ok(["quarter","first","vista"].includes(shot.mode));
     assert.ok(["desktop","mobile"].includes(shot.viewport));
-    for(const k of ["x","z","yaw","pitch","time"])assert.ok(Number.isFinite(shot[k]));
+    for(const k of ["x","z","yaw","pitch","time","hour"])assert.ok(Number.isFinite(shot[k]));
     assert.equal(getVisualShot(shot.id),shot);
     assert.equal(canOccupy(shot.x,shot.z),true,"audit shot must be in walkable territory: "+shot.id);
   }

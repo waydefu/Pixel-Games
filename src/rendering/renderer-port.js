@@ -150,6 +150,9 @@ export function createRendererPort({
 
   return Object.freeze({
     initialize, resize, setQuality, setRenderScale, setCamera, draw, stats, dispose,
+    setSun(direction) { if (effects && !postFailed) effects.setSun?.(direction); },
+    setRayScale(value) { if (effects && !postFailed) effects.setRayScale?.(value); },
+    setGrade(values) { if (effects && !postFailed) effects.setGrade?.(values); },
     get state() { return state; },
     get size() { return currentSize; },
     get quality() { return currentQuality; },

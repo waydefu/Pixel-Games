@@ -171,6 +171,24 @@
       "source": "https://polyfork.dev/asset/wooden-fence-3d8ee7",
       "sha256": "ffc7cd6a65d418f6a928397d0b6ddc7b99fc4fa3f1f1c13557cad440d6d17bd8",
       "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Wooden Fence by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-rowboat",
+      "path": "assets/models/polyfork/rowboat.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/rowboat-c42d85",
+      "sha256": "8f985b04b9229d03e02e9be8ff4640c429902ad0a778b2840786a1065c6435e1",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Rowboat by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-ship-s-longboat",
+      "path": "assets/models/polyfork/ship-s-longboat.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/ship-s-longboat-f159fd",
+      "sha256": "ef267b2529d35d7429b76ded0dabf0a42c71f7045b3b2acd9dc767c4295512f7",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Ship S Longboat by Polyfork). Mesh files only; Polyfork ES modules are not stored."
     }
   ]
 }

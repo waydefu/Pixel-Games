@@ -5,6 +5,8 @@ import { createArtLibrary } from "./art.js";
 export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose:()=>void}>(item:T)=>T}){
   const art=createArtLibrary(scope);
   const solidCache=new Map<string,THREE.MeshStandardMaterial>();
+  /** Lit windows, lanterns and fires: world.ts dims them by day and lights them at dusk. */
+  const emissives:THREE.MeshStandardMaterial[]=[];
   const patternCache=new Map<string,THREE.MeshStandardMaterial>();
   const colliders:{x:number;z:number;halfX:number;halfZ:number}[]=[];
   function solid(color:string,roughness=.92,emissive?:string){
@@ -14,6 +16,7 @@ export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose
       m=new THREE.MeshStandardMaterial({color,roughness,metalness:0,
         emissive:emissive??"#000000",emissiveIntensity:emissive?0.55:0});
       scope.track(m);solidCache.set(key,m);
+      if(emissive)emissives.push(m);
     }
     return m;
   }
@@ -68,6 +71,6 @@ export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose
   function collider(x:number,z:number,halfX:number,halfZ:number){
     colliders.push({x,z,halfX,halfZ});
   }
-  return {scene,scope,art,colliders,solid,pattern,put,block,column,flat,ellipse,quad,segment,collider};
+  return {scene,scope,art,colliders,emissives,solid,pattern,put,block,column,flat,ellipse,quad,segment,collider};
 }
 export type StageKit=ReturnType<typeof createStageKit>;

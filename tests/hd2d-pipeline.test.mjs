@@ -10,6 +10,8 @@ test("every quality tier uses the same linear pipeline and only differs in cost"
   assert.equal(getTierFeatures("balanced").dof, false);
   assert.equal(getTierFeatures("high").dof, true);
   assert.ok(getTierFeatures("high").bloomLevels > getTierFeatures("balanced").bloomLevels);
+  assert.equal(getTierFeatures("basic").godRays, 0);
+  assert.ok(getTierFeatures("high").godRays > getTierFeatures("balanced").godRays, "god rays scale with the tier");
   assert.throws(() => getTierFeatures("ultra"), RangeError);
   assert.ok(Object.isFrozen(TIER_FEATURES.high));
 });

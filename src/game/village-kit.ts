@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { StageKit } from "./kit.js";
+import { liveSky } from "./sky-live.js";
 
 /**
  * Medieval Village Kit by Polyfork (https://polyfork.dev), CC BY 4.0. Free low-poly meshes: one
@@ -65,6 +66,26 @@ export async function loadVillageKit(){
     has:(name:KitName)=>templates.has(name),
     size:(name:KitName)=>{const t=templates.get(name);if(!t)throw new RangeError("unknown kit model "+name);return t.box.getSize(new THREE.Vector3());},
     names:()=>[...templates.keys()],
+    /** Same model as one animatable Group (boats): meshes stay children, so the static batcher leaves them alone. */
+    instantiateGroup(k:StageKit,material:THREE.Material,name:KitName,placement:Placement):{group:THREE.Group;info:PlacedInfo}{
+      const t=templates.get(name);
+      if(!t)throw new RangeError("unknown kit model "+name);
+      const size=t.box.getSize(new THREE.Vector3());
+      const scale=placement.scale??1;
+      const group=new THREE.Group();
+      group.position.set(placement.x,placement.y??0,placement.z);
+      group.rotation.y=placement.rotY??0;
+      group.scale.setScalar(scale);
+      group.userData.dynamic=true;
+      if(placement.name)group.name=placement.name;
+      for(const part of t.meshes){
+        const mesh=new THREE.Mesh(k.scope.track(part.geometry.clone()),material);
+        mesh.castShadow=true;mesh.receiveShadow=true;
+        group.add(mesh);
+      }
+      k.scene.add(group);
+      return {group,info:{width:size.x*scale,depth:size.z*scale,height:size.y*scale}};
+    },
     instantiate(k:StageKit,material:THREE.Material,name:KitName,placement:Placement):PlacedInfo{
       const t=templates.get(name);
       if(!t)throw new RangeError("unknown kit model "+name);
@@ -93,6 +114,7 @@ export type VillageKit=NonNullable<Awaited<ReturnType<typeof loadVillageKit>>>;
 export function createVillageMaterial(k:StageKit){
   const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.92,metalness:0});
   material.onBeforeCompile=shader=>{
+    shader.uniforms.uWindowGlow=liveSky.lampGlowU;
     shader.vertexShader=shader.vertexShader
       .replace("#include <common>","#include <common>\nvarying vec3 vKitWorld;\nvarying vec3 vKitNormal;")
       .replace("#include <begin_vertex>",`#include <begin_vertex>
@@ -102,6 +124,7 @@ export function createVillageMaterial(k:StageKit){
       .replace("#include <common>",`#include <common>
 varying vec3 vKitWorld;
 varying vec3 vKitNormal;
+uniform float uWindowGlow;
 float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 `)
       .replace("#include <color_fragment>",`#include <color_fragment>
@@ -118,6 +141,13 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float kitLuma=dot(diffuseColor.rgb,vec3(.299,.587,.114));
     diffuseColor.rgb=mix(vec3(kitLuma),diffuseColor.rgb,.84);
     diffuseColor.rgb=pow(diffuseColor.rgb,vec3(.90));
+  }`)
+      .replace("#include <emissivemap_fragment>",`#include <emissivemap_fragment>
+  {
+    // Windows and glass are the near-black vertex colours of the kit: they light up warm after dusk.
+    float darkest=max(vColor.r,max(vColor.g,vColor.b));
+    float glass=1.0-smoothstep(.10,.15,darkest);
+    totalEmissiveRadiance+=vec3(1.0,.70,.36)*glass*uWindowGlow*2.4;
   }`)
       .replace("#include <opaque_fragment>",`
   {

@@ -9,7 +9,8 @@ import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
 import { buildHarbourBeacon } from "./harbour-beacon.js";
 import { batchStaticScene } from "./batch.js";
-import { HORIZON_LINEAR, FOG_DENSITY } from "./environment-state.js";
+import { FOG_DENSITY } from "./environment-state.js";
+import { liveSky, applyHour } from "./sky-live.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
 
@@ -20,15 +21,19 @@ import { createCloudField } from "./cloud-field.js";
 export function createCoastalWorld(villageKit:VillageKit|null=null){
   const scope=createResourceScope();
   const scene=new THREE.Scene();
-  const horizon=new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b);
-  scene.background=horizon.clone();
-  scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
+  scene.background=liveSky.fog.clone();
+  scene.fog=new THREE.FogExp2(liveSky.fog.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
   const cloudField=createCloudField(scope);
-  buildVillage(kit,villageKit?{kit:villageKit,material:createVillageMaterial(kit)}:null);
+  const villageAssets=villageKit?{kit:villageKit,material:createVillageMaterial(kit)}:null;
+  const village=buildVillage(kit,villageAssets);
   buildHarbourBeacon(kit);
-  const environment=buildEnvironment(kit,cloudField);
+  const environment=buildEnvironment(kit,cloudField,villageAssets);
   const fjord=buildFjordLandscape(kit,cloudField);
+  // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
+  const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
+  const lampBase=village.lamps.map(l=>l.intensity);
+  let cloudStrength=.24;
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
   configurePixelTexture(THREE,spriteTexture);
@@ -90,6 +95,18 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     if(screenUp.lengthSq()>1e-6){screenUp.normalize();screenRight.set(-screenUp.z,0,screenUp.x);}
     avatar.rotation.y=Math.atan2(cameraPosition.x-player.x,cameraPosition.z-player.z);
   }
+  /** Move the whole world to an hour of the day (sun, moon, haze, lights, lit windows). */
+  function setHour(hour:number){
+    applyHour(hour);
+    (scene.fog as THREE.FogExp2).color.copy(liveSky.fog);
+    (scene.background as THREE.Color).copy(liveSky.fog);
+    const lamp=.12+.88*liveSky.lampGlow;
+    kit.emissives.forEach((m,i)=>{m.emissiveIntensity=emissiveBase[i]*lamp;});
+    village.lamps.forEach((l,i)=>{l.intensity=lampBase[i]*liveSky.lampGlow;l.visible=liveSky.lampGlow>.02;});
+    spriteMaterial.emissiveIntensity=.30+.32*liveSky.dayLight.value;
+    cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
+    environment.applySky({x:player.x,z:player.z});
+  }
   function update(time:number){
     cloudField.update(time);
     environment.update(time,player);
@@ -104,16 +121,17 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced"){
     environment.sunlight.castShadow=enabled;
-    cloudField.setStrength(quality==="basic"?.16:quality==="high"?.30:.24);
+    cloudField.setStrength((quality==="basic"?.16:quality==="high"?.30:.24)*liveSky.dayLight.value);
     fjord.setSkyQuality(quality);
     const density=quality==="basic"?.36:quality==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
+    cloudStrength=quality==="basic"?.16:quality==="high"?.30:.24;
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
-    movePlayer,faceCamera,update,setShadows,dispose,
+    movePlayer,faceCamera,update,setShadows,setHour,dispose,
   });
 }

@@ -16,7 +16,7 @@ test("fog and sky horizon share a physically valid linear color",()=>{
 test("sun, shader fog and output-color stages are connected to the actual game",()=>{
   const src=(p)=>readFileSync(new URL("../src/game/"+p,import.meta.url),"utf8");
   const env=src("environment.ts"),sky=src("fjord.ts"),sea=src("ocean.ts"),world=src("world.ts");
-  assert.match(env,/SUN_DIRECTION\.x\*34/);
+  assert.match(env,/liveSky\.sunDir\.x\*34/); // lights read the live sky, not a constant
   assert.match(sky,/uSunDirection/);
   assert.match(sea,/uSunDirection/);
   assert.match(sea,/fog:true/);
@@ -28,6 +28,6 @@ test("sun, shader fog and output-color stages are connected to the actual game",
     assert.match(shader,/#include <tonemapping_fragment>/);
     assert.match(shader,/#include <colorspace_fragment>/);
   }
-  assert.match(world,/new THREE\.FogExp2\(horizon\.clone\(\),FOG_DENSITY\)/);
+  assert.match(world,/new THREE\.FogExp2\(liveSky\.fog\.clone\(\),FOG_DENSITY\)/);
   assert.doesNotMatch(sky,/normalize\(vec3\(-\.60,\.30,-\.74\)\)/);
 });

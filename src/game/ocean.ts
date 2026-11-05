@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
-import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
 
 // WebGL2 production fallback: camera-space Fresnel, analytic Gerstner-style
 // directional wave normal, coherent shoreline foam and a sky-light surrogate.
@@ -9,8 +9,10 @@ export function createCoastalWater(k:StageKit) {
   const uniforms={
     ...THREE.UniformsLib.fog,
     uTime:{value:0},
-    uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
-    uHorizon:{value:new THREE.Vector3(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
+    uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},
+    uSunColor:{value:liveSky.sunColor},uMoonColor:{value:liveSky.moonColor},
+    uHorizon:{value:liveSky.fog},uSkyMid:{value:liveSky.mid},
+    uDayLight:liveSky.dayLight,uMoonStrength:liveSky.moonStrength,
   };
   const material=k.scope.track(new THREE.ShaderMaterial({
     uniforms,transparent:false,depthWrite:true,side:THREE.DoubleSide,fog:true,
@@ -48,7 +50,13 @@ export function createCoastalWater(k:StageKit) {
       varying vec3 vNormal;
       varying float vDist;
       uniform vec3 uSunDirection;
+      uniform vec3 uMoonDirection;
+      uniform vec3 uSunColor;
+      uniform vec3 uMoonColor;
       uniform vec3 uHorizon;
+      uniform vec3 uSkyMid;
+      uniform float uDayLight;
+      uniform float uMoonStrength;
       #include <fog_pars_fragment>
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){
@@ -69,11 +77,16 @@ export function createCoastalWater(k:StageKit) {
         // not a falsely claimed SSR or world-space environment probe.
         vec3 reflected=reflect(-v,n);
         float skyHeight=clamp(reflected.y*.70+.30,0.0,1.0);
-        vec3 sky=mix(uHorizon*.58,vec3(.11,.31,.46),
+        vec3 sky=mix(uHorizon*.58,uSkyMid*.6,
           pow(skyHeight,.70));
         water=mix(water,sky,clamp(f*.66+.09,0.0,.67));
-        float glint=pow(max(0.0,dot(reflect(-normalize(uSunDirection),n),v)),96.0);
-        water+=vec3(.49,.39,.25)*glint*.38;
+        float sunRef=max(0.0,dot(reflect(-normalize(uSunDirection),n),v));
+        // Glitter path toward the sun: a tight HDR core plus a broad warm sheen (both feed bloom).
+        float sunUp=smoothstep(-.10,.10,uSunDirection.y);
+        vec3 glitter=uSunColor*(pow(sunRef,220.0)*5.0+pow(sunRef,40.0)*.55+pow(sunRef,6.0)*.10)*sunUp;
+        float moonRef=max(0.0,dot(reflect(-normalize(uMoonDirection),n),v));
+        float moonUp=smoothstep(-.05,.15,uMoonDirection.y);
+        glitter+=uMoonColor*(pow(moonRef,260.0)*2.2+pow(moonRef,45.0)*.20)*uMoonStrength*moonUp;
         // Fine irregular wind highlights depend on world coordinates, not
         // a giant UV repeat that turns the water into regular blue stripes.
         float small=noise(vWorld.xz*2.3+vec2(uTime*.24,uTime*.17));
@@ -89,6 +102,8 @@ export function createCoastalWater(k:StageKit) {
         float foam=shoreline*smoothstep(.45,.76,
           .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));
         water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
+        // Deep water goes dark at night, caustics and foam included; the sun and moon glitter stay bright.
+        water=water*(.12+.88*uDayLight)+glitter;
         gl_FragColor=vec4(max(water,vec3(0.0)),1.0);
         #include <fog_fragment>
         #include <tonemapping_fragment>

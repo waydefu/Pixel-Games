@@ -4,12 +4,13 @@ import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
-import { SUN_DIRECTION } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
+import type { VillageAssets } from "./architecture.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
-export function buildEnvironment(k:StageKit,cloudField:CloudField){
+export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null){
   const stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
@@ -79,7 +80,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     }
   }
   // Original wooden fishing boats; grouped hull, canvas and mooring gear.
-  const boats=buildFishingBoats(k);
+  const boats=buildFishingBoats(k,assets);
 
   // Natural stone banks and no harsh rectangular cliff wall.
   const stones=[k.pattern("rock",2),k.pattern("rock",3),k.solid("#8c9788")];
@@ -204,13 +205,14 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   }
 
   // Lighting: soft upper atmosphere and low sun, physically motivated windows.
-  const sky=new THREE.HemisphereLight("#c8dbd6","#675a48",1.3);k.scene.add(sky);
-  const sunlight=new THREE.DirectionalLight("#ffd6a4",2.85);
-  sunlight.position.set(SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,SUN_DIRECTION.z*34);sunlight.castShadow=true;
+  const sky=new THREE.HemisphereLight("#bdd0e0","#5f5444",1.05);k.scene.add(sky);
+  const sunlight=new THREE.DirectionalLight("#ffc78a",3.5);
+  const moonlight=new THREE.DirectionalLight("#8ea8ff",0);k.scene.add(moonlight);moonlight.target=sunlight.target;
+  sunlight.position.set(liveSky.sunDir.x*34,Math.max(.2,liveSky.sunDir.y)*34,liveSky.sunDir.z*34);sunlight.castShadow=true;
   sunlight.shadow.mapSize.set(1024,1024);
-  sunlight.shadow.camera.left=-26;sunlight.shadow.camera.right=26;
-  sunlight.shadow.camera.top=27;sunlight.shadow.camera.bottom=-27;
-  sunlight.shadow.camera.near=1;sunlight.shadow.camera.far=75;
+  sunlight.shadow.camera.left=-34;sunlight.shadow.camera.right=34;
+  sunlight.shadow.camera.top=35;sunlight.shadow.camera.bottom=-35;
+  sunlight.shadow.camera.near=1;sunlight.shadow.camera.far=95;
   sunlight.shadow.normalBias=.036;sunlight.shadow.bias=-.00015;
   k.scene.add(sunlight);
   const target=new THREE.Object3D();k.scene.add(target);
@@ -218,12 +220,25 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   function update(time:number,player?:{x:number;z:number}){
     ocean.update(time);
     boats.update(time);
-    // The sun keeps a fixed direction but its shadow camera follows players.
     if(player){
       target.position.set(player.x,0,player.z);
-      sunlight.position.set(player.x+SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,player.z+SUN_DIRECTION.z*34);
       target.updateMatrixWorld();
     }
+    applySky(player);
+  }
+  /** Sun, moon and sky light from the live sky; the shadow camera follows the player. */
+  function applySky(player?:{x:number;z:number}){
+    const px=player?.x??0,pz=player?.z??0;
+    // Keep a minimum elevation for the shadow camera so dawn/dusk shadows stay stable instead of infinite.
+    const lift=Math.max(.16,liveSky.sunDir.y);
+    sunlight.position.set(px+liveSky.sunDir.x*34,lift*34,pz+liveSky.sunDir.z*34);
+    sunlight.color.copy(liveSky.sunColor);
+    sunlight.intensity=liveSky.sunIntensity;
+    sunlight.visible=liveSky.sunIntensity>.01;
+    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity;
+    moonlight.position.set(px+liveSky.moonDir.x*34,Math.max(.25,liveSky.moonDir.y)*34,pz+liveSky.moonDir.z*34);
+    moonlight.color.copy(liveSky.moonColor);moonlight.intensity=liveSky.moonIntensity;
+    moonlight.visible=liveSky.moonIntensity>.01;
   }
   function setFoliageDensity(factor:number){
     const amount=THREE.MathUtils.clamp(factor,0,1);
@@ -232,5 +247,5 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,update,setFoliageDensity,sea:ocean.material};
+  return {sunlight,moonlight,update,applySky,setFoliageDensity,sea:ocean.material};
 }

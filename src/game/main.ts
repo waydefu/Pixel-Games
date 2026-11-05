@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
 import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
+import { liveSky } from "./sky-live.js";
+import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -27,6 +29,9 @@ const fullButton=element<HTMLButtonElement>("#fullscreen");
 const quality=element<HTMLSelectElement>("#quality");
 const cameraPicker=element<HTMLSelectElement>("#camera-mode");
 const projectionPicker=element<HTMLSelectElement>("#quarter-projection");
+const timeSlider=element<HTMLInputElement>("#time-of-day");
+const timeAuto=element<HTMLInputElement>("#time-auto");
+const timeLabel=element<HTMLElement>("#time-label");
 const viewToggle=element<HTMLButtonElement>("#view-toggle");
 const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
@@ -37,8 +42,20 @@ const lookHint=element<HTMLElement>("#look-hint");
 const villageKit=await loadVillageKit().catch(error=>{console.warn("Village kit unavailable; using procedural village",error);return null;});
 const world=createCoastalWorld(villageKit);
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
-type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;viewport:string};
+type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;hour:number;viewport:string};
 const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;
+// Time of day: ?hour=19.5 fixes it; visual-audit shots carry their own hour; otherwise the day flows.
+const hourParam=Number.parseFloat(new URLSearchParams(window.location.search).get("hour")??"");
+let hour=visualShot?visualShot.hour:Number.isFinite(hourParam)?wrapHour(hourParam):HOUR_START;
+const HOURS_PER_SECOND=1/40; // a full day lasts 16 real minutes
+function showHour(){
+  const d=describeHour(hour);
+  timeLabel.textContent=d.text+" "+d.phase;
+  timeSlider.value=String(hour);
+}
+timeAuto.checked=!visualShot&&!Number.isFinite(hourParam);
+timeSlider.addEventListener("input",()=>{hour=wrapHour(Number.parseFloat(timeSlider.value));timeAuto.checked=false;world.setHour(hour);showHour();});
+world.setHour(hour);showHour();
 if(visualShot){
   world.movePlayer(visualShot.x,visualShot.z,0);
   rig.setMode(visualShot.mode);
@@ -67,7 +84,7 @@ const diagnostics={
   status:"starting" as GameState,
   frames:0,drawCalls:0,bufferWidth:0,bufferHeight:0,p95Ms:null as number|null,
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
-  visualShot:visualShot?.id??null,
+  visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
 Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
@@ -178,6 +195,9 @@ async function start(){
       setSize:(w:number,h:number)=>pipeline.setSize(w,h),
       setQuality:(q:string)=>{pipeline.setQuality(q);pipelineInfo.quality=q;},
       setCamera:(c:THREE.Camera)=>pipeline.setCamera(c),
+      setSun:(d:THREE.Vector3)=>pipeline.setSun(d),
+      setRayScale:(v:number)=>pipeline.setRayScale(v),
+      setGrade:(v:Record<string,number|number[]>)=>pipeline.setGrade(v),
       render:(t:number)=>pipeline.render(t),
       dispose:()=>pipeline.dispose(),
       onFailure:()=>{renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;},
@@ -226,6 +246,10 @@ async function start(){
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
+      if(timeAuto.checked&&!reduceMotion){hour=wrapHour(hour+dt*HOURS_PER_SECOND);if(now-uiTime>1200||!uiTime)showHour();}
+      world.setHour(hour);
+      diagnostics.hour=hour;diagnostics.phase=describeHour(hour).phase;diagnostics.sunElevation=liveSky.elevation;
+      host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays);host.setGrade({uExposure:liveSky.exposure});
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
         if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);

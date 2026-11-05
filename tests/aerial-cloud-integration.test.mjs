@@ -36,7 +36,7 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   assert.match(sky,/uCloudDetailLevel>1\.5/);
   assert.match(sky,/quality==="high"\?2:quality==="balanced"\?1:0/);
   assert.match(world,/fjord\.setSkyQuality\(quality\)/);
-  assert.match(world,/cloudField\.setStrength\(quality/);
+  assert.match(world,/cloudField\.setStrength\(\(quality/); // preset strength, scaled by daylight
   assert.match(cloud,/uCloudMap:\{value:texture\}/);
   assert.match(cloud,/uCloudWind\.value\.set/);
 });

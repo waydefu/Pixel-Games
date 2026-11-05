@@ -4,7 +4,7 @@ import { buildMountainForest } from "./mountain-forest.js";
 import { applyAerialPerspective } from "./aerial-perspective.js";
 import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
-import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
 import type { StageKit } from "./kit.js";
 type Region="mainland"|"east"|"north"|"south";
 type Extent={x0:number;x1:number;z0:number;z1:number;columns:number;rows:number};
@@ -75,8 +75,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   const skyUniforms={
     ...cloudField.uniforms,
     uTime:{value:0},uCloudAmount:{value:1.0},uCloudDetailLevel:{value:1},
-    uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
-    uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
+    uSunDirection:{value:liveSky.sunDir},
+    uHorizon:{value:liveSky.horizon},
+    uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},
   };
   // Art-directed sky: a clear tropical day (reference: saturated blue overhead fading to pale aqua at the
   // horizon, crisp white cumulus). A physical Preetham sky reads pale and hazy and cannot be steered, so the
@@ -84,29 +85,76 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   const skyMaterial=k.scope.track(new THREE.ShaderMaterial({
     depthWrite:false,depthTest:false,side:THREE.BackSide,fog:false,
     uniforms:{
-      uZenith:{value:new THREE.Color().setRGB(.020,.135,.60)},
-      uMid:{value:new THREE.Color().setRGB(.085,.36,.80)},
-      uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r*.92,HORIZON_LINEAR.g*.98,HORIZON_LINEAR.b*1.02)},
-      uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+      uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uHorizon:{value:liveSky.horizon},
+      uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},uSunColor:{value:liveSky.sunColor},
+      uNight:liveSky.night,uMoonStrength:liveSky.moonStrength,
     },
     vertexShader:String.raw`varying vec3 vRay;
       void main(){vRay=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader:String.raw`precision highp float;
       varying vec3 vRay;
       uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;
+      uniform vec3 uMoonDirection;uniform vec3 uSunColor;uniform float uNight;uniform float uMoonStrength;
+      float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+      float n3(vec3 p){
+        vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+        return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
+                   mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);
+      }
       void main(){
         vec3 ray=normalize(vRay);
         float h=clamp(ray.y,0.0,1.0);
         vec3 col=mix(uHorizon,uMid,smoothstep(0.0,.30,h));
         col=mix(col,uZenith,smoothstep(.22,.95,h));
+        // Sun: warm haze tinted by the sun colour, corona and an HDR disc that feeds bloom and god rays.
         float s=max(0.0,dot(ray,normalize(uSunDirection)));
-        col+=vec3(1.0,.84,.58)*(pow(s,64.0)*.42+pow(s,7.0)*.07);
+        float sunUp=smoothstep(-.12,.10,uSunDirection.y);
+        col=mix(col,uSunColor*.9,pow(s,3.0)*.55*sunUp);
+        col+=uSunColor*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
+        col=mix(col,uSunColor*vec3(20.0,17.0,13.0),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        // Moon: cool disc with soft maria and a faint halo.
+        vec3 md=normalize(uMoonDirection);
+        float m=max(0.0,dot(ray,md));
+        float moonUp=smoothstep(-.10,.08,uMoonDirection.y);
+        float disc=smoothstep(.99935,.99962,m);
+        vec3 moonCol=vec3(.86,.92,1.05)*(.78+.22*n3(ray*55.0+vec3(3.0)));
+        col+=vec3(.30,.38,.60)*(pow(m,48.0)*.35+pow(m,600.0)*.8)*uMoonStrength*moonUp;
+        col=mix(col,moonCol*(2.4+1.6*uNight),disc*moonUp*smoothstep(-.02,.03,ray.y));
         gl_FragColor=vec4(col,1.0);
       }`,
   }));
   const skyDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,32,18)),skyMaterial);
   skyDome.name="sky-atmosphere";skyDome.renderOrder=-1000;
   k.scene.add(skyDome);
+  // Stars: a fixed deterministic field on the upper hemisphere, visible only at night, twinkling slowly.
+  const starCount=1400,starPositions=new Float32Array(starCount*3),starSeeds=new Float32Array(starCount);
+  const starRand=(n:number)=>{const v=Math.sin(n*12.9898+78.233)*43758.5453;return v-Math.floor(v);};
+  for(let i=0;i<starCount;i++){
+    const theta=starRand(i*2.17)*Math.PI*2,cosPhi=.03+.97*starRand(i*5.31+9),sinPhi=Math.sqrt(1-cosPhi*cosPhi);
+    starPositions.set([Math.cos(theta)*sinPhi*780,cosPhi*780,Math.sin(theta)*sinPhi*780],i*3);
+    starSeeds[i]=starRand(i*7.7+3);
+  }
+  const starGeometry=k.scope.track(new THREE.BufferGeometry());
+  starGeometry.setAttribute("position",new THREE.BufferAttribute(starPositions,3));
+  starGeometry.setAttribute("aSeed",new THREE.BufferAttribute(starSeeds,1));
+  const starMaterial=k.scope.track(new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,fog:false,
+    uniforms:{uAlpha:liveSky.starAlpha,uTime:skyUniforms.uTime},
+    vertexShader:String.raw`attribute float aSeed;uniform float uTime;varying float vTwinkle;
+      void main(){
+        vTwinkle=.55+.45*sin(uTime*(1.2+aSeed*2.0)+aSeed*40.0);
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+        gl_PointSize=1.0+aSeed*2.2;
+      }`,
+    fragmentShader:String.raw`precision highp float;uniform float uAlpha;varying float vTwinkle;
+      void main(){
+        float d=smoothstep(.5,.0,length(gl_PointCoord-.5));
+        gl_FragColor=vec4(vec3(.75,.85,1.0)*d*vTwinkle*uAlpha*1.6,1.0);
+      }`,
+  }));
+  const stars=new THREE.Points(starGeometry,starMaterial);
+  stars.name="sky-stars";stars.renderOrder=-998;stars.frustumCulled=false;
+  k.scene.add(stars);
   const cloudShader=k.scope.track(new THREE.ShaderMaterial({
     uniforms:skyUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
     vertexShader:String.raw`varying vec3 vRay;
@@ -125,6 +173,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform float uCloudHeight;
       uniform vec3 uSunDirection;
       uniform vec3 uHorizon;
+      uniform vec3 uCloudLit;
+      uniform vec3 uCloudShade;
       void main(){
         vec3 ray=normalize(vRay);
         vec3 sunDir=normalize(uSunDirection);
@@ -159,13 +209,14 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
         // Cloud edge self-shading: sample the same cloud field in sunlight's
         // projected direction. Bright rims stay local instead of whitewashing sky.
-        vec3 underside=vec3(.36,.50,.74),lit=vec3(1.55,1.52,1.44);
+        vec3 underside=uCloudShade,lit=uCloudLit;
         float leading=texture2D(uCloudMap,cloudUV+sunDir.xz*.016).r;
         float sideLight=clamp(.53+(low-leading)*6.2,0.0,1.0);
         float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
           (1.0-smoothstep(.63,.78,low));
         vec3 cloud=mix(underside,lit,clamp(.28+.50*sideLight+.22*sun,0.0,1.0));
         cloud+=vec3(.35,.24,.13)*silver;
+        cloud*=mix(vec3(1.0),vec3(1.30,1.0,.74),pow(sun,3.0)); // sunward clouds glow warm
         cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
         // Transparent cloud sheet rendered over the physical atmosphere;
         // shared cloudMap controls both visible cover and mountain cloud shade.
