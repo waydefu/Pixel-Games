@@ -10,6 +10,7 @@ import { buildHarbourBeacon } from "./harbour-beacon.js";
 import { batchStaticScene } from "./batch.js";
 import { HORIZON_LINEAR, FOG_DENSITY } from "./environment-state.js";
 import { groundHeight } from "./navigation.js";
+import { createCloudField } from "./cloud-field.js";
 
 /**
  * The game's one and only scene. Old test geometry and electric street lamps
@@ -22,10 +23,11 @@ export function createCoastalWorld(){
   scene.background=horizon.clone();
   scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
+  const cloudField=createCloudField(scope);
   buildVillage(kit);
   buildHarbourBeacon(kit);
-  const environment=buildEnvironment(kit);
-  const fjord=buildFjordLandscape(kit);
+  const environment=buildEnvironment(kit,cloudField);
+  const fjord=buildFjordLandscape(kit,cloudField);
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
   configurePixelTexture(THREE,spriteTexture);
@@ -79,6 +81,7 @@ export function createCoastalWorld(){
     avatar.rotation.y=Math.atan2(cameraPosition.x-player.x,cameraPosition.z-player.z);
   }
   function update(time:number){
+    cloudField.update(time);
     environment.update(time,player);
     fjord.update(time);
     const walking=time-lastMovedAt<.12;
@@ -89,7 +92,10 @@ export function createCoastalWorld(){
   }
   const batching=batchStaticScene(scene,scope);
   scene.userData.batching=batching;
-  function setShadows(enabled:boolean){environment.sunlight.castShadow=enabled;}
+  function setShadows(enabled:boolean){
+    environment.sunlight.castShadow=enabled;
+    cloudField.setStrength(enabled?.27:.16);
+  }
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,colliders:kit.colliders,player,avatar,shadow,
