@@ -3,6 +3,7 @@ import { Sky } from "three/addons/objects/Sky.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildMountainForest } from "./mountain-forest.js";
 import { applyAerialPerspective } from "./aerial-perspective.js";
+import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
 import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
 import type { StageKit } from "./kit.js";
@@ -61,6 +62,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   }));
   cloudField.applyToMaterial(regionMaterial);
   applyAerialPerspective(regionMaterial,{valleyBoost:.62,sunWarmth:.22});
+  applyRockSurface(regionMaterial);
   const peaks:THREE.Mesh[]=[];
   const forests:ReturnType<typeof buildMountainForest>[]=[];
   for(const [index,region] of (["mainland","east","north","south"] as const).entries()){
