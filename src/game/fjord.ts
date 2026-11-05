@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { fjordHeight } from "./terrain-profile.js";
+import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
 import type { StageKit } from "./kit.js";
 type Region="mainland"|"east"|"north"|"south";
 type Extent={x0:number;x1:number;z0:number;z1:number;columns:number;rows:number};
@@ -13,7 +14,7 @@ function makeMass(scope:StageKit["scope"],region:Region,e:Extent){
   const verts:number[]=[];const colors:number[]=[];const indexes:number[]=[];
   const grass=new THREE.Color("#526e51"),moss=new THREE.Color("#708666");
   const rock=new THREE.Color("#69766d"),ridgeRock=new THREE.Color("#9a9c8e");
-  const snow=new THREE.Color("#bac0b5"),scratch=new THREE.Color();
+  const scratch=new THREE.Color();
   const dx=(e.x1-e.x0)/e.columns,dz=(e.z1-e.z0)/e.rows;
   for(let j=0;j<=e.rows;j++)for(let i=0;i<=e.columns;i++){
     const x=e.x0+dx*i,z=e.z0+dz*j;
@@ -27,7 +28,6 @@ function makeMass(scope:StageKit["scope"],region:Region,e:Extent){
     const stoneFraction=Math.min(.83,Math.max(0,(h-37)/80+slope*.055));
     scratch.lerp(rock,stoneFraction);
     scratch.lerp(ridgeRock,Math.min(.4,Math.max(0,(h-77)/90)));
-    scratch.lerp(snow,Math.min(.2,Math.max(0,(h-126)/100)));
     const strata=Math.sin(h*.46+x*.09+z*.06)*.028;
     scratch.multiplyScalar(.92+l*.11+strata);
     colors.push(scratch.r,scratch.g,scratch.b);
@@ -54,7 +54,11 @@ export function buildFjordLandscape(k:StageKit){
   }
   // A layered moving skydome uses a small procedural cloud shader, not hundreds
   // of translucent planes or an expensive volumetric march on mobile.
-  const skyUniforms={uTime:{value:0},uCloudAmount:{value:.82}};
+  const skyUniforms={
+    uTime:{value:0},uCloudAmount:{value:.82},
+    uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+    uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
+  };
   const sky=k.scope.track(new THREE.ShaderMaterial({
     uniforms:skyUniforms,depthWrite:false,depthTest:false,side:THREE.BackSide,fog:false,
     vertexShader:String.raw`varying vec3 vRay;
@@ -66,6 +70,8 @@ export function buildFjordLandscape(k:StageKit){
       varying vec3 vRay;
       uniform float uTime;
       uniform float uCloudAmount;
+      uniform vec3 uSunDirection;
+      uniform vec3 uHorizon;
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noiz(vec2 p){
         vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
@@ -79,10 +85,10 @@ export function buildFjordLandscape(k:StageKit){
       }
       void main(){
         vec3 ray=normalize(vRay);
-        float h=clamp(ray.y*.5+.5,0.0,1.0);
-        vec3 horizon=vec3(.54,.65,.70),zenith=vec3(.13,.39,.63);
+        float h=clamp(ray.y,0.0,1.0); // Match fog at the true geometric horizon.
+        vec3 horizon=uHorizon,zenith=vec3(.13,.39,.63);
         vec3 sky=mix(horizon,zenith,pow(h,1.16));
-        vec3 sunDir=normalize(vec3(-.60,.30,-.74));
+        vec3 sunDir=normalize(uSunDirection);
         float sun=max(0.0,dot(ray,sunDir));
         sky+=vec3(.32,.18,.075)*pow(sun,24.0);
         sky+=vec3(.30,.23,.14)*pow(sun,320.0);
@@ -101,6 +107,8 @@ export function buildFjordLandscape(k:StageKit){
         vec3 cloud=mix(underside,lit,.42+.34*sun);
         sky=mix(sky,cloud,amount);
         gl_FragColor=vec4(sky,1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }`,
   }));
   const dome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,28,16)),sky);

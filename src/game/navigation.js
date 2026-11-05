@@ -3,6 +3,12 @@
 export const WALK_BOUNDS = Object.freeze({ minX: -40, maxX: 28.85, minZ: -33, maxZ: 33 });
 export const PIER = Object.freeze({ minX: 13.5, maxX: 28.85, minZ: 6.0, maxZ: 10.0 });
 const PLAYER_RADIUS = 0.36;
+// The wharf's plank top is y=.275 + .035/2. Treat the walk surface,
+// player sprite, ground shadow and first-person eye as one height model.
+export function groundHeight(x,z){
+  if(!Number.isFinite(x)||!Number.isFinite(z))throw new RangeError("invalid ground position");
+  return x>=PIER.minX&&x<=PIER.maxX&&z>=PIER.minZ&&z<=PIER.maxZ ? .2925 : 0;
+}
 export function canOccupy(x, z, colliders = []) {
   if (![x,z].every(Number.isFinite)) return false;
   if (x < WALK_BOUNDS.minX || x > WALK_BOUNDS.maxX ||

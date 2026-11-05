@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canOccupy, stepOnGround } from "../src/game/navigation.js";
+import { canOccupy, stepOnGround, groundHeight, PIER } from "../src/game/navigation.js";
 test("spawn and main road remain walkable, water blocked except pier",()=>{
   assert.equal(canOccupy(2,2),true);
   assert.equal(canOccupy(18,0),false);
@@ -34,4 +34,14 @@ test("medieval props block player movement at their authored footprints",()=>{
 test("invalid values never become valid positions",()=>{
   assert.equal(canOccupy(Infinity,0),false);
   assert.equal(canOccupy(NaN,0),false);
+});
+
+test("shared walk-surface height matches pier plank top and player reachability",()=>{
+  assert.equal(groundHeight(9,4.2),0);
+  assert.equal(groundHeight(18,8),.2925);
+  assert.equal(groundHeight(PIER.maxX,PIER.maxZ),.2925);
+  assert.equal(groundHeight(18,10.1),0);
+  assert.equal(groundHeight(13.49,8),0);
+  assert.throws(()=>groundHeight(NaN,8),RangeError);
+  assert.throws(()=>groundHeight(8,Infinity),RangeError);
 });

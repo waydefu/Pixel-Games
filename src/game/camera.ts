@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { groundHeight } from "./navigation.js";
 
 export type CameraMode="quarter"|"first"|"vista";
 const modes:CameraMode[]=["quarter","first","vista"];
@@ -56,15 +57,14 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
   }
   function tick(dt:number){
     if(mode==="quarter"){
-      dest.set(player.x,1.3,player.z);
+      dest.set(player.x,1.3+groundHeight(player.x,player.z),player.z);
       target.lerp(dest,1-Math.exp(-Math.max(0,dt)*6.5));
       quarter.position.copy(target).add(quarterOffset);
       quarter.lookAt(target);
       return quarter;
     }
     if(mode==="first"){
-      const standingOnPier=player.x>13.5&&player.z>=6&&player.z<=10;
-      perspective.position.set(player.x,1.68+(standingOnPier?.29:0),player.z);
+      perspective.position.set(player.x,1.68+groundHeight(player.x,player.z),player.z);
       perspective.rotation.set(pitch,yaw,0,"YXZ");
     }else{
       perspective.position.copy(vistaPosition);
