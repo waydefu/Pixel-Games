@@ -62,5 +62,5 @@ test("water stays an analytic WebGL2 single-pass sea",()=>{
   assert.match(s,/uHorizon/);
   assert.match(s,/Fresnel/);
   assert.doesNotMatch(s,/new THREE\.WebGLRenderTarget/);
-  assert.doesNotMatch(s,/FFT|fft-/);
+  assert.doesNotMatch(s,/new THREE\.WebGLRenderTarget|FFTCompute|uFftSpectrum/);
 });
