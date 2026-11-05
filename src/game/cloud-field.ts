@@ -47,7 +47,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     uCloudSpan:{value:SPAN},
     uCloudHeight:{value:CLOUD_HEIGHT},
     uCloudSun:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
-    uCloudStrength:{value:.27},
+    uCloudStrength:{value:.30},
   };
 
   function applyToMaterial(material:THREE.MeshStandardMaterial){
@@ -63,7 +63,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
       shader.fragmentShader=shader.fragmentShader.replace("#include <common>",
         "#include <common>\nvarying vec3 vCloudWorld;\nuniform sampler2D uCloudMap;\nuniform vec2 uCloudWind;\nuniform float uCloudSpan;\nuniform float uCloudHeight;\nuniform vec3 uCloudSun;\nuniform float uCloudStrength;");
       shader.fragmentShader=shader.fragmentShader.replace("#include <color_fragment>",
-        "#include <color_fragment>\nvec2 cloudGroundUV=(vCloudWorld.xz+uCloudSun.xz/max(.16,uCloudSun.y)*(uCloudHeight-vCloudWorld.y)+uCloudWind)/uCloudSpan;\nfloat cloudCover=texture2D(uCloudMap,cloudGroundUV).r;\nfloat cloudOcclusion=smoothstep(.45,.65,cloudCover);\ndiffuseColor.rgb*=1.0-uCloudStrength*cloudOcclusion;");
+        "#include <color_fragment>\nvec2 cloudGroundUV=(vCloudWorld.xz+uCloudSun.xz/max(.16,uCloudSun.y)*(uCloudHeight-vCloudWorld.y)+uCloudWind)/uCloudSpan;\nfloat cloudCover=texture2D(uCloudMap,cloudGroundUV).r;\nfloat cloudOcclusion=smoothstep(.39,.57,cloudCover);\ndiffuseColor.rgb*=1.0-uCloudStrength*cloudOcclusion;");
     };
     const previousKey=material.customProgramCacheKey.bind(material);
     material.customProgramCacheKey=()=>previousKey()+"|coastal-cloud-field-v1";
