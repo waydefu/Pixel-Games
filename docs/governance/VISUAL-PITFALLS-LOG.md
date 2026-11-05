@@ -126,6 +126,13 @@
 - **紀錄**：PR [#12](https://github.com/waydefu/Pixel-Games/pull/12) 已將外部研究整合成唯一研究入口、原始報告標「已整合」；PR [#13](https://github.com/waydefu/Pixel-Games/pull/13) 保留 HD-2D 補充而非開第二套主報告。
 - **教訓**：**研究入口 ≠ 工作排程入口**。今天 G1～G6 只在 [唯一總計畫](../plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md) 管理，修改 roadmap 僅指向它；保留歷史，不刪有用證據。
 
+### PV-028｜新增塔樓的外觀基座半徑與碰撞半徑不符
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #18，仍待實際鏡頭 A/B）。
+- **現象**：G3 最初燈塔台基 Cylinder 半徑約 3.5m，碰撞半徑只有 2.85m，玩家可能走入基座。周向窗洞的玻璃板朝向也未對齊圓柱切線。
+- **證據**：`src/game/harbour-beacon.ts` 中 `CylinderGeometry(3.1,3.5,.86,12)`、最初 `BEACON_SITE.radius=2.85`；窗片最初 `pane.rotation.y=-angle`。這是程式級核實，未聲稱已親眼看到穿模。
+- **修正**：將 authored collider 半徑調到 3.60m，塔樓高度 metadata 與頂端屋頂實高對齊；窗片改 `Math.PI/2-angle` 方向，加入對應回歸測試。
+- **驗收限制**：CI 待跑、G2 六視角 PNG 待核、第一人稱實際碰撞與 POCO F8 Ultra 真機 **NOT RUN**。
+
 ## 3. 尚未發生、但 G4／G5／G6 要先防的高風險
 
 | ID | 類型／狀態 | 可能踩坑 | 防護措施與可證實的驗收 |
@@ -153,7 +160,7 @@
 ## 5. 複製後即可使用的踩坑回填模板
 
 ```md
-### PV-028｜<精確標題>
+### PV-029｜<精確標題>
 - 類型／狀態：CODE-VERIFIED | HISTORY | RISK | DECISION / OPEN | RESOLVED-CODE | RISK-UNVERIFIED | NEEDS-VERIFY
 - 發現日期／相關 PR／檔案與 HEAD SHA：
 - 觸發前提：裝置、瀏覽器、畫質、DPR、鏡頭、seed、時間、操作
