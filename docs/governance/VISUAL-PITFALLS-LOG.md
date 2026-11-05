@@ -133,6 +133,18 @@
 - **修正**：將 authored collider 半徑調到 3.60m，塔樓高度 metadata 與頂端屋頂實高對齊；窗片改 `Math.PI/2-angle` 方向，加入對應回歸測試。
 - **驗收限制**：CI 待跑、G2 六視角 PNG 待核、第一人稱實際碰撞與 POCO F8 Ultra 真機 **NOT RUN**。
 
+### PV-029｜移動地形高度實作後，測試仍檢查舊檔位置
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #18 G3-E，CI 測試位置修正）。
+- **現象／證據**：地形表面位移由 `fjord.ts` 抽到 `terrain-profile.js` 的 `fjordSurfaceHeight()`，舊 `tests/hero-visual.test.mjs` 仍從原 `fjord.ts` 尋找 `const crack=Math.sin`，導致 GitHub Actions 靜態／單測紅燈。這不等於已證實的渲染錯誤，但會阻斷所有後續驗收。
+- **修法**：測試改查共用高度來源，保留 `fjord.ts` 的實際引用與山體岩色契約；新增 `tests/environment-evolution.test.mjs`，驗證地形高度有界、山林坡度過濾、雲影接線、輕量海面限制。
+- **驗收**：最終 HEAD CI／六視角 shader 啟動 **須重新 PASS**，不能沿用先前 commit 的綠燈。
+
+### PV-030｜增加山林與雲影後，畫面看似好看卻讓行動端超出預算
+- **類型／狀態**：`RISK / RISK-UNVERIFIED`（PR #18 G3-E）。
+- **證據**：G2 與初版 G3-E 的 desktop Chromium 固定峽灣鏡頭，draw calls 從 201 增至 265，三角形約從 21.9 萬升至 36.0 萬；SwiftShader 的 RAF p95 不可拿來當真機幀率／GPU time。
+- **目前處理**：以 `THREE.InstancedMesh` 的山體分區、坡度遮罩、單份 128px 雲場取樣，不加新雲 Pass；減少灌木細分，建立 `basic/balanced/high` 的山林完整樹木與海岸草叢密度梯度（prefix count 保證樹冠不離開樹幹）。
+- **驗收要求**：重新取得 G2 相機同條件 PNG、draw calls/triangles、Shader error；不同畫質檔各記數據。POCO F8 Ultra 真機 60FPS／熱測仍 **NOT RUN**，不得宣稱預算足夠。
+
 ## 3. 尚未發生、但 G4／G5／G6 要先防的高風險
 
 | ID | 類型／狀態 | 可能踩坑 | 防護措施與可證實的驗收 |
@@ -160,7 +172,7 @@
 ## 5. 複製後即可使用的踩坑回填模板
 
 ```md
-### PV-029｜<精確標題>
+### PV-031｜<精確標題>
 - 類型／狀態：CODE-VERIFIED | HISTORY | RISK | DECISION / OPEN | RESOLVED-CODE | RISK-UNVERIFIED | NEEDS-VERIFY
 - 發現日期／相關 PR／檔案與 HEAD SHA：
 - 觸發前提：裝置、瀏覽器、畫質、DPR、鏡頭、seed、時間、操作
