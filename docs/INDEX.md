@@ -18,6 +18,7 @@
 | GitHub Pages 發布 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
 | 本輪獨立程式審查 | [AUDIT-2026-11-05](reviews/INDEPENDENT-AUDIT-2026-11-05.md) |
 | P1-R3 外部大神案例與程式差距報告（待修項目） | [EXTERNAL-BENCHMARK-CODE-GAP](reviews/P1-R3-EXTERNAL-BENCHMARK-CODE-GAP-2026-11-05.md) |
+| P1 擴大研究：高品質世界、場景、材質、裁切與手機效能（海洋重型技術排除） | [WORLD-VISUAL-QUALITY-EXPANDED-RESEARCH](reviews/P1-WORLD-VISUAL-QUALITY-EXPANDED-RESEARCH-2026-11-05.md) |
 
 ## 研究與歷史決策（保留原文、不直接當現行程式）
 
