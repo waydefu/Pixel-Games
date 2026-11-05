@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
+import { partitionFacade } from "./facade-geometry.js";
 
 function hash(n:number){const v=Math.sin(n*127.1+31.37)*43758.5453123;return v-Math.floor(v);}
 type Roof="red"|"blue"|"thatch";
@@ -14,31 +15,37 @@ export function buildVillage(k:StageKit){
   const lit=k.solid("#eed6a6",.7,"#d89e54");
   const seaGlass=k.solid("#6b938b",.6,"#293a33");
   const lamps:THREE.PointLight[]=[];
-  function windowFrame(x:number,y:number,z:number,front:number,shutters=true){
-    const fz=z+front*.035;
-    k.block(.92,1.24,.10,beams,x,y,fz,false);
-    k.block(.73,1.05,.13,lit,x,y,fz+front*.07,false);
-    k.block(.12,1.22,.17,trim,x,y,fz+front*.13,false);
-    k.block(.84,.11,.17,trim,x,y+.08,fz+front*.14,false);
-    k.block(1.09,.15,.32,stone,x,y-.69,fz+front*.17);
+  // Windows are physically recessed: the masonry is absent in the aperture.
+  // All glass, mullions and shutters stay behind the exterior wall face.
+  function windowFrame(x:number,y:number,outerZ:number,front:number,shutters=true){
+    const glass=k.solid("#d9c6a0",.38,"#9a7142");
+    const darkReveal=k.solid("#2b2826");
+    // Shadowed reveal lies between outside facade and glazing.
+    k.block(.84,1.12,.06,darkReveal,x,y,outerZ-front*.49,false);
+    k.block(.74,1.01,.055,glass,x,y,outerZ-front*.445,false);
+    for(const dx of [-.49,.49]){
+      k.block(.10,1.28,.38,stone,x+dx,y,outerZ-front*.21,false);
+      k.block(.075,1.07,.12,beams,x+dx*.78,y,outerZ-front*.355,false);
+    }
+    k.block(1.08,.13,.40,stone,x,y-.64,outerZ-front*.205,false);
+    k.block(1.07,.11,.36,stone,x,y+.63,outerZ-front*.19,false);
+    k.block(.075,1.04,.09,beams,x,y,outerZ-front*.375,false);
+    k.block(.78,.075,.09,beams,x,y+.035,outerZ-front*.365,false);
     if(shutters){
       const sh=k.pattern("timber",13);
-      for(const dx of [-.65,.65]){
-        k.block(.29,1.08,.16,sh,x+dx,y,fz+front*.08);
-        k.block(.30,.10,.19,beams,x+dx,y+.26,fz+front*.17,false);
+      for(const dx of [-.68,.68]){
+        k.block(.28,1.10,.09,sh,x+dx,y,outerZ-front*.11,false);
+        k.block(.29,.085,.10,beams,x+dx,y+.23,outerZ-front*.095,false);
       }
     }
   }
-  function door(x:number,y:number,z:number,front:number){
-    const fz=z+front*.08;
-    k.block(1.29,2.26,.18,beams,x,y,fz);
-    k.block(1.07,2.02,.21,wood,x,y,fz+front*.13);
-    k.block(.12,1.92,.26,trim,x-.28,y,fz+front*.25,false);
-    k.block(.12,1.92,.26,trim,x+.26,y,fz+front*.25,false);
-    k.column(.095,.11,brass,x+.36,y-.08,fz+front*.31,8);
-    k.block(1.58,.20,.40,stone,x,y+1.17,fz);
-    // Carved stone threshold.
-    k.block(1.64,.12,.67,stone,x,.07,fz+front*.45,false);
+  function door(x:number,y:number,outerZ:number,front:number){
+    // Unlike the original pasted-on slab, this door is seated inside its void.
+    k.block(1.07,2.04,.15,wood,x,y,outerZ-front*.37,false);
+    for(const dx of [-.62,.62])k.block(.17,2.18,.32,beams,x+dx,y,outerZ-front*.18,false);
+    k.block(1.45,.18,.35,stone,x,y+1.13,outerZ-front*.17,false);
+    k.column(.072,.10,brass,x+.37,y-.08,outerZ-front*.27,8);
+    k.block(1.56,.12,.54,stone,x,.07,outerZ+front*.11,false);
   }
   function makeRoof(h:House,roofY:number){
     const {x,z,w,d,roof,seed}=h;
@@ -56,14 +63,23 @@ export function buildVillage(k:StageKit){
     left.castShadow=right.castShadow=true;
     k.segment(new THREE.Vector3(x,roofY+rise+.07,z-depth),
       new THREE.Vector3(x,roofY+rise+.07,z+depth),.095,k.solid("#5d4740"),6);
-    // Visible gable infill, diagonally braced with timber.
+    // Gable is a ShapeGeometry with a real cut-out, not a texture masking a solid wall.
     const wallGable=k.pattern("plaster",seed+4);
     for(const face of [-1,1]){
       const zz=z+face*(d/2+.021);
-      k.quad([
-        [x-w/2,roofY-.03,zz],[x+w/2,roofY-.03,zz],
-        [x,roofY+rise-.17,zz],[x,roofY+rise-.17,zz]
-      ],wallGable,false);
+      const shape=new THREE.Shape();
+      shape.moveTo(-w/2,0);shape.lineTo(w/2,0);shape.lineTo(0,rise-.17);shape.closePath();
+      const opening=new THREE.Path();
+      opening.moveTo(-.34,.25);opening.lineTo(-.34,1.02);
+      opening.lineTo(.34,1.02);opening.lineTo(.34,.25);opening.closePath();
+      shape.holes.push(opening);
+      k.put(new THREE.ShapeGeometry(shape),wallGable,x,roofY,zz,false);
+      const inset=zz-face*.26;
+      k.block(.65,.72,.06,k.solid("#e4cca2",.4,"#b98c5a"),x,roofY+.64,inset,false);
+      k.block(.065,.74,.08,beams,x,roofY+.64,inset+face*.04,false);
+      for(const dx of [-.37,.37])
+        k.block(.08,.83,.26,beams,x+dx,roofY+.64,zz-face*.12,false);
+      k.block(.81,.09,.30,stone,x,roofY+.22,zz-face*.13,false);
       k.segment(new THREE.Vector3(x-w*.49,roofY,zz+face*.08),
         new THREE.Vector3(x,roofY+rise-.12,zz+face*.08),.085,beams,6);
       k.segment(new THREE.Vector3(x,roofY+rise-.12,zz+face*.08),
@@ -82,7 +98,18 @@ export function buildVillage(k:StageKit){
     const wall=roof==="blue"?k.pattern("stone",seed+4):k.pattern("plaster",seed+2);
     // Stone plinth, unevenly dressed foundation and warm stucco walls.
     k.block(w+.38,.66,d+.38,stone,x,.25,z);
-    k.block(w,height-.48,d,wall,x,height/2+.28,z);
+    // Inset core stops 0.55 m behind the street-facing wall; the facade
+    // is partitioned into masonry cells with actual open window/door voids.
+    k.block(w,height-.48,d-.55,wall,x,height/2+.28,z-face*.275);
+    const outerZ=z+face*d/2;
+    const doorX=x+(seed%2? .08:-.09);
+    const holes=[
+      {x:doorX-x,y:1.17,w:1.25,h:2.16},
+      ...[-1,1].map(side=>({x:side*w*.33,y:height*.58,w:.99,h:1.31}))
+    ];
+    for(const cell of partitionFacade(w,.52,height+.04,holes)){
+      k.block(cell.w,cell.h,.26,wall,x+cell.x,cell.y,outerZ-face*.13);
+    }
     for(const sx of [-1,1]){
       k.block(.25,height-.19,.3,timber,x+sx*(w/2-.1),height/2,z);
       for(const zz of [-d/2+.3,d/2-.3]){
@@ -92,20 +119,17 @@ export function buildVillage(k:StageKit){
     for(const yy of [.73,height-1.16]){
       k.block(w+.29,.19,d+.31,beams,x,yy,z);
     }
-    // Dark decorative half-timber along the front facade.
-    const frontZ=z+face*(d/2+.13);
-    for(const xx of [x-w*.34,x,x+w*.34]){
-      if(Math.abs(xx-x)<.1)continue;
-      k.block(.16,height*.73,.16,beams,xx,height*.51,frontZ);
-      k.segment(new THREE.Vector3(xx-.58,height*.70,frontZ),
-        new THREE.Vector3(xx+.58,height*.32,frontZ),.066,beams,5);
+    // Half-timber sits between the openings, never through glass.
+    const frontZ=outerZ;
+    for(const side of [-1,1]){
+      k.block(.14,height*.84,.12,beams,x+side*w*.47,height*.57,frontZ-face*.075);
+      k.segment(new THREE.Vector3(x+side*w*.48,height*.80,frontZ),
+        new THREE.Vector3(x+side*w*.43,height*.36,frontZ),.053,beams,6);
     }
     const top=makeRoof(h,height+.04);
-    const doorX=x+(seed%2? .08:-.09);
-    door(doorX,1.17,frontZ,face);
-    for(const sx of [-1,1])windowFrame(x+sx*w*.33,height*.58,frontZ,face);
-    // Small upper gable window.
-    windowFrame(x,height+.20,z+face*(d/2+.065),face,false);
+    door(doorX,1.17,outerZ,face);
+    for(const sx of [-1,1])windowFrame(x+sx*w*.33,height*.58,outerZ,face);
+    // Upper gable glazing is independently recessed in the real gable opening.
     // Stone chimney built in short courses, with a rim and narrow dark cavity.
     const cx=x+w*.28,cz=z-d*.23;
     k.block(.73,1.87,.72,brick,cx,top-.24,cz);

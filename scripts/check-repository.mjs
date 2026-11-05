@@ -10,6 +10,7 @@ const required=[
  "assets/manifest.json","src/platform/asset-manifest.js",
  "src/game/main.ts","src/game/world.ts","src/game/art.ts","src/game/kit.ts",
  "src/game/architecture.ts","src/game/environment.ts","src/game/input.ts","src/game/navigation.js",
+ "src/game/facade-geometry.js","src/game/ocean.ts","src/game/coastal-outline.js","src/game/coastline.ts",
  "src/rendering/renderer-port.js","src/rendering/quality.js","src/rendering/resource-scope.js",
  "vite.config.mjs","tsconfig.json","playwright.config.mjs",
  ".github/workflows/ci.yml",".github/workflows/deploy-pages.yml"
@@ -31,7 +32,7 @@ for(const path of [...walk("src"),...walk("scripts"),...walk("tests"),...walk("e
 }
 const obsolete=[
  "src/app.js", "lab/index.html", "lab/main.ts", "lab/lab.css",
- "e2e/lab.spec.mjs", "e2e/visual-art-temporary.spec.mjs",
+ "e2e/lab.spec.mjs", "e2e/visual-art-temporary.spec.mjs", "e2e/visual-audit-temporary.spec.mjs",
 ];
 for(const path of obsolete)if(existsSync(path))fail("obsolete file remains "+path);
 const html=readFileSync("index.html","utf8");
