@@ -87,9 +87,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   physicalSky.scale.setScalar(2400);
   physicalSky.renderOrder=-1000;
   const physicalUniforms=physicalSky.material.uniforms;
-  physicalUniforms.turbidity.value=5.8;
-  physicalUniforms.rayleigh.value=2.35;
-  physicalUniforms.mieCoefficient.value=.005;
+  physicalUniforms.turbidity.value=2.6; // clear maritime daylight, not smog-grey
+  physicalUniforms.rayleigh.value=1.8; // retain saturated upper-sky blue
+  physicalUniforms.mieCoefficient.value=.0028; // lower aerosol glare at the horizon
   physicalUniforms.mieDirectionalG.value=.77;
   physicalUniforms.sunPosition.value.set(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z).multiplyScalar(450000);
   physicalUniforms.cloudCoverage.value=0; // cloud source shared with mountain shadows
