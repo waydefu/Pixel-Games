@@ -1,6 +1,9 @@
 import * as THREE from "three";
+import { Sky } from "three/addons/objects/Sky.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildMountainForest } from "./mountain-forest.js";
+import { applyAerialPerspective } from "./aerial-perspective.js";
+import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
 import { SUN_DIRECTION, HORIZON_LINEAR } from "./environment-state.js";
 import type { StageKit } from "./kit.js";
@@ -58,6 +61,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     vertexColors:true,flatShading:false,roughness:1,metalness:0,side:THREE.DoubleSide,
   }));
   cloudField.applyToMaterial(regionMaterial);
+  applyAerialPerspective(regionMaterial,{valleyBoost:.62,sunWarmth:.22});
+  applyRockSurface(regionMaterial);
   const peaks:THREE.Mesh[]=[];
   const forests:ReturnType<typeof buildMountainForest>[]=[];
   for(const [index,region] of (["mainland","east","north","south"] as const).entries()){
@@ -70,12 +75,28 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // of translucent planes or an expensive volumetric march on mobile.
   const skyUniforms={
     ...cloudField.uniforms,
-    uTime:{value:0},uCloudAmount:{value:1.0},
+    uTime:{value:0},uCloudAmount:{value:1.0},uCloudDetailLevel:{value:1},
     uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
     uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
   };
-  const sky=k.scope.track(new THREE.ShaderMaterial({
-    uniforms:skyUniforms,depthWrite:false,depthTest:false,side:THREE.BackSide,fog:false,
+  // Reuse Three.js r187's maintained Preetham scattering atmosphere instead
+  // of rebuilding an increasingly inaccurate flat gradient. Native clouds are
+  // disabled: the shared cloud field below must align with land cloud shadows.
+  const physicalSky=new Sky();
+  physicalSky.name="sky-atmosphere";
+  physicalSky.scale.setScalar(2400);
+  physicalSky.renderOrder=-1000;
+  const physicalUniforms=physicalSky.material.uniforms;
+  physicalUniforms.turbidity.value=2.6; // clear maritime daylight, not smog-grey
+  physicalUniforms.rayleigh.value=1.8; // retain saturated upper-sky blue
+  physicalUniforms.mieCoefficient.value=.0028; // lower aerosol glare at the horizon
+  physicalUniforms.mieDirectionalG.value=.77;
+  physicalUniforms.sunPosition.value.set(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z).multiplyScalar(450000);
+  physicalUniforms.cloudCoverage.value=0; // cloud source shared with mountain shadows
+  k.scope.track(physicalSky.geometry);k.scope.track(physicalSky.material);
+  k.scene.add(physicalSky);
+  const cloudShader=k.scope.track(new THREE.ShaderMaterial({
+    uniforms:skyUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
     vertexShader:String.raw`varying vec3 vRay;
       void main(){
         vRay=position;
@@ -85,54 +106,73 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       varying vec3 vRay;
       uniform float uTime;
       uniform float uCloudAmount;
+      uniform float uCloudDetailLevel;
       uniform sampler2D uCloudMap;
       uniform vec2 uCloudWind;
       uniform float uCloudSpan;
       uniform float uCloudHeight;
       uniform vec3 uSunDirection;
       uniform vec3 uHorizon;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float noiz(vec2 p){
-        vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
-        return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),
-                   mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);
-      }
-      float fbm(vec2 p){
-        float a=.5,v=0.0;
-        for(int j=0;j<4;j++){v+=a*noiz(p);p=p*2.03+vec2(7.1,3.5);a*=.5;}
-        return v;
-      }
       void main(){
         vec3 ray=normalize(vRay);
-        float h=clamp(ray.y,0.0,1.0); // Match fog at the true geometric horizon.
-        vec3 horizon=uHorizon,zenith=vec3(.16,.34,.61);
-        vec3 sky=mix(horizon,zenith,pow(h,.78));
         vec3 sunDir=normalize(uSunDirection);
         float sun=max(0.0,dot(ray,sunDir));
-        sky+=vec3(.32,.18,.075)*pow(sun,24.0);
-        sky+=vec3(.30,.23,.14)*pow(sun,320.0);
         // Shared precomputed world-space cloud field: the same density drives
         // sky cover and projected mountain/ground shadow, with no second pass.
         // An upper cloud layer is sampled where the view ray reaches the sheet.
-        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.11,ray.y);
+        // Never clamp the cloud-plane intersection over a visible horizon band.
+        // The previous constant denominator floor produced vertical cloud columns.
+        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
         vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
         float low=texture2D(uCloudMap,cloudUV).r;
         float cumulus=smoothstep(.39,.56,low);
         float cirrus=smoothstep(.52,.71,
           texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
-        float mask=smoothstep(-.04,.055,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
-        float amount=clamp((cumulus+cirrus)*mask*uCloudAmount,0.0,.96);
-        vec3 underside=vec3(.36,.47,.55),lit=vec3(1.07,1.04,.94);
-        float rim=pow(sun,18.0);
-        vec3 cloud=mix(underside,lit,clamp(.50+.34*sun+.25*rim,0.0,1.0));
-        sky=mix(sky,cloud,amount);
-        gl_FragColor=vec4(sky,1.0);
+        // VIPER-style optical integration, adapted for the mobile WebGL2
+        // budget: one density layer on Basic, two on Balanced, three on High.
+        // No high-cost 500-step volumetric march or separate cloud-shadow pass.
+        float stacked=0.0;
+        if(uCloudDetailLevel>0.5){
+          float middle=texture2D(uCloudMap,cloudUV+ray.xz*.018+vec2(.013,-.019)).r;
+          stacked+=smoothstep(.41,.59,middle)*.53;
+          if(uCloudDetailLevel>1.5){
+            float top=texture2D(uCloudMap,cloudUV-ray.xz*.024+vec2(-.028,.011)).r;
+            stacked+=smoothstep(.43,.63,top)*.38;
+          }
+        }
+        // Fade the sheet to physical aerial haze where rays graze the horizon.
+        // Suppresses the column/curtain artifact in shot-04-vista-fjord.
+        float mask=smoothstep(.075,.205,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
+        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount;
+        float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
+        // Cloud edge self-shading: sample the same cloud field in sunlight's
+        // projected direction. Bright rims stay local instead of whitewashing sky.
+        vec3 underside=vec3(.31,.42,.56),lit=vec3(1.12,1.07,.96);
+        float leading=texture2D(uCloudMap,cloudUV+sunDir.xz*.016).r;
+        float sideLight=clamp(.53+(low-leading)*6.2,0.0,1.0);
+        float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
+          (1.0-smoothstep(.63,.78,low));
+        vec3 cloud=mix(underside,lit,clamp(.28+.50*sideLight+.22*sun,0.0,1.0));
+        cloud+=vec3(.35,.24,.13)*silver;
+        cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
+        // Transparent cloud sheet rendered over the physical atmosphere;
+        // shared cloudMap controls both visible cover and mountain cloud shade.
+        // Keep depth testing on, otherwise clouds paint over buildings.
+        gl_FragColor=vec4(cloud,amount);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
   }));
-  const dome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,28,16)),sky);
-  dome.name="sky-atmosphere";dome.renderOrder=-1000;k.scene.add(dome);
-  function update(time:number){skyUniforms.uTime.value=time;}
-  return {peaks,forests,sky:dome,update};
+  const cloudDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,36,20)),cloudShader);
+  cloudDome.name="sky-moving-cloud-sheet";
+  cloudDome.renderOrder=-999;
+  k.scene.add(cloudDome);
+  function update(time:number){
+    skyUniforms.uTime.value=time;
+    physicalUniforms.time.value=time;
+  }
+  function setSkyQuality(quality:"basic"|"balanced"|"high"){
+    skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
+  }
+  return {peaks,forests,sky:physicalSky,clouds:cloudDome,update,setSkyQuality};
 }

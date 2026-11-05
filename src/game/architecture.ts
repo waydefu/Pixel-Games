@@ -19,6 +19,8 @@ export function buildVillage(k:StageKit){
   // All glass, mullions and shutters stay behind the exterior wall face.
   function windowFrame(x:number,y:number,outerZ:number,front:number,shutters=true){
     const glass=k.solid("#d9c6a0",.38,"#9a7142");
+    // Warm windowlight is a selective HDR emitter; stone/sky/water are not.
+    glass.emissiveIntensity=1.9;
     const darkReveal=k.solid("#2b2826");
     // Shadowed reveal lies between outside facade and glazing.
     k.block(.84,1.12,.06,darkReveal,x,y,outerZ-front*.49,false);
@@ -87,7 +89,9 @@ export function buildVillage(k:StageKit){
       shape.holes.push(opening);
       k.put(new THREE.ShapeGeometry(shape),wallGable,x,roofY,zz,false);
       const inset=zz-face*.26;
-      k.block(.65,.72,.06,k.solid("#e4cca2",.4,"#b98c5a"),x,roofY+.64,inset,false);
+      const atticGlow=k.solid("#e4cca2",.4,"#b98c5a");
+      atticGlow.emissiveIntensity=1.8;
+      k.block(.65,.72,.06,atticGlow,x,roofY+.64,inset,false);
       k.block(.065,.74,.08,beams,x,roofY+.64,inset+face*.04,false);
       for(const dx of [-.37,.37])
         k.block(.08,.83,.26,beams,x+dx,roofY+.64,zz-face*.12,false);

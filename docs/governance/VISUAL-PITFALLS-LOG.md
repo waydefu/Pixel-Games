@@ -151,6 +151,18 @@
 - **防呆**：標記 PR #19 為 `visual-audit`，在此條目提交之後重新執行 CI，要求真正的六鏡頭 PNG／JSON artifact、Shader error=0；對照已合併 G3-E1 的主線，而非沿用舊版 G3 的截圖。運動畫面尚需時間序列人工確認。
 - **驗收界線**：CI 綠燈 ≠ 風動畫自然；SwiftShader ≠ POCO F8 Ultra 實機 FPS，真機測試仍是 **NOT RUN**。未完成前保持 PR 待審。
 
+### PV-032｜天空雲層在地平線形成整齊的垂直方塊
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`，**後續新畫面仍待驗收**（PR #20）。
+- **實際證據**：[PR #20 CI #41977048393](https://github.com/waydefu/Pixel-Games/actions/runs/41977048393) 六視角的 `shot-04-vista-fjord.png` 可見白色／灰色直立矩形，非自然雲體。人工檢查 `fjord.ts` 發現原本計算 cloud-plane ray intersection 的分母 `max(.11, ray.y)`，使 `ray.y<.11` 一整段視線共用相同高度交點；但原 alpha mask 在 `ray.y≈0.055` 就已完全顯示雲層，因此容易形成垂直窗簾。
+- **處理**：將雲層交點分母改成 `max(.035,ray.y)`，將可見 mask 延到 `smoothstep(.075,.205,ray.y)`，利用已存在的物理天空處理近地平線霞霧。新增 `tests/aerial-cloud-integration.test.mjs` 守住交點和遮罩契約。
+- **驗收**：需要新版 `shot-04` 及 `shot-05` A/B 實圖確認，舊 artifact 只支持「有問題」與「根因合理」，不支持「新版本已經夠漂亮」。
+
+### PV-033｜官方物理天空預設參數仍可能過白，不能當成自動美術升級
+- **類型／狀態**：`HISTORY / NEEDS-VERIFY`（PR #20，調參後尚未復核）。
+- **證據**：同一 CI run `shot-04` 高空上緣偏灰白、中央地平線亮度接近純白；雲層缺乏主體色彩對比。這是 **SwiftShader 截圖觀察**，不是 POCO F8 Ultra 的色彩／曝光檢驗。
+- **處理**：將 `Sky` 的 turbidity `5.8→2.6`、Rayleigh `2.35→1.8`、Mie `.005→.0028`，向清透的海岸藍天靠攏；新增世界座標岩層紋理明暗與山體濕霧層次，不靠調整全畫面曝光去蓋掉地形缺陷。
+- **驗收**：新版六鏡頭中天空頂部應較清澈、海天線不白得刺眼，岩壁仍保留中間調；若 A/B 反而失真或偏灰須回退調參。
+
 ## 3. 尚未發生、但 G4／G5／G6 要先防的高風險
 
 | ID | 類型／狀態 | 可能踩坑 | 防護措施與可證實的驗收 |
@@ -178,7 +190,7 @@
 ## 5. 複製後即可使用的踩坑回填模板
 
 ```md
-### PV-032｜<精確標題>
+### PV-034｜<精確標題>
 - 類型／狀態：CODE-VERIFIED | HISTORY | RISK | DECISION / OPEN | RESOLVED-CODE | RISK-UNVERIFIED | NEEDS-VERIFY
 - 發現日期／相關 PR／檔案與 HEAD SHA：
 - 觸發前提：裝置、瀏覽器、畫質、DPR、鏡頭、seed、時間、操作
