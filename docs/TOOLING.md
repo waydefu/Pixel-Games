@@ -1,6 +1,6 @@
 # 工程工具與技術狀態（2026-11-05）
 
-此頁描述現行 `main` 及本次修復 PR 的**實際**工程配置。原 2026-11-04 工具盤點保留於 [歷史快照](history/TOOLING-2026-11-04.md)，不可拿當作今天的實作證據。
+此頁描述 2026-11-05 `main` 的工程配置；新 PR 及部署仍須查 GitHub 實際狀態。原 2026-11-04 工具盤點保留於 [歷史快照](history/TOOLING-2026-11-04.md)，不可拿當作今天的實作證據。
 
 | 項目 | 目前用途 | 判定 |
 | --- | --- | --- |
@@ -13,7 +13,7 @@
 | `src/integrations/tool-registry.js` | 可信 Host 的能力註冊與 timeout／AbortSignal 契約 | 已恢復；**沒有自動接入 MCP** |
 | `scripts/graphics-matrix.mjs` | 畫面 Buffer 預算試算，不是 GPU benchmark | 已恢復 |
 | `.agents/skills/` | 按需的程式、研究、素材、WebGL QA 操作指引 | 已恢復；不等於自動執行 |
-| GitHub Pages | Actions 透過 `dist/` 發布 `/Pixel-Games/` | PR #7 合併後的部署紀錄成功 |
+| GitHub Pages | Actions 透過 `dist/` 發布 `/Pixel-Games/` | GitHub Actions 單入口發布；最新部署 SHA 另行查證，不以合併成功代替部署驗收 |
 | WebGPU+TSL、glTF-Transform、Tiled、Serena | 候選研究 | **未接入** |
 | 真 Android／iOS、溫度、耗電與長時間 GPU 時間 | 真機 QA | **未驗收** |
 
