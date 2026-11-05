@@ -17,11 +17,12 @@ export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose
     }
     return m;
   }
-  function pattern(kind:Parameters<typeof art.material>[0],seed=1,rx=1,ry=1){
-    const key=kind+":"+seed+":"+rx+":"+ry;
+  // rx/ry are accepted for call-site compatibility but ignored: texel density is fixed in world space.
+  function pattern(kind:Parameters<typeof art.material>[0],seed=1,_rx=1,_ry=1){
+    const key=kind+":"+seed;
     let material=patternCache.get(key);
     if(!material){
-      material=art.material(kind,seed,rx,ry);
+      material=art.material(kind,seed);
       material.side=THREE.DoubleSide;
       patternCache.set(key,material);
     }
