@@ -1,0 +1,38 @@
+// One shared palette for every texture, sprite and graded surface.
+// Ramps run dark -> light and are hue-shifted the way a pixel artist paints:
+// shadows drift cool and saturated (blue/violet), highlights drift warm and soft.
+// Hand-picked values (original to this project); the shared ramps are what make
+// plaster, stone, foliage and the traveller read as one world.
+export const OUTLINE = "#140f17"; // plum-black, never pure black
+
+export const PALETTE = Object.freeze({
+  grass:    Object.freeze(["#16322f","#1f4636","#2d5c37","#417538","#5d8f3d","#80a846","#a8c05a","#d2d986"]),
+  grassDry: Object.freeze(["#2b3a2e","#41503a","#5f6a40","#7f8447","#a09a54","#bdb065","#d8c780","#efdfa3"]),
+  foliage:  Object.freeze(["#0d2420","#143a2d","#1f5333","#2f6c38","#44853f","#62a049","#88ba57","#b3d377"]),
+  pine:     Object.freeze(["#0a1f27","#10322f","#194a36","#26623a","#387b3f","#4f9546","#73ad52","#9ec675"]),
+  stone:    Object.freeze(["#1d2233","#2b3347","#3f4a5b","#58656f","#768083","#96998f","#b8b4a0","#dad2b8"]),
+  cliff:    Object.freeze(["#161c2c","#232c3d","#35424f","#4d5d67","#68797f","#879896","#a9b2a8","#cfd2c0"]),
+  plaster:  Object.freeze(["#46394a","#695a5d","#8d7a6c","#b09b83","#cab698","#ddcdaa","#ecdfbc","#f8eed2"]),
+  wood:     Object.freeze(["#1f1520","#37212a","#552f31","#764636","#98623f","#b88349","#d3a65e","#eccc82"]),
+  timber:   Object.freeze(["#120d17","#201520","#33202a","#493035","#61423a","#7b5846","#977258","#b38f6b"]),
+  roofRed:  Object.freeze(["#26142a","#46202d","#6a2d32","#8f4139","#b05944","#cf7a52","#e59d65","#f4c383"]),
+  roofBlue: Object.freeze(["#141d2c","#212f42","#314959","#456577","#5d8493","#7ea3ac","#a2c3c1","#c9dfce"]),
+  thatch:   Object.freeze(["#33292d","#554336","#7a6143","#9d8151","#bda065","#d8bf82","#ebd9a3","#f8efc7"]),
+  sand:     Object.freeze(["#5d5260","#85726a","#aa9276","#cdb289","#e3cb9c","#f0deb0","#f8ebc8","#fff7de"]),
+  water:    Object.freeze(["#0c2a44","#103f5c","#17566f","#216f80","#2f8a90","#49a59d","#78c1ac","#b3dcc0"]),
+  canvas:   Object.freeze(["#4a3a3a","#7c5f55","#a98368","#cba883","#e2c99d","#f0dfb8","#f9efd0","#fffbea"]),
+  brick:    Object.freeze(["#2a1626","#4a2230","#6e3036","#92473f","#b3624c","#cf8259","#e5a56e","#f4cc90"]),
+  gold:     Object.freeze(["#3b2a22","#6d4a2c","#a2713a","#cf9a46","#eac45f","#f8de88","#fff0b4","#fffbe0"]),
+  fire:     Object.freeze(["#5a1d1d","#9c3520","#d4581f","#f08a22","#ffb53a","#ffd868","#fff0a8","#ffffe0"]),
+  skin:     Object.freeze(["#5a3040","#8a4c4c","#b8715c","#d99a76","#efbc92","#f9d8b0"]),
+  hair:     Object.freeze(["#1a1220","#2e1e26","#4a3029","#6b4630","#8d6338","#b0864a"]),
+});
+
+export function parseHex(hex) {
+  const value = parseInt(hex.slice(1, 7), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+export const rampRgb = ramp => ramp.map(parseHex);
+export function rampAt(ramp, index) {
+  return ramp[Math.min(ramp.length - 1, Math.max(0, index | 0))];
+}
