@@ -33,6 +33,12 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
       vistaYaw-=dx*.0036;vistaPitch=clamp(vistaPitch-dy*.0032,-.95,.45);
     }
   }
+  // Used only by opt-in visual-audit shots; ordinary player look still uses drag input.
+  function setAuditAngles(nextYaw:number,nextPitch:number){
+    if(!Number.isFinite(nextYaw)||!Number.isFinite(nextPitch))throw new RangeError("invalid audit angles");
+    if(mode==="first"){yaw=nextYaw;pitch=clamp(nextPitch,-1.22,1.22);}
+    else if(mode==="vista"){vistaYaw=nextYaw;vistaPitch=clamp(nextPitch,-.95,.45);}
+  }
   function movement(input:{x:number;y:number;sprint:boolean},dt:number){
     if(mode==="vista")return {x:0,z:0};
     const speed=(input.sprint?7.1:4.35)*dt;
@@ -73,7 +79,7 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
     return perspective;
   }
   tick(0);
-  return {setMode,cycle,look,movement,resize,tick,
+  return {setMode,cycle,look,setAuditAngles,movement,resize,tick,
     get mode(){return mode;},
     get camera(){return mode==="quarter"?quarter:perspective;},
     get projection(){return mode==="quarter"?"orthographic":"perspective";},
