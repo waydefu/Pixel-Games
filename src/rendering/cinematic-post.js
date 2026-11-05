@@ -5,31 +5,40 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
+const BLOOM_LAYER=1;
+
 /**
- * HDR-aware WebGL2 post effects. These are Three's maintained addons, not a
- * second rendering engine: RenderPass -> focus blur -> Bloom -> OutputPass.
- * The renderer port owns the pipeline and bypasses it for basic/balanced.
+ * Two-composer SELECTIVE HDR glow, following the official three.js selective
+ * UnrealBloomPass example. A sky with HDR scattering must never glow en masse.
+ * Source: https://github.com/mrdoob/three.js/blob/r187/examples/webgl_postprocessing_unreal_bloom_selective.html
  *
- * Design: do not hide subpar geometry under DoF. The orthographic camera gets
- * subtle cinematic tilt-shift, perspective near-wall views remain sharp.
+ * Bloom composer draws the scene with non-emissive materials temporarily black.
+ * Final composer draws the original scene, applies orthographic tilt-shift and
+ * adds ONLY the masked bloom. OutputPass tone-maps/colorspaces exactly once.
+ * Basic/balanced bypass both composers; high is allocated lazily by host.
  */
 export function createCinematicPost({renderer,scene,camera}){
-  if(!renderer || !scene || !camera)throw new TypeError("renderer, scene and camera are required");
-  const halfFloat=renderer.extensions?.has("EXT_color_buffer_float") ?? false;
-  const target=new THREE.WebGLRenderTarget(1,1,{
-    type:halfFloat?THREE.HalfFloatType:THREE.UnsignedByteType,
-    depthBuffer:true,stencilBuffer:false,
-  });
-  target.texture.name="cinematic-post-scene";
-  const composer=new EffectComposer(renderer,target);
-  composer.setPixelRatio(1);
+  if(!renderer||!scene||!camera)throw new TypeError("renderer, scene and camera are required");
+  const hdr=renderer.extensions?.has("EXT_color_buffer_float")??false;
+  const format=hdr?THREE.HalfFloatType:THREE.UnsignedByteType;
+  const makeTarget=(name)=>{
+    const target=new THREE.WebGLRenderTarget(1,1,{type:format,depthBuffer:true,stencilBuffer:false});
+    target.texture.name=name;
+    return target;
+  };
+  const bloomComposer=new EffectComposer(renderer,makeTarget("selective-bloom"));
+  bloomComposer.setPixelRatio(1);
+  bloomComposer.renderToScreen=false;
+  const bloomRenderPass=new RenderPass(scene,camera);
+  bloomComposer.addPass(bloomRenderPass);
+  const bloom=new UnrealBloomPass(new THREE.Vector2(1,1),.85,.38,.78);
+  bloomComposer.addPass(bloom);
 
+  const finalComposer=new EffectComposer(renderer,makeTarget("cinematic-final"));
+  finalComposer.setPixelRatio(1);
   const renderPass=new RenderPass(scene,camera);
-  composer.addPass(renderPass);
+  finalComposer.addPass(renderPass);
 
-  // Screen-space tilt blur is deliberate for the orthographic 2.5D viewpoint.
-  // It uses 9 color samples instead of a second 3D depth re-render. First-
-  // person geometry remains pin-sharp, particularly around wall details.
   const focus=new ShaderPass({
     uniforms:{
       tDiffuse:{value:null},
@@ -38,10 +47,7 @@ export function createCinematicPost({renderer,scene,camera}){
       uFocusLine:{value:.53},
     },
     vertexShader:`varying vec2 vUv;
-      void main(){
-        vUv=uv;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
-      }`,
+      void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader:`precision highp float;
       varying vec2 vUv;
       uniform sampler2D tDiffuse;
@@ -52,8 +58,7 @@ export function createCinematicPost({renderer,scene,camera}){
         float distanceFromFocus=abs(vUv.y-uFocusLine);
         float blur=smoothstep(.18,.47,distanceFromFocus)*uBlur;
         vec2 stepUv=uTexel*blur;
-        vec4 center=texture2D(tDiffuse,vUv);
-        vec4 result=center*.25;
+        vec4 result=texture2D(tDiffuse,vUv)*.25;
         result+=texture2D(tDiffuse,vUv+vec2(stepUv.x,0.0))*.125;
         result+=texture2D(tDiffuse,vUv-vec2(stepUv.x,0.0))*.125;
         result+=texture2D(tDiffuse,vUv+vec2(0.0,stepUv.y))*.125;
@@ -65,59 +70,122 @@ export function createCinematicPost({renderer,scene,camera}){
         gl_FragColor=result;
       }`,
   });
-  composer.addPass(focus);
+  finalComposer.addPass(focus);
 
-  // Bloom only affects pixels above the high-luminance threshold; keep it
-  // restrained in daylight and visibly present on emissive windows / beacon.
-  const bloom=new UnrealBloomPass(new THREE.Vector2(1,1),.68,.32,.87);
-  composer.addPass(bloom);
-  const output=new OutputPass();
-  composer.addPass(output);
+  const composite=new ShaderPass({
+    uniforms:{
+      tDiffuse:{value:null},
+      uBloom:{value:bloomComposer.renderTarget2.texture},
+    },
+    vertexShader:`varying vec2 vUv;
+      void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader:`precision highp float;
+      varying vec2 vUv;
+      uniform sampler2D tDiffuse;
+      uniform sampler2D uBloom;
+      void main(){
+        vec4 base=texture2D(tDiffuse,vUv);
+        vec3 halo=texture2D(uBloom,vUv).rgb;
+        gl_FragColor=vec4(base.rgb+halo,base.a);
+      }`,
+  });
+  finalComposer.addPass(composite);
+  finalComposer.addPass(new OutputPass());
 
-  let disposed=false;
-  let lastWidth=1,lastHeight=1;
-  let currentCamera=camera;
-  let currentQuality="balanced";
+  const bloomMask=new THREE.Layers();
+  bloomMask.set(BLOOM_LAYER);
+  const darkMaterial=new THREE.MeshBasicMaterial({color:0x000000,fog:false});
+  const savedMaterials=new Map();
+  const blackBackground=new THREE.Color(0x000000);
+
+  // Scene batcher is run before creating this pipeline: emissive intensity is
+  // now a data-driven bloom eligibility criterion, including merged windows.
+  let bloomSources=0;
+  scene.traverse(object=>{
+    if(!object.isMesh)return;
+    const mat=object.material;
+    if(!Array.isArray(mat)&&mat?.isMeshStandardMaterial&&
+       mat.emissiveIntensity>=1.4&&mat.emissive?.r+mat.emissive?.g+mat.emissive?.b>0){
+      object.layers.enable(BLOOM_LAYER);
+      bloomSources++;
+    }
+  });
+  if(bloomSources===0)console.warn("Selective Bloom has no HDR emitters");
+
+  function darkenNonBloomed(object){
+    if(!object.isMesh||bloomMask.test(object.layers))return;
+    savedMaterials.set(object,object.material);
+    object.material=darkMaterial;
+  }
+  function restoreNonBloomed(){
+    for(const [mesh,material] of savedMaterials)mesh.material=material;
+    savedMaterials.clear();
+  }
+
+  let disposed=false,currentQuality="balanced",size={width:1,height:1};
   function setSize(width,height){
     if(disposed)return;
     if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
-      throw new RangeError("invalid cinematic pipeline size");
-    lastWidth=Math.max(1,Math.floor(width));
-    lastHeight=Math.max(1,Math.floor(height));
-    composer.setSize(lastWidth,lastHeight);
-    // Half-res bloom and its mip chain; no reflected scene pass.
-    bloom.setSize(Math.max(1,lastWidth>>1),Math.max(1,lastHeight>>1));
-    focus.uniforms.uTexel.value.set(1/lastWidth,1/lastHeight);
+      throw new RangeError("invalid post target dimensions");
+    size={width:Math.max(1,Math.floor(width)),height:Math.max(1,Math.floor(height))};
+    bloomComposer.setSize(size.width,size.height);
+    finalComposer.setSize(size.width,size.height);
+    bloom.setSize(Math.max(1,size.width>>1),Math.max(1,size.height>>1));
+    focus.uniforms.uTexel.value.set(1/size.width,1/size.height);
   }
-  function setQuality(quality){
-    currentQuality=quality;
-  }
-  function setCamera(camera){
-    currentCamera=camera;
-    renderPass.camera=camera;
-    const isQuarter=camera.isOrthographicCamera===true;
-    focus.uniforms.uBlur.value=isQuarter?5.2:0;
+  function setQuality(value){currentQuality=value;}
+  function setCamera(value){
+    bloomRenderPass.camera=value;
+    renderPass.camera=value;
+    const quarter=value.isOrthographicCamera===true;
+    focus.enabled=quarter;
+    focus.uniforms.uBlur.value=quarter?5.2:0;
     focus.uniforms.uFocusLine.value=.55;
-    focus.enabled=isQuarter;
   }
-  function enabled(quality=currentQuality){return quality==="high"&&!disposed;}
+  function enabled(value=currentQuality){return !disposed&&value==="high";}
   function render(){
     if(!enabled())return false;
-    // No separate UI render target: HTML overlay is always outside post FX.
-    composer.render();
+    const originalBackground=scene.background;
+    const originalFog=scene.fog;
+    const info=renderer.info;
+    const originalAutoReset=info?.autoReset;
+    // Preserve geometry + effect draw-call counts, rather than reporting only
+    // the final OutputPass quad (previous run falsely showed 1 draw call).
+    if(info){info.autoReset=false;info.reset();}
+    try{
+      scene.background=blackBackground;
+      scene.fog=null;
+      scene.traverse(darkenNonBloomed);
+      try{
+        bloomComposer.render();
+      }finally{
+        restoreNonBloomed();
+        scene.background=originalBackground;
+        scene.fog=originalFog;
+      }
+      finalComposer.render();
+    }finally{
+      restoreNonBloomed();
+      scene.background=originalBackground;
+      scene.fog=originalFog;
+      if(info)info.autoReset=originalAutoReset;
+    }
     return true;
   }
   function dispose(){
     if(disposed)return;
     disposed=true;
-    composer.dispose();
+    restoreNonBloomed();
+    bloomComposer.dispose();
+    finalComposer.dispose();
+    darkMaterial.dispose();
   }
   setCamera(camera);
   return Object.freeze({
     enabled,render,setSize,setQuality,setCamera,dispose,
-    get state(){return disposed?"disposed":"ready";},
-    get passes(){return Object.freeze(["RenderPass","TiltShiftDoF","UnrealBloomPass","OutputPass"]);},
-    get size(){return Object.freeze({width:lastWidth,height:lastHeight});},
-    get halfFloat(){return halfFloat;},
+    get size(){return Object.freeze({...size});},
+    get bloomSources(){return bloomSources;},
+    get halfFloat(){return hdr;},
+    get passes(){return Object.freeze(["SelectiveBloom","RenderPass","TiltShiftDoF","BloomComposite","OutputPass"]);},
   });
 }
