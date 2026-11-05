@@ -92,9 +92,12 @@ export function createCoastalWorld(){
   }
   const batching=batchStaticScene(scene,scope);
   scene.userData.batching=batching;
-  function setShadows(enabled:boolean){
+  function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced"){
     environment.sunlight.castShadow=enabled;
-    cloudField.setStrength(enabled?.27:.16);
+    cloudField.setStrength(quality==="basic"?.16:quality==="high"?.30:.24);
+    const density=quality==="basic"?.36:quality==="balanced"?.70:1;
+    for(const forest of fjord.forests)forest.setDensity(density);
+    environment.setFoliageDensity(density);
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
