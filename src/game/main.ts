@@ -6,6 +6,7 @@ import { createCoastalWorld } from "./world.js";
 import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
+import { getVisualShot } from "./visual-audit.js";
 
 type GameState = "starting" | "ready" | "unsupported" | "lost" | "failed";
 const element=<T extends HTMLElement>(selector:string):T => {
@@ -31,6 +32,14 @@ const lookHint=element<HTMLElement>("#look-hint");
 
 const world=createCoastalWorld();
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
+type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;viewport:string};
+const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;
+if(visualShot){
+  world.movePlayer(visualShot.x,visualShot.z,0);
+  rig.setMode(visualShot.mode);
+  rig.setAuditAngles(visualShot.yaw,visualShot.pitch);
+  rig.tick(12); // Snap the otherwise smoothed Quarter View to its canonical target.
+}
 const modeNames:Record<CameraMode,string>={quarter:"斜角",first:"第一人稱",vista:"風景"};
 function setCameraMode(mode:CameraMode){
   rig.setMode(mode);
@@ -53,6 +62,7 @@ const diagnostics={
   status:"starting" as GameState,
   frames:0,drawCalls:0,bufferWidth:0,bufferHeight:0,p95Ms:null as number|null,
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
+  visualShot:visualShot?.id??null,
 };
 Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
@@ -157,6 +167,7 @@ async function start(){
       restoreResources:async()=>{},
     });
     await host.initialize();
+    if(visualShot)setCameraMode(visualShot.mode);
     resize();
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
@@ -174,8 +185,10 @@ async function start(){
         const frameMs=now-previous;
         if(frameMs>0){
           frameMetrics.record(frameMs);
-          const next=adaptive.observe(frameMs);
-          if(Math.abs(host.scale-next)>.001){host.setRenderScale(next);resize();}
+          if(!visualShot){
+            const next=adaptive.observe(frameMs);
+            if(Math.abs(host.scale-next)>.001){host.setRenderScale(next);resize();}
+          }
         }
       }
       previous=now;
@@ -187,7 +200,7 @@ async function start(){
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
-      if(!reduceMotion)world.update(elapsed);
+      if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
         const drawn=await host.draw();
         if(drawn){diagnostics.frames++;diagnostics.drawCalls=host.stats().calls??0;}
