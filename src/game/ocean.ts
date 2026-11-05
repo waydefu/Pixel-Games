@@ -1,19 +1,25 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
+import { SUN_DIRECTION } from "./environment-state.js";
 
 // WebGL2 production fallback: camera-space Fresnel, analytic Gerstner-style
 // directional wave normal, coherent shoreline foam and a sky-light surrogate.
 // Research- #28 describes SSR/probe as future tested alternatives, not shipped.
 export function createCoastalWater(k:StageKit) {
-  const uniforms={uTime:{value:0}};
+  const uniforms={
+    ...THREE.UniformsLib.fog,
+    uTime:{value:0},
+    uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+  };
   const material=k.scope.track(new THREE.ShaderMaterial({
-    uniforms,transparent:false,depthWrite:true,side:THREE.DoubleSide,
+    uniforms,transparent:false,depthWrite:true,side:THREE.DoubleSide,fog:true,
     vertexShader:String.raw`
       precision highp float;
       uniform float uTime;
       varying vec3 vWorld;
       varying vec3 vNormal;
       varying float vDist;
+      #include <fog_pars_vertex>
       float shore(float z){return 13.3+sin(z*.13)*.65+sin(z*.37)*.22;}
       void main(){
         vec3 w=(modelMatrix*vec4(position,1.0)).xyz;
@@ -30,7 +36,9 @@ export function createCoastalWater(k:StageKit) {
         vNormal=normalize(vec3(-dx,1.0,-dz));
         vWorld=(modelMatrix*vec4(changed,1.0)).xyz;
         vDist=dist;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(changed,1.0);
+        vec4 mvPosition=modelViewMatrix*vec4(changed,1.0);
+        gl_Position=projectionMatrix*mvPosition;
+        #include <fog_vertex>
       }`,
     fragmentShader:String.raw`
       precision highp float;
@@ -38,6 +46,8 @@ export function createCoastalWater(k:StageKit) {
       varying vec3 vWorld;
       varying vec3 vNormal;
       varying float vDist;
+      uniform vec3 uSunDirection;
+      #include <fog_pars_fragment>
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){
         vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
@@ -57,7 +67,7 @@ export function createCoastalWater(k:StageKit) {
         vec3 sky=mix(vec3(.16,.30,.36),vec3(.055,.23,.39),
           clamp(reflected.y*.75+.3,0.0,1.0));
         water=mix(water,sky,clamp(f*.57+.06,0.0,.60));
-        float glint=pow(max(0.0,dot(reflect(-normalize(vec3(-.58,.68,-.28)),n),v)),96.0);
+        float glint=pow(max(0.0,dot(reflect(-normalize(uSunDirection),n),v)),96.0);
         water+=vec3(.49,.39,.25)*glint*.38;
         // Fine irregular wind highlights depend on world coordinates, not
         // a giant UV repeat that turns the water into regular blue stripes.
@@ -70,6 +80,7 @@ export function createCoastalWater(k:StageKit) {
           .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));
         water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
         gl_FragColor=vec4(max(water,vec3(0.0)),1.0);
+        #include <fog_fragment>
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
