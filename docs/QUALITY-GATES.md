@@ -35,3 +35,12 @@
 - **不得假稱**已達 Bells of Evermere、已有 SSGI/SSR/FFT/體積雲或通過長時間實機溫控驗收。
 
 - `tests/coastline.test.mjs` 保護草岸/沙岸的自然頭岬收尖和座標有限性；東端海灣水道不得因地形更新再次變成斷開的綠色陸地細線。
+
+## G2｜固定鏡頭實圖與視覺回歸（2026-11-05）
+
+- **單一遊戲入口**：`?visualShot=shot-01-quarter-street` 這類**可選查詢參數**進入原本的遊戲場景，固定玩家位置、視角、環境動畫時間（31s）並停用適應性 DPR 調整；一般使用者未帶參數時，既有玩法不變。
+- **可用鏡頭**：01 斜角街景、02 第一人稱近牆、03 第一人稱碼頭、04 峽灣風景、05 港口泊船、06 手機直向。07 暮色與 08 夜景在日夜系統未完成前明確標 **UNSUPPORTED**，不能拿彩色濾鏡偽造實作。
+- **擷取命令**：`npm ci && npm run visual:audit`。建置後使用 Playwright 對應 desktop/mobile Chromium 截取真實遊戲 `#stage` 的 PNG，並在 `visual-audit-output/`（已 gitignore）保存對應 JSON：shot、commit（若有提供）、瀏覽器、viewport、DPR、品質、buffer、draw calls、RAF p95 等；`catalog.json` 收錄 8 個鏡頭與支援狀態。
+- **CI 與真機分層**：`npm run test:e2e` 做一般遊戲和 canonical audit URL 的畫面／shader 啟動 smoke；完整 PNG 產出需主動執行 visual:audit。Playwright SwiftShader 對照圖只做自動化復現／粗排，不宣稱真 GPU、手機 FPS、實際美術 PASS。POCO F8 Ultra 實機、人體美術審查仍 **NOT RUN**。
+- **A/B 方法**：比較兩個 commit 時保持相同 shot id、品質、viewport、DPR、瀏覽器與畫面拍攝時機；報告附原圖與場景 shader error、draw calls、p50/p95，**不能**用不同構圖或不同日照作弊；GPU time 不可得時填 N/A。
+- **額外注意**：G4 之後才加入 DoF／Bloom；visualShot 凍結時間以保護 A/B，不是對遊戲新增時間控制玩法。
