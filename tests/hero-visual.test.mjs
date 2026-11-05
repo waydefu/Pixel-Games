@@ -36,11 +36,11 @@ test("new homes do not overlap the beacon's physical footprint",()=>{
 });
 
 test("beacon physical collider reaches the actual foundation and slots face out",()=>{
-  const site=beacon.match(/BEACON_SITE\\s*=\\s*Object\\.freeze\\(\\{x:[-\\d.]+,z:[-\\d.]+,radius:([\\d.]+),height:([\\d.]+)/);
+  const site=beacon.match(/BEACON_SITE\s*=\s*Object\.freeze\(\{x:[-\d.]+,z:[-\d.]+,radius:([\d.]+),height:([\d.]+)/);
   assert.ok(site);
   assert.ok(Number(site[1])>=3.5,"podium extends to a 3.5-m radius");
   assert.ok(Number(site[2])>=19.725,"visual metadata includes roof apex");
-  assert.match(beacon,/pane\\.rotation\\.y=Math\\.PI\\/2-angle/);
+  assert.match(beacon,/pane\.rotation\.y=Math\.PI\/2-angle/);
 });
 
 test("rock strata are baked into geometry without new water or GPU fragment passes",()=>{
