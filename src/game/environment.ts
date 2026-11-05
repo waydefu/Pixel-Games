@@ -112,6 +112,20 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
         x+ox*scale,oy*scale,z+oz*scale);
       bulb.scale.set(1.12,.9,1.15);bulb.rotation.set(i*.15,i*.47,i*.1);
     }
+    // Lower inner canopy, kept darker to mimic clustered self-occlusion at
+    // mobile distances. The seven outer lobes keep their original silhouette.
+    const underside=k.put(new THREE.IcosahedronGeometry(1.06*scale,0),
+      k.solid("#345a49"),x,3.12*scale,z,false);
+    underside.scale.set(1.55,.75,1.50);
+    // Three readable fork limbs connect the trunk to foliage, preventing the
+    // 'lollipop tree' silhouette seen in the original distant shot.
+    const branchMaterial=k.pattern("timber",4);
+    for(let arm=0;arm<3;arm++){
+      const angle=arm*Math.PI*2/3+seed*.31;
+      k.segment(new THREE.Vector3(x,2.12*scale,z),
+        new THREE.Vector3(x+Math.cos(angle)*1.02*scale,3.36*scale,
+          z+Math.sin(angle)*1.02*scale),.105*scale,branchMaterial,6);
+    }
     k.collider(x,z,.52*scale,.52*scale);
   }
   const treeLocations=[
@@ -123,20 +137,50 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     tree(x,z,.70+noise(i+31)*.60,i+3);
   }
   // Instanced grasses and flowers; no runtime geometry per blade.
+  // Shrubs are the missing mid-scale silhouette between flower and tree.
+  // Instancing costs one main draw call, never hundreds of individual spheres.
+  const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,1));
+  const shrubMat=k.solid("#86ac82");
+  const shrubs=k.scope.track(new THREE.InstancedMesh(shrubGeo,shrubMat,280));
+  const shrubColors=[new THREE.Color("#446a4e"),new THREE.Color("#537d59"),
+    new THREE.Color("#738963"),new THREE.Color("#567b67")];
+  let shrubCount=0;
+  for(let i=0;i<1150&&shrubCount<280;i++){
+    const x=-39+noise(i*6.3+14)*47,z=-35+noise(i*3.9+21)*70;
+    if(x>9.5||Math.abs(z)<4.2&&x>-33)continue;
+    if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.65&&Math.abs(z-c.z)<c.halfZ+.65))continue;
+    const scale=.45+noise(i*9.1+2)*.87;
+    dummy.position.set(x,.37*scale,z);
+    dummy.scale.set(scale*1.2,scale*.68,scale);
+    dummy.rotation.set(0,noise(i*4.1)*Math.PI,0);
+    dummy.updateMatrix();
+    shrubs.setMatrixAt(shrubCount,dummy.matrix);
+    shrubs.setColorAt(shrubCount,shrubColors[i%shrubColors.length]);
+    shrubCount++;
+  }
+  shrubs.count=shrubCount;
+  shrubs.instanceMatrix.needsUpdate=true;
+  if(shrubs.instanceColor)shrubs.instanceColor.needsUpdate=true;
+  shrubs.castShadow=false;shrubs.receiveShadow=true;
+  shrubs.name="coastal-understory-shrubs";
+  shrubs.computeBoundingSphere();
+  k.scene.add(shrubs);
+
   const grassMaterial=k.solid("#8ba777");
   const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
-  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,900));
+  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,1600));
   let count=0;
-  for(let i=0;i<1600&&count<900;i++){
+  for(let i=0;i<3100&&count<1600;i++){
     const x=-38+noise(i*3.03)*48,z=-34+noise(i*4.19)*68;
     if(Math.abs(z)<4.1&&x>-32)continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
     if(x>10)continue;
-    const s=.45+noise(i*8.2)*1.9;
+    const s=.38+noise(i*8.2)*1.7;
     dummy.position.set(x,-.04,z);dummy.scale.set(s,s,s);dummy.rotation.set(0,i*.28,0);dummy.updateMatrix();
     grass.setMatrixAt(count++,dummy.matrix);
   }
-  grass.count=count;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;k.scene.add(grass);
+  grass.count=count;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;
+  grass.computeBoundingSphere();k.scene.add(grass);
   const flowerColors=["#e7be8b","#edd7bc","#c997ae","#d8bf6b"];
   for(let color=0;color<flowerColors.length;color++){
     const geo=k.scope.track(new THREE.IcosahedronGeometry(.115,0));
