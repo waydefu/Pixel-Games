@@ -64,7 +64,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     const mesh=new THREE.Mesh(makeMass(k.scope,region,layouts[region]),regionMaterial);
     mesh.name="fjord-"+region;mesh.receiveShadow=false;mesh.castShadow=false;
     k.scene.add(mesh);peaks.push(mesh);
-    forests.push(buildMountainForest(k,region,layouts[region],index));
+    forests.push(buildMountainForest(k,region,layouts[region],index,cloudField,mesh.geometry));
   }
   // A layered moving skydome uses a small procedural cloud shader, not hundreds
   // of translucent planes or an expensive volumetric march on mobile.

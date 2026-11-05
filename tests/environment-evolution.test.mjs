@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fjordHeight,fjordSurfaceHeight } from "../src/game/terrain-profile.js";
+import { fjordHeight,fjordSurfaceHeight,fjordMeshHeight } from "../src/game/terrain-profile.js";
 
 const read=(file)=>readFileSync(new URL("../src/game/"+file,import.meta.url),"utf8");
 
@@ -32,7 +32,7 @@ test("mountain forest uses region buckets, elevation and slope masks, never 150k
   assert.match(s,/prefixes\.push\(\[c,br\]\)/);
   assert.match(s,/cones\.count=prefixes\[visible\]\[0\]/);
   assert.match(s,/broad\.count=prefixes\[visible\]\[1\]/);
-  assert.match(read("fjord.ts"),/forests\.push\(buildMountainForest\(k,region,layouts\[region\],index\)\)/);
+  assert.match(read("fjord.ts"),/forests\.push\(buildMountainForest\(k,region,layouts\[region\],index,cloudField,mesh\.geometry\)\)/);
 });
 
 test("sky and terrain share one moving cloud map and sun-projected shadows",()=>{
@@ -68,4 +68,35 @@ test("water stays an analytic WebGL2 single-pass sea",()=>{
   assert.match(s,/Fresnel/);
   assert.doesNotMatch(s,/new THREE\.WebGLRenderTarget/);
   assert.doesNotMatch(s,/new THREE\.WebGLRenderTarget|FFTCompute|uFftSpectrum/);
+});
+
+test("tree root heights interpolate real fjord triangles and reuse baked vertex positions",()=>{
+  const e={x0:-175,x1:-43,z0:-190,z1:190,columns:86,rows:145};
+  const i=24,j=65;
+  const x=e.x0+(e.x1-e.x0)*i/e.columns;
+  const z=e.z0+(e.z1-e.z0)*j/e.rows;
+  const y=fjordMeshHeight(x,z,"mainland",e);
+  assert.ok(Math.abs(y-fjordSurfaceHeight(x,z,"mainland"))<1e-7);
+  let calls=0;
+  const height=(ix,iz)=>{calls++;return iz*(e.columns+1)+ix;};
+  const xc=x+(e.x1-e.x0)/e.columns*.25;
+  const zc=z+(e.z1-e.z0)/e.rows*.32;
+  const sampled=fjordMeshHeight(xc,zc,"mainland",e,height);
+  const a=j*(e.columns+1)+i,b=a+1,c=a+e.columns+1;
+  assert.ok(Math.abs(sampled-(a*.43+b*.25+c*.32))<1e-7);
+  assert.equal(calls,4,"sample exactly the existing four mesh vertices, not noise functions");
+});
+
+test("vegetation sway shares wind with cloud drift and keeps conservative bounds",()=>{
+  const wind=read("vegetation-wind.ts");
+  const mountains=read("mountain-forest.ts");
+  const coast=read("environment.ts");
+  assert.match(wind,/#ifdef USE_INSTANCING/);
+  assert.match(wind,/uCloudWind/);
+  assert.match(wind,/windTip=smoothstep/);
+  assert.match(mountains,/addVegetationWind\(leafMat,clouds,\.12\)/);
+  assert.match(mountains,/fjordMeshHeight\(x,z,region,extent/);
+  assert.match(mountains,/boundingSphere\.radius\+=\.42/);
+  assert.match(coast,/addVegetationWind\(shrubMat,cloudField,\.075\)/);
+  assert.match(coast,/addVegetationWind\(grassMaterial,cloudField,\.13\)/);
 });

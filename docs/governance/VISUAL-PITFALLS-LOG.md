@@ -145,6 +145,12 @@
 - **目前處理**：以 `THREE.InstancedMesh` 的山體分區、坡度遮罩、單份 128px 雲場取樣，不加新雲 Pass；減少灌木細分，建立 `basic/balanced/high` 的山林完整樹木與海岸草叢密度梯度（prefix count 保證樹冠不離開樹幹）。
 - **驗收要求**：重新取得 G2 相機同條件 PNG、draw calls/triangles、Shader error；不同畫質檔各記數據。POCO F8 Ultra 真機 60FPS／熱測仍 **NOT RUN**，不得宣稱預算足夠。
 
+### PV-031｜風動植被通過程式測試，仍可能出現 Shader／裁切回歸
+- **類型／狀態**：`RISK / RISK-UNVERIFIED`（G3-E2 [PR #19](https://github.com/waydefu/Pixel-Games/pull/19)）。
+- **證據**：PR #19 首次完整 CI [41970871098](https://github.com/waydefu/Pixel-Games/actions/runs/41970871098) PASS，但 `visual-audit` 尚未加標籤，因此 PNG 擷取步驟為 **skipped**；這不足以證明材質 `onBeforeCompile` 動畫不會發生視覺錯誤、裁切閃爍或風向不一致。
+- **防呆**：標記 PR #19 為 `visual-audit`，在此條目提交之後重新執行 CI，要求真正的六鏡頭 PNG／JSON artifact、Shader error=0；對照已合併 G3-E1 的主線，而非沿用舊版 G3 的截圖。運動畫面尚需時間序列人工確認。
+- **驗收界線**：CI 綠燈 ≠ 風動畫自然；SwiftShader ≠ POCO F8 Ultra 實機 FPS，真機測試仍是 **NOT RUN**。未完成前保持 PR 待審。
+
 ## 3. 尚未發生、但 G4／G5／G6 要先防的高風險
 
 | ID | 類型／狀態 | 可能踩坑 | 防護措施與可證實的驗收 |
@@ -172,7 +178,7 @@
 ## 5. 複製後即可使用的踩坑回填模板
 
 ```md
-### PV-031｜<精確標題>
+### PV-032｜<精確標題>
 - 類型／狀態：CODE-VERIFIED | HISTORY | RISK | DECISION / OPEN | RESOLVED-CODE | RISK-UNVERIFIED | NEEDS-VERIFY
 - 發現日期／相關 PR／檔案與 HEAD SHA：
 - 觸發前提：裝置、瀏覽器、畫質、DPR、鏡頭、seed、時間、操作
