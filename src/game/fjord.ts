@@ -121,7 +121,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // sky cover and projected mountain/ground shadow, with no second pass.
         // An upper cloud layer is sampled where the view ray reaches the sheet.
         // Never clamp the cloud-plane intersection over a visible horizon band.
-        // The previous max(.11,ray.y) produced vertical cloud columns.
+        // The previous constant denominator floor produced vertical cloud columns.
         float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
         vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
         float low=texture2D(uCloudMap,cloudUV).r;
