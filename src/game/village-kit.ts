@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { StageKit } from "./kit.js";
 import { liveSky } from "./sky-live.js";
+import { markGlass } from "./kit-glass.js";
 
 /**
  * Medieval Village Kit by Polyfork (https://polyfork.dev), CC BY 4.0. Free low-poly meshes: one
@@ -29,10 +30,14 @@ function normalizeGeometry(source:THREE.BufferGeometry){
     out[i*3]=color?color.getX(i):.8;out[i*3+1]=color?color.getY(i):.8;out[i*3+2]=color?color.getZ(i):.8;
   }
   g.setAttribute("color",new THREE.BufferAttribute(out,3));
+  g.setAttribute("glow",new THREE.BufferAttribute(new Float32Array(source.getAttribute("position").count),1));
   if(source.index)g.setIndex(source.index.clone());
   if(!g.getAttribute("normal"))g.computeVertexNormals();
   return g;
 }
+
+/** Models whose small, near-black panes are real windows. Boats, barrels and carts also use near-black paint. */
+const GLAZED=new Set(["village-tavern","two-story-house","thatched-cottage","fisherman-shack","stone-chapel","timber-barn","stilted-granary"]);
 
 export async function loadVillageKit(){
   const loader=new GLTFLoader();
@@ -57,7 +62,7 @@ export async function loadVillageKit(){
     // Origin at the centre of the footprint, resting on y = 0.
     const centre=box.getCenter(new THREE.Vector3());
     const shift=new THREE.Matrix4().makeTranslation(-centre.x,-box.min.y,-centre.z);
-    for(const m of meshes)m.geometry.applyMatrix4(shift);
+    for(const m of meshes){m.geometry.applyMatrix4(shift);if(GLAZED.has(name))markGlass(m.geometry);}
     const fitted=new THREE.Box3();
     for(const m of meshes){m.geometry.computeBoundingBox();fitted.union(m.geometry.boundingBox!);}
     templates.set(name,{meshes,box:fitted});
@@ -116,12 +121,14 @@ export function createVillageMaterial(k:StageKit){
   material.onBeforeCompile=shader=>{
     shader.uniforms.uWindowGlow=liveSky.lampGlowU;
     shader.vertexShader=shader.vertexShader
-      .replace("#include <common>","#include <common>\nvarying vec3 vKitWorld;\nvarying vec3 vKitNormal;")
+      .replace("#include <common>","#include <common>\nattribute float glow;\nvarying float vKitGlow;\nvarying vec3 vKitWorld;\nvarying vec3 vKitNormal;")
       .replace("#include <begin_vertex>",`#include <begin_vertex>
+  vKitGlow=glow;
   vKitWorld=(modelMatrix*vec4(transformed,1.0)).xyz;
   vKitNormal=normalize(mat3(modelMatrix)*objectNormal);`);
     shader.fragmentShader=shader.fragmentShader
       .replace("#include <common>",`#include <common>
+varying float vKitGlow;
 varying vec3 vKitWorld;
 varying vec3 vKitNormal;
 uniform float uWindowGlow;
@@ -144,10 +151,9 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   }`)
       .replace("#include <emissivemap_fragment>",`#include <emissivemap_fragment>
   {
-    // Windows and glass are the near-black vertex colours of the kit: they light up warm after dusk.
-    float darkest=max(vColor.r,max(vColor.g,vColor.b));
-    float glass=1.0-smoothstep(.10,.15,darkest);
-    totalEmissiveRadiance+=vec3(1.0,.70,.36)*glass*uWindowGlow*2.4;
+    // Only baked window panes (see markGlass) light up warm after dusk, with a candle-like flicker per pane.
+    float flicker=.92+.08*sin(vKitWorld.x*3.1+vKitWorld.z*2.3+uWindowGlow*7.0);
+    totalEmissiveRadiance+=vec3(1.0,.70,.36)*step(.5,vKitGlow)*uWindowGlow*1.6*flicker;
   }`)
       .replace("#include <opaque_fragment>",`
   {
@@ -158,7 +164,7 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   }
   #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey=()=>"village-kit-pixel-v1";
+  material.customProgramCacheKey=()=>"village-kit-pixel-v2";
   k.scope.track(material);
   return material;
 }

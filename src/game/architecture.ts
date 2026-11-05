@@ -6,21 +6,25 @@ import type { VillageKit } from "./village-kit.js";
 /** Optional Polyfork kit: when present its meshes replace procedural houses and props (which stay as the fallback). */
 export type VillageAssets={kit:VillageKit;material:THREE.Material};
 // Which kit model stands on each authored plot (index = position in `houses`).
+/** Kit buildings are modelled at about 1 unit = 1 m, the same scale as the traveller (eye 1.68). */
+const HOUSE_SCALE=1;
 const HOUSE_MODELS=["village-tavern","two-story-house","thatched-cottage","fisherman-shack","two-story-house","thatched-cottage","blacksmith-forge","stone-chapel","timber-barn","two-story-house"] as const;
 
 function hash(n:number){const v=Math.sin(n*127.1+31.37)*43758.5453123;return v-Math.floor(v);}
+import type { NightLights } from "./night-lights.js";
+import type { Fixtures } from "./torches.js";
+export type Night={lights:NightLights;fixtures:Fixtures};
 type Roof="red"|"blue"|"thatch";
 type House={x:number;z:number;w:number;d:number;h:number;roof:Roof;seed:number;name:string};
 
 /** Real medieval construction grammar: rubble footing, timber framing, pitched roofs and carved fixtures. */
-export function buildVillage(k:StageKit,assets?:VillageAssets|null){
+export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night){
   const plaster=k.pattern("plaster"),stone=k.pattern("stone",2),timber=k.pattern("timber",4),
     wood=k.pattern("planks",6),brick=k.pattern("brick",11);
   const beams=k.solid("#554334"),trim=k.solid("#927758"),brass=k.solid("#bb9055"),
     darkIron=k.solid("#413f3b",.62);
   const lit=k.solid("#eed6a6",.7,"#d89e54");
   const seaGlass=k.solid("#6b938b",.6,"#293a33");
-  const lamps:THREE.PointLight[]=[];
   // Windows are physically recessed: the masonry is absent in the aperture.
   // All glass, mullions and shutters stay behind the exterior wall face.
   function windowFrame(x:number,y:number,outerZ:number,front:number,shutters=true){
@@ -189,10 +193,7 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null){
         new THREE.Vector3(lx,ly+.16,lz+face*.43),.045,darkIron,6);
       k.block(.18,.46,.18,beams,lx,ly-.06,lz+face*.47,false);
       k.block(.13,.30,.13,lit,lx,ly+.07,lz+face*.47,false);
-      if(lamps.length<2){
-        const lamp=new THREE.PointLight("#ffc77e",3.3,6.5,2);
-        lamp.position.set(lx,ly+.14,lz+face*.49);k.scene.add(lamp);lamps.push(lamp);
-      }
+      night?.lights.add({x:lx,y:ly+.14,z:lz+face*.49,intensity:9,distance:10,color:"#ffc77e",flicker:.08});
     }
   }
   const houses:House[]=[
@@ -212,14 +213,21 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null){
     const model=HOUSE_MODELS[i%HOUSE_MODELS.length];
     if(assets&&assets.kit.has(model)){
       const face=h.z<0?1:-1; // street at z=0; kit fronts point +z
-      const info=assets.kit.instantiate(k,assets.material,model,{x:h.x,z:h.z,rotY:face>0?0:Math.PI,fit:{w:h.w,d:h.d},name:"kit-"+model});
-      k.collider(h.x,h.z,Math.max(h.w,info.width)/2+.3,Math.max(h.d,info.depth)/2+.3);
+      // One world scale for every building (the kit is modelled at metre scale: a door is ~2.3 units, the
+      // traveller's eye is 1.68). Houses keep their street-side wall line and grow backwards from it.
+      const size=assets.kit.size(model);
+      const front=h.z+face*h.d/2;
+      const cz=front-face*size.z*HOUSE_SCALE/2;
+      const info=assets.kit.instantiate(k,assets.material,model,{x:h.x,z:cz,scale:HOUSE_SCALE,rotY:face>0?0:Math.PI,name:"kit-"+model});
+      k.collider(h.x,cz,info.width/2+.3,info.depth/2+.3);
+      // A hanging iron lantern beside the door (the kit's doors are centred on the street-side wall).
+      night?.fixtures.hangingLantern(h.x+1.55,2.45,front,face as 1|-1);
     }else buildHouse(h);
   });
   // Street furniture and everyday medieval use, outside the accessible promenade.
   function barrel(x:number,z:number,s=1){
     if(assets?.kit.has("barrel")){
-      assets.kit.instantiate(k,assets.material,"barrel",{x,z,scale:1.45*s,rotY:x*3.1});
+      assets.kit.instantiate(k,assets.material,"barrel",{x,z,scale:1.15*s,rotY:x*3.1});
       k.collider(x,z,.41*s,.41*s);return;
     }
     const wood=k.pattern("timber",15);
@@ -232,7 +240,7 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null){
   }
   function crate(x:number,z:number,s=1){
     if(assets?.kit.has("wooden-crate")){
-      assets.kit.instantiate(k,assets.material,"wooden-crate",{x,z,scale:.95*s,rotY:z*2.3});
+      assets.kit.instantiate(k,assets.material,"wooden-crate",{x,z,scale:1*s,rotY:z*2.3});
       k.collider(x,z,.55*s,.50*s);return;
     }
     const w=k.pattern("planks",12);
@@ -276,5 +284,11 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null){
   // A few hand-crafted medieval essentials: wall baskets, mooring posts, sacks.
   k.put(new THREE.SphereGeometry(.46,8,6),k.pattern("thatch",8),-8,.27,-5.75,false);
   k.put(new THREE.SphereGeometry(.42,8,6),k.pattern("canvas",7),5,.28,9.1,false);
-  return {lamps,houses};
+  if(night){
+    // Lantern posts on the grass edge of the promenade (street z = +-3.2), arms reaching over the cobbles.
+    for(const [x,z] of [[-22,-3.9],[-12,3.9],[-4,-3.9],[4,3.9],[10,-3.9]] as const)night.fixtures.lanternPost(x,z,z<0?1:-1);
+    // Open torches mark the fishing pier and its end.
+    for(const [x,z] of [[14.5,5.5],[14.5,10.5],[22,5.5],[22,10.5],[28.6,8]] as const)night.fixtures.torchPost(x,z);
+  }
+  return {houses};
 }
