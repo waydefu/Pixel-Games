@@ -7,6 +7,8 @@ import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
 import { batchStaticScene } from "./batch.js";
+import { HORIZON_LINEAR, FOG_DENSITY } from "./environment-state.js";
+import { groundHeight } from "./navigation.js";
 
 /**
  * The game's one and only scene. Old test geometry and electric street lamps
@@ -15,8 +17,9 @@ import { batchStaticScene } from "./batch.js";
 export function createCoastalWorld(){
   const scope=createResourceScope();
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color("#a5bdb8");
-  scene.fog=new THREE.FogExp2("#a5b5b0",.0037);
+  const horizon=new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b);
+  scene.background=horizon.clone();
+  scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
   buildVillage(kit);
   const environment=buildEnvironment(kit);
@@ -67,6 +70,7 @@ export function createCoastalWorld(){
     player.x=x;player.z=z;lastX=x;lastZ=z;
     avatar.position.x=x;avatar.position.z=z;
     shadow.position.x=x;shadow.position.z=z;
+    shadow.position.y=groundHeight(x,z)-.034;
   }
   function faceCamera(camera:THREE.Camera){
     camera.getWorldPosition(cameraPosition);
@@ -78,7 +82,7 @@ export function createCoastalWorld(){
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
     spriteTexture.offset.set(frame*.25,(3-facing)*.25);
-    avatar.position.y=1.10+(walking?Math.sin(time*17)*.035:0);
+    avatar.position.y=1.10+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
     avatar.scale.x=1+Math.sin(time*1.2)*.002;
   }
   const batching=batchStaticScene(scene,scope);
