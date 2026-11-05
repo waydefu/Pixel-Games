@@ -6,6 +6,8 @@
 >
 > 預防「AI 自己審自己」：CI、Playwright、SwiftShader、真手機、人工美術 A/B 是**不同證據層**；有綠色勾勾不等於真機畫質合格，作者自報 FPS 不能充當 Pixel-Games 的實測。
 
+> **進度更新（2026-11-05）**：G1 第一輪已合併 [PR #15](https://github.com/waydefu/Pixel-Games/pull/15)，CI 建置、單測、desktop/mobile Chromium E2E PASS；PV-001～PV-005 只標 **RESOLVED-CODE**，**不是**桌面實圖／真機美術 PASS。G2 固定視角與 PNG 工具見 [PR #16](https://github.com/waydefu/Pixel-Games/pull/16)，仍待驗證；PV-006（DoF/Bloom 未實裝）、PV-007（全材質）與 PV-009（GPU timing）未關閉。
+
 ## 0. 使用規則
 
 1. 開始 G 包前先查 [總計畫](../plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md)、最新 `main` SHA、`docs/QUALITY-GATES.md`、本表；PR 修改期間發現新坑，**在同個 PR 新增／更新一筆**，不用另建平行檔案。
@@ -19,7 +21,7 @@
 
 ### PV-001｜天空太陽、環境光、水面高光互相獨立
 
-- **類型／狀態**：`CODE-VERIFIED / OPEN`（G1-01）。
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（G1-01；PR #15 已合併，畫面／真機待驗）。
 - **現象**：太陽方位與雲層亮側可能和陰影方向不一致，尤其日落時暴露。
 - **證據**：`src/game/fjord.ts` 天空 shader 第 85 行寫死 `vec3(-.60,.30,-.74)`；`src/game/environment.ts` 的主 DirectionalLight 使用獨立方向；海面 `src/game/ocean.ts` 亦有獨立的近似高光，未共用 SunState。
 - **根因**：獨立模組分別配置光向；不是「Three.js 不夠強」。
@@ -28,7 +30,7 @@
 
 ### PV-002｜FogExp2 不會自動影響自訂 ShaderMaterial
 
-- **類型／狀態**：`CODE-VERIFIED / OPEN`（G1-02）。
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（G1-02；PR #15 已合併，地平線實圖待驗）。
 - **現象**：地表／遠山／海水與天空的距離霧和地平線色相不連續。
 - **證據**：`src/game/world.ts:18-19` 背景 `#a5bdb8`、FogExp2 `#a5b5b0`；`fjord.ts` 自訂 Sky `fog:false`；`ocean.ts` 自訂 shader 沒有一般材質的 fog chunks。
 - **根因**：場景霧、Sky shader、Water shader 不共享輸出契約。
@@ -37,7 +39,7 @@
 
 ### PV-003｜雪線 if 永遠觸發不到
 
-- **類型／狀態**：`CODE-VERIFIED / OPEN`（G1-03）。
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（G1-03；PR #15 移除不可達雪色分支，不代表已做季節系統）。
 - **現象**：預期高海拔灰白岩或雪色從不出現。
 - **證據**：`fjord.ts:30` 的 `(h-126)/100` 被 max(0) 截斷；`terrain-profile.js` 同版地形高度達不到該閾值（研究時的靜態範圍，修前重新數值掃描）。
 - **根因**：美術常數與程序地形高度尺度脫節。
@@ -46,7 +48,7 @@
 
 ### PV-004｜裝飾礁石只避開碼頭，未避開泊船與可走區
 
-- **類型／狀態**：`CODE-VERIFIED / OPEN`（G1-05，**具體畫面交疊需實圖再核**）。
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（G1-05；PR #15 已排除 i=7 礁石，實圖待驗）。
 - **現象**：船身可能壓礁石、礁石漂在水上或擋近景；座標推估已有重疊疑慮。
 - **證據**：`environment.ts:86-92` 岩石排除區間 `x[10,31] z[3,12.8]`；`boats.ts:9` 兩艘船位置 `(18,-3.5)`、`(24,15.2)`，不包含在前述碼頭排除的 z 區間內。
 - **根因**：船、岩石、碼頭三份硬編碼位置沒有共用 footprint／碰撞約束。
@@ -55,7 +57,7 @@
 
 ### PV-005｜碼頭高度寫死在 Camera 內，違背地面／行走模型
 
-- **類型／狀態**：`CODE-VERIFIED / OPEN`（G1-04）。
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（G1-04；PR #15 共享 groundHeight，真機切鏡待驗）。
 - **現象**：進出碼頭時鏡頭高度突變，後續加入坡道／階梯會不一致。
 - **證據**：`camera.ts:66-67` `standingOnPier` +0.29，`navigation.js` 目前只有 `canOccupy` 和 `stepOnGround`，沒有統一的 `groundHeight`。
 - **根因**：相機與世界碰撞／地面高程分離。
