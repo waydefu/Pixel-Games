@@ -27,10 +27,10 @@ test("canonical visual audit URL uses the real game and a fixed camera pose",asy
   expect(shaderErrors).toEqual([]);
 });
 
-for(const shot of VISUAL_SHOTS){
+// Do not register six heavy screenshot tests during normal CI smoke.
+// They are created only by the explicit npm run visual:audit command.
+for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.status==="supported") : [])){
   test("capture "+shot.id,async({page},testInfo)=>{
-    test.skip(process.env.VISUAL_AUDIT!=="1","Full PNG capture requires explicit opt-in");
-    test.skip(shot.status!=="supported",shot.reason??"not available in current game");
     test.skip(shot.viewport==="mobile" ? testInfo.project.name!=="mobile-chromium" :
       testInfo.project.name!=="desktop-chromium","Shot belongs to the other viewport");
 
