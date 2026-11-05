@@ -52,7 +52,7 @@ for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.sta
       await page.locator("#menu-close").click();
       await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames)).toBeGreaterThan(diag.frames+2);
       if(quality==="high")await expect.poll(()=>
-        page.evaluate(()=>window.__pixelGame.read().cinematic)).toBe("on");
+        page.evaluate(()=>window.__pixelGame.read().pipeline)).toBe("on");
     }
     const png=join(output,shot.id+".png");
     // Avoid locator.screenshot waiting for the continuously animating WebGL

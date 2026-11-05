@@ -23,7 +23,7 @@ test("visiting root opens full-viewport scene with no landing page",async({page}
     expect(diagnostics.status).toBe("ready");
     expect(diagnostics.camera).toBe("quarter");
     expect(diagnostics.scenery).toBe(4);
-    expect(diagnostics.projection).toBe("orthographic");
+    expect(diagnostics.projection).toBe("perspective"); // diorama lens by default
     await expect.poll(async()=> (await page.evaluate(()=>window.__pixelGame.read())).drawCalls).toBeGreaterThan(0);
     await expect.poll(async()=> (await page.evaluate(()=>window.__pixelGame.read())).frames).toBeGreaterThan(2);
   }else{
@@ -38,12 +38,14 @@ test("camera exploration, collision-safe movement and quality menu work",async({
   await page.waitForFunction(()=>["ready","unsupported","failed"].includes(window.__pixelGame?.read().status),null,{timeout:18000});
   const before=await page.evaluate(()=>window.__pixelGame.read());
   if(before.status==="ready"){
+    // Hold until the player has really moved: software rendering may take longer than a fixed press per frame.
     await page.keyboard.down("d");
-    await page.waitForTimeout(520);
-    await page.keyboard.up("d");
-    const after=await page.evaluate(()=>window.__pixelGame.read());
-    const distance=Math.hypot(after.player.x-before.player.x,after.player.z-before.player.z);
-    expect(distance).toBeGreaterThan(.2);
+    try{
+      await expect.poll(async()=>{
+        const p=(await page.evaluate(()=>window.__pixelGame.read())).player;
+        return Math.hypot(p.x-before.player.x,p.z-before.player.z);
+      },{timeout:15000}).toBeGreaterThan(.2);
+    }finally{await page.keyboard.up("d");}
   }
   await page.locator("#menu-toggle").click();
   await expect(page.locator("#settings")).toBeVisible();
@@ -71,11 +73,16 @@ test("three camera modes retain safe movement, perspective and settings",async({
   await expect(page.locator("#view-toggle")).toContainText("第一人稱");
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().projection)).toBe("perspective");
   let before=await page.evaluate(()=>window.__pixelGame.read());
+  // Software rendering can take longer than a fixed key press per frame, so hold the key until the
+  // player has genuinely moved instead of assuming a frame rate.
   await page.keyboard.down("w");
-  await page.waitForTimeout(580);
-  await page.keyboard.up("w");
+  try{
+    await expect.poll(async()=>{
+      const p=(await page.evaluate(()=>window.__pixelGame.read())).player;
+      return Math.hypot(p.x-before.player.x,p.z-before.player.z);
+    },{timeout:15000}).toBeGreaterThan(.2);
+  }finally{await page.keyboard.up("w");}
   let after=await page.evaluate(()=>window.__pixelGame.read());
-  expect(Math.hypot(after.player.x-before.player.x,after.player.z-before.player.z)).toBeGreaterThan(.2);
   // Look drag must affect the real camera, not just an inactive UI label.
   const box=await page.locator("#stage").boundingBox();
   await page.mouse.move(box.x+box.width*.77,box.y+box.height*.58);
@@ -100,7 +107,7 @@ test("three camera modes retain safe movement, perspective and settings",async({
   after=await page.evaluate(()=>window.__pixelGame.read());
   expect(after.player).toEqual(before.player);
   await page.keyboard.press("1");
-  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().projection)).toBe("orthographic");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().projection)).toBe("perspective");
   await page.locator("#menu-toggle").click();
   await page.locator("#camera-mode").selectOption("first");
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("first");

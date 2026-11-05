@@ -4,12 +4,15 @@ import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
-import { SUN_DIRECTION } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
+import { getTreeKit, type TreeItem, type TreeSpecies } from "./trees.js";
+import { groundHeight } from "./navigation.js";
+import type { VillageAssets } from "./architecture.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
-export function buildEnvironment(k:StageKit,cloudField:CloudField){
+export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null){
   const stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
@@ -40,7 +43,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     const r=.08+noise(i)*.16;
     k.ellipse(r*2,r*.45,foam,x,-.082,z);
     if(i%3===0)k.put(new THREE.IcosahedronGeometry(.13+noise(i*2)*.18,0),
-      k.pattern("cliff",2),11.2+noise(i)*1.5,.06,z,false);
+      k.pattern("rock",2),11.2+noise(i)*1.5,.06,z,false);
   }
   // Water-facing low masonry seawall, interrupted naturally for the fishing pier.
   const seawall=k.pattern("stone",13,2,1);
@@ -79,10 +82,10 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     }
   }
   // Original wooden fishing boats; grouped hull, canvas and mooring gear.
-  const boats=buildFishingBoats(k);
+  const boats=buildFishingBoats(k,assets);
 
   // Natural stone banks and no harsh rectangular cliff wall.
-  const stones=[k.pattern("cliff",2),k.pattern("cliff",3),k.solid("#8c9788")];
+  const stones=[k.pattern("rock",2),k.pattern("rock",3),k.solid("#8c9788")];
   for(let i=0;i<42;i++){
     const x=9.8+(noise(i*3)*2.7),z=-31+i*1.5;
     if(z>2.2&&z<12.3)continue;
@@ -101,51 +104,41 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     rock.scale.set(1.2,.5,1.8);rock.rotation.y=i*.67;
   }
 
-  function tree(x:number,z:number,scale:number,seed:number){
-    const trunk=k.put(new THREE.CylinderGeometry(.22*scale,.34*scale,3.15*scale,9),
-      k.pattern("timber",4),x,1.55*scale,z);
-    trunk.castShadow=true;
-    const crowns=[[-.83,3.25,.18],[.82,3.12,.02],[0,3.74,0],[0,2.98,-.84],
-      [-.2,3.12,.87],[.46,4.15,.25],[-.57,3.84,-.4]];
-    for(let i=0;i<crowns.length;i++){
-      const [ox,oy,oz]=crowns[i],radius=(.94+.18*noise(seed+i))*scale;
-      const bulb=k.put(new THREE.IcosahedronGeometry(radius,1),leaves[(seed+i)%leaves.length],
-        x+ox*scale,oy*scale,z+oz*scale);
-      bulb.scale.set(1.12,.9,1.15);bulb.rotation.set(i*.15,i*.47,i*.1);
-    }
-    // Lower inner canopy, kept darker to mimic clustered self-occlusion at
-    // mobile distances. The seven outer lobes keep their original silhouette.
-    const underside=k.put(new THREE.IcosahedronGeometry(1.06*scale,0),
-      k.solid("#345a49"),x,3.12*scale,z,false);
-    underside.scale.set(1.55,.75,1.50);
-    // Three readable fork limbs connect the trunk to foliage, preventing the
-    // 'lollipop tree' silhouette seen in the original distant shot.
-    const branchMaterial=k.pattern("timber",4);
-    for(let arm=0;arm<3;arm++){
-      const angle=arm*Math.PI*2/3+seed*.31;
-      k.segment(new THREE.Vector3(x,2.12*scale,z),
-        new THREE.Vector3(x+Math.cos(angle)*1.02*scale,3.36*scale,
-          z+Math.sin(angle)*1.02*scale),.105*scale,branchMaterial,6);
-    }
-    k.collider(x,z,.52*scale,.52*scale);
-  }
+  // Town trees are procedural pixel trees (see trees.ts); only the trunk blocks the player.
+  function treeCollider(x:number,z:number,scale:number){k.collider(x,z,.52*scale,.52*scale);}
   const treeLocations=[
     [-4,-8],[8,-9],[-8,12],[-22,6],[-30,20],[6,22],[-12,22],[-31,-4],
-    [-20,-19],[-34,-24],[-35,0],[-37,13],[-9,-23],[7,-23],[-15,29],[-25,29]
+    [-20,-19],[-34,-24],[-35,0],[-37,13],[-9,-23],[7,-23],[-15,29],[-25,29],
+    // The village's western and outer edges: trees thicken toward the mountains, the sea side stays open.
+    [-39,-14],[-40,-28],[-41,4],[-39,23],[-29,-31],[-15,-32],[-3,-31],[9,-31],[-18,32],[-3,31],[10,31],[-24,-5],[-27,3],[-31,-17]
   ];
+  const townTrees=new Map<string,{seed:number;items:TreeItem[]}>();
   for(let i=0;i<treeLocations.length;i++){
     const [x,z]=treeLocations[i];
-    tree(x,z,.70+noise(i+31)*.60,i+3);
+    const scale=.82+noise(i+31)*.42,roll=noise(i*7.13+2);
+    // A mixed coastal wood: mostly oak, some birch, a few pines.
+    const species:TreeSpecies=roll<.55?"oak":roll<.8?"birch":"pine";
+    const seed=1+(i%3);
+    const bucket=townTrees.get(species+seed)??{seed,items:[]};
+    bucket.items.push({x,y:groundHeight(x,z),z,scale,rotation:noise(i*3.7)*Math.PI*2,
+      tint:new THREE.Color().setRGB(.9+noise(i*1.9)*.16,.92+noise(i*2.3)*.12,.84+noise(i*4.1)*.2)});
+    townTrees.set(species+seed,bucket);
+    treeCollider(x,z,scale);
+  }
+  const treeKit=getTreeKit(k,cloudField);
+  for(const [key,bucket] of townTrees){
+    treeKit.plant(key.replace(/\d+$/,"") as TreeSpecies,bucket.seed,"high",bucket.items,{shadows:true});
   }
   // Instanced grasses and flowers; no runtime geometry per blade.
   // Shrubs are the missing mid-scale silhouette between flower and tree.
   // Instancing costs one main draw call, never hundreds of individual spheres.
   const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,0));
-  const shrubMat=k.solid("#86ac82");
+  const shrubMat=k.pattern("foliage",11);
   addVegetationWind(shrubMat,cloudField,.075);
   const shrubs=k.scope.track(new THREE.InstancedMesh(shrubGeo,shrubMat,280));
-  const shrubColors=[new THREE.Color("#446a4e"),new THREE.Color("#537d59"),
-    new THREE.Color("#738963"),new THREE.Color("#567b67")];
+  // Tints multiply the (already green) pixel foliage, so they stay near-white or shrubs go black.
+  const shrubColors=[new THREE.Color("#e2efd2"),new THREE.Color("#d2e8c4"),
+    new THREE.Color("#ecf3cf"),new THREE.Color("#cde3c2")];
   let shrubCount=0;
   for(let i=0;i<1150&&shrubCount<280;i++){
     const x=-39+noise(i*6.3+14)*47,z=-35+noise(i*3.9+21)*70;
@@ -203,13 +196,14 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   }
 
   // Lighting: soft upper atmosphere and low sun, physically motivated windows.
-  const sky=new THREE.HemisphereLight("#c8dbd6","#675a48",1.17);k.scene.add(sky);
-  const sunlight=new THREE.DirectionalLight("#ffd09a",3.1);
-  sunlight.position.set(SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,SUN_DIRECTION.z*34);sunlight.castShadow=true;
+  const sky=new THREE.HemisphereLight("#bdd0e0","#5f5444",1.05);k.scene.add(sky);
+  const sunlight=new THREE.DirectionalLight("#ffc78a",3.5);
+  const moonlight=new THREE.DirectionalLight("#8ea8ff",0);k.scene.add(moonlight);moonlight.target=sunlight.target;
+  sunlight.position.set(liveSky.sunDir.x*34,Math.max(.2,liveSky.sunDir.y)*34,liveSky.sunDir.z*34);sunlight.castShadow=true;
   sunlight.shadow.mapSize.set(1024,1024);
-  sunlight.shadow.camera.left=-26;sunlight.shadow.camera.right=26;
-  sunlight.shadow.camera.top=27;sunlight.shadow.camera.bottom=-27;
-  sunlight.shadow.camera.near=1;sunlight.shadow.camera.far=75;
+  sunlight.shadow.camera.left=-34;sunlight.shadow.camera.right=34;
+  sunlight.shadow.camera.top=35;sunlight.shadow.camera.bottom=-35;
+  sunlight.shadow.camera.near=1;sunlight.shadow.camera.far=95;
   sunlight.shadow.normalBias=.036;sunlight.shadow.bias=-.00015;
   k.scene.add(sunlight);
   const target=new THREE.Object3D();k.scene.add(target);
@@ -217,12 +211,25 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   function update(time:number,player?:{x:number;z:number}){
     ocean.update(time);
     boats.update(time);
-    // The sun keeps a fixed direction but its shadow camera follows players.
     if(player){
       target.position.set(player.x,0,player.z);
-      sunlight.position.set(player.x+SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,player.z+SUN_DIRECTION.z*34);
       target.updateMatrixWorld();
     }
+    applySky(player);
+  }
+  /** Sun, moon and sky light from the live sky; the shadow camera follows the player. */
+  function applySky(player?:{x:number;z:number}){
+    const px=player?.x??0,pz=player?.z??0;
+    // Keep a minimum elevation for the shadow camera so dawn/dusk shadows stay stable instead of infinite.
+    const lift=Math.max(.16,liveSky.sunDir.y);
+    sunlight.position.set(px+liveSky.sunDir.x*34,lift*34,pz+liveSky.sunDir.z*34);
+    sunlight.color.copy(liveSky.sunColor);
+    sunlight.intensity=liveSky.sunIntensity;
+    sunlight.visible=liveSky.sunIntensity>.01;
+    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity;
+    moonlight.position.set(px+liveSky.moonDir.x*34,Math.max(.25,liveSky.moonDir.y)*34,pz+liveSky.moonDir.z*34);
+    moonlight.color.copy(liveSky.moonColor);moonlight.intensity=liveSky.moonIntensity;
+    moonlight.visible=liveSky.moonIntensity>.01;
   }
   function setFoliageDensity(factor:number){
     const amount=THREE.MathUtils.clamp(factor,0,1);
@@ -231,5 +238,5 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,update,setFoliageDensity,sea:ocean.material};
+  return {sunlight,moonlight,update,applySky,setFoliageDensity,sea:ocean.material};
 }

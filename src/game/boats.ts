@@ -1,10 +1,34 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { BOAT_LOCATIONS } from "./placements.js";
+import type { VillageAssets } from "./architecture.js";
+
+// Kit boats: [model, target hull length in world units] for each authored mooring (same order as BOAT_LOCATIONS).
+const KIT_BOATS=[["rowboat",4.5],["ship-s-longboat",6.3]] as const;
 
 /** Original pointed wooden boats. Hull, gunwale, mast and canvas move together. */
-export function buildFishingBoats(k:StageKit){
+export function buildFishingBoats(k:StageKit,assets?:VillageAssets|null){
   const boats:THREE.Group[]=[];
+  if(assets&&KIT_BOATS.every(([name])=>assets.kit.has(name))){
+    // Polyfork rowboat and longboat (CC BY 4.0). Their long axis is z; turn it along x like the moorings.
+    BOAT_LOCATIONS.forEach((location,i)=>{
+      const [name,length]=KIT_BOATS[i%KIT_BOATS.length];
+      const model=assets.kit.size(name);
+      const scale=length/Math.max(model.x,model.z);
+      const {group}=assets.kit.instantiateGroup(k,assets.material,name,{x:location.x,z:location.z,y:-.2,rotY:Math.PI/2+(i?.12:-.1),scale,name:"kit-boat-"+name});
+      group.userData.baseY=-.2;group.userData.phase=i*1.7;
+      boats.push(group);
+    });
+    function updateKit(time:number){
+      for(const boat of boats){
+        const p=boat.userData.phase as number,base=boat.userData.baseY as number;
+        boat.position.y=base+.07*Math.sin(time*.9+p);
+        boat.rotation.z=.028*Math.sin(time*.8+p*1.3);   // roll
+        boat.rotation.x=.018*Math.cos(time*.63+p);      // pitch
+      }
+    }
+    return {boats,update:updateKit};
+  }
   const timber=k.pattern("planks",18,2,1);
   const seam=k.solid("#533e35"),rope=k.solid("#d2ba8a"),canvas=k.pattern("canvas",9),deck=k.pattern("planks",10);
   const locations=BOAT_LOCATIONS;

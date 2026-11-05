@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
-import { createCinematicPost } from "../rendering/cinematic-post.js";
-import { createOnDemandEffects } from "../rendering/effects-on-demand.js";
+import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
+import { liveSky } from "./sky-live.js";
+import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
+import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
@@ -26,16 +28,34 @@ const menuClose=element<HTMLButtonElement>("#menu-close");
 const fullButton=element<HTMLButtonElement>("#fullscreen");
 const quality=element<HTMLSelectElement>("#quality");
 const cameraPicker=element<HTMLSelectElement>("#camera-mode");
+const projectionPicker=element<HTMLSelectElement>("#quarter-projection");
+const timeSlider=element<HTMLInputElement>("#time-of-day");
+const timeAuto=element<HTMLInputElement>("#time-auto");
+const timeLabel=element<HTMLElement>("#time-label");
 const viewToggle=element<HTMLButtonElement>("#view-toggle");
 const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
 const hint=element<HTMLElement>("#hint");
 const lookHint=element<HTMLElement>("#look-hint");
 
-const world=createCoastalWorld();
+// Polyfork Medieval Village Kit (CC BY 4.0). If it cannot load, the procedural village is used instead.
+const villageKit=await loadVillageKit().catch(error=>{console.warn("Village kit unavailable; using procedural village",error);return null;});
+const world=createCoastalWorld(villageKit);
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
-type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;viewport:string};
+type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;hour:number;viewport:string};
 const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;
+// Time of day: ?hour=19.5 fixes it; visual-audit shots carry their own hour; otherwise the day flows.
+const hourParam=Number.parseFloat(new URLSearchParams(window.location.search).get("hour")??"");
+let hour=visualShot?visualShot.hour:Number.isFinite(hourParam)?wrapHour(hourParam):HOUR_START;
+const HOURS_PER_SECOND=1/40; // a full day lasts 16 real minutes
+function showHour(){
+  const d=describeHour(hour);
+  timeLabel.textContent=d.text+" "+d.phase;
+  timeSlider.value=String(hour);
+}
+timeAuto.checked=!visualShot&&!Number.isFinite(hourParam);
+timeSlider.addEventListener("input",()=>{hour=wrapHour(Number.parseFloat(timeSlider.value));timeAuto.checked=false;world.setHour(hour);showHour();});
+world.setHour(hour);showHour();
 if(visualShot){
   world.movePlayer(visualShot.x,visualShot.z,0);
   rig.setMode(visualShot.mode);
@@ -64,10 +84,12 @@ const diagnostics={
   status:"starting" as GameState,
   frames:0,drawCalls:0,bufferWidth:0,bufferHeight:0,p95Ms:null as number|null,
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
-  visualShot:visualShot?.id??null,
+  visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,cinematic:host?.effects??"unavailable"})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
+const pipelineInfo={hdr:false,quality:"balanced"};
+let focusPipeline:(distance:number,active:boolean)=>void=()=>{};
 let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserver|null=null;
 function mark(state:GameState,message:string){
   diagnostics.status=state;
@@ -93,6 +115,12 @@ window.addEventListener("keydown",(e)=>{
   else if(map[e.key])setCameraMode(map[e.key]);
 });
 cameraPicker.addEventListener("change",()=>setCameraMode(cameraPicker.value as CameraMode));
+projectionPicker.addEventListener("change",()=>{
+  rig.setQuarterProjection(projectionPicker.value as "perspective"|"orthographic");
+  rig.tick(12); // snap: do not lerp the lens position across projections
+  if(host)host.setCamera(rig.camera);
+  resize();
+});
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{
@@ -155,16 +183,25 @@ async function start(){
     if(!context){mark("unsupported","WebGL2 不可用");return;}
     const renderer=new THREE.WebGLRenderer({canvas,context,antialias:false,alpha:false,powerPreference:"high-performance"});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
-    renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.15;
+    // Tone mapping, grading and sRGB encoding happen once, in the HD-2D composite pass.
+    renderer.toneMapping=THREE.NoToneMapping;
+    renderer.toneMappingExposure=1;
     renderer.shadowMap.enabled=true;
-    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    // Scene remains playable without postprocessing (basic/balanced/fallback).
-    // High is the owner's cinematic tier with actual Bloom and tilt-shift DoF.
-    // Keep default mobile tiers free of offscreen target allocations. Creating
-    // the composer is deferred until the player actually selects High.
-    const effects=createOnDemandEffects(()=>
-      createCinematicPost({renderer,scene:world.scene,camera:rig.camera}));
+    renderer.shadowMap.type=THREE.PCFShadowMap; // r187 removed PCFSoftShadowMap
+    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value});
+    pipelineInfo.hdr=pipeline.hdr;pipelineInfo.quality=quality.value;
+    focusPipeline=(distance:number,active:boolean)=>pipeline.setFocus({distance,range:2.2,span:10,strength:active?1:0});
+    const effects={
+      setSize:(w:number,h:number)=>pipeline.setSize(w,h),
+      setQuality:(q:string)=>{pipeline.setQuality(q);pipelineInfo.quality=q;},
+      setCamera:(c:THREE.Camera)=>pipeline.setCamera(c),
+      setSun:(d:THREE.Vector3)=>pipeline.setSun(d),
+      setRayScale:(v:number)=>pipeline.setRayScale(v),
+      setGrade:(v:Record<string,number|number[]>)=>pipeline.setGrade(v),
+      render:(t:number)=>pipeline.render(t),
+      dispose:()=>pipeline.dispose(),
+      onFailure:()=>{renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;},
+    };
     host=createRendererPort({
       renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,effects,
       onStatus:(state:string)=>{
@@ -209,9 +246,15 @@ async function start(){
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
+      if(timeAuto.checked&&!reduceMotion){hour=wrapHour(hour+dt*HOURS_PER_SECOND);if(now-uiTime>1200||!uiTime)showHour();}
+      world.setHour(hour);
+      diagnostics.hour=hour;diagnostics.phase=describeHour(hour).phase;diagnostics.sunElevation=liveSky.elevation;
+      host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays);host.setGrade({uExposure:liveSky.exposure});
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
-        const drawn=await host.draw();
+        if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);
+        else focusPipeline(30,false);
+        const drawn=await host.draw(elapsed);
         if(drawn){diagnostics.frames++;diagnostics.drawCalls=host.stats().calls??0;}
       }catch{
         mark("failed","3D 繪製失敗");

@@ -3,12 +3,14 @@ import { createResourceScope } from "../rendering/resource-scope.js";
 import { configurePixelTexture } from "../rendering/pixel-texture.js";
 import { createStageKit } from "./kit.js";
 import { buildVillage } from "./architecture.js";
+import { createVillageMaterial, type VillageKit } from "./village-kit.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
 import { buildHarbourBeacon } from "./harbour-beacon.js";
 import { batchStaticScene } from "./batch.js";
-import { HORIZON_LINEAR, FOG_DENSITY } from "./environment-state.js";
+import { FOG_DENSITY } from "./environment-state.js";
+import { liveSky, applyHour } from "./sky-live.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
 
@@ -16,18 +18,22 @@ import { createCloudField } from "./cloud-field.js";
  * The game's one and only scene. Old test geometry and electric street lamps
  * have been removed; this world is composed from shared original art modules.
  */
-export function createCoastalWorld(){
+export function createCoastalWorld(villageKit:VillageKit|null=null){
   const scope=createResourceScope();
   const scene=new THREE.Scene();
-  const horizon=new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b);
-  scene.background=horizon.clone();
-  scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
+  scene.background=liveSky.fog.clone();
+  scene.fog=new THREE.FogExp2(liveSky.fog.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
   const cloudField=createCloudField(scope);
-  buildVillage(kit);
+  const villageAssets=villageKit?{kit:villageKit,material:createVillageMaterial(kit)}:null;
+  const village=buildVillage(kit,villageAssets);
   buildHarbourBeacon(kit);
-  const environment=buildEnvironment(kit,cloudField);
+  const environment=buildEnvironment(kit,cloudField,villageAssets);
   const fjord=buildFjordLandscape(kit,cloudField);
+  // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
+  const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
+  const lampBase=village.lamps.map(l=>l.intensity);
+  let cloudStrength=.24;
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
   configurePixelTexture(THREE,spriteTexture);
@@ -36,12 +42,15 @@ export function createCoastalWorld(){
   spriteTexture.needsUpdate=true;
   const spriteMaterial=scope.track(new THREE.MeshStandardMaterial({
     map:spriteTexture,transparent:true,alphaTest:.4,side:THREE.DoubleSide,
-    roughness:1,emissive:"#293a3e",emissiveIntensity:.15,
+    roughness:1,
+    // The sun is usually behind the player; a texture-driven glow keeps the hero readable in shade
+    // without flattening the sprite into an unlit cut-out.
+    emissive:"#ffffff",emissiveMap:spriteTexture,emissiveIntensity:.62,
   }));
-  const avatar=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(1.62,2.17)),spriteMaterial);
+  const avatar=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(2.3,2.3)),spriteMaterial);
   avatar.castShadow=false; // Billboard rectangle is not a physical silhouette.
   avatar.userData.dynamic=true;
-  avatar.position.set(9,1.1,4.2);scene.add(avatar);
+  avatar.position.set(9,1.15,4.2);scene.add(avatar);
   const shadowCanvas=document.createElement("canvas");
   shadowCanvas.width=shadowCanvas.height=64;
   const ctx=shadowCanvas.getContext("2d");
@@ -63,13 +72,16 @@ export function createCoastalWorld(){
   const player={x:9,z:4.2};
   let lastMovedAt=-10,lastX=9,lastZ=4.2,facing=0;
   const cameraPosition=new THREE.Vector3();
+  // Screen-space basis of the active camera: the sprite faces where the player moves ON SCREEN.
+  const screenRight=new THREE.Vector3(1,0,0),screenUp=new THREE.Vector3(0,0,-1),viewDir=new THREE.Vector3();
   function movePlayer(x:number,z:number,elapsed:number){
     const deltaX=x-lastX,deltaZ=z-lastZ;
     const moving=Math.hypot(deltaX,deltaZ)>.0001;
     if(moving){
       lastMovedAt=elapsed;
-      if(Math.abs(deltaX)>Math.abs(deltaZ))facing=deltaX>0?1:3;
-      else facing=deltaZ>0?0:2;
+      const across=deltaX*screenRight.x+deltaZ*screenRight.z,along=deltaX*screenUp.x+deltaZ*screenUp.z;
+      if(Math.abs(across)>Math.abs(along))facing=across>0?1:3; // right / left on screen
+      else facing=along>0?2:0;                                  // away from / toward the camera
     }
     player.x=x;player.z=z;lastX=x;lastZ=z;
     avatar.position.x=x;avatar.position.z=z;
@@ -78,7 +90,22 @@ export function createCoastalWorld(){
   }
   function faceCamera(camera:THREE.Camera){
     camera.getWorldPosition(cameraPosition);
+    camera.getWorldDirection(viewDir);
+    screenUp.set(viewDir.x,0,viewDir.z);
+    if(screenUp.lengthSq()>1e-6){screenUp.normalize();screenRight.set(-screenUp.z,0,screenUp.x);}
     avatar.rotation.y=Math.atan2(cameraPosition.x-player.x,cameraPosition.z-player.z);
+  }
+  /** Move the whole world to an hour of the day (sun, moon, haze, lights, lit windows). */
+  function setHour(hour:number){
+    applyHour(hour);
+    (scene.fog as THREE.FogExp2).color.copy(liveSky.fog);
+    (scene.background as THREE.Color).copy(liveSky.fog);
+    const lamp=.12+.88*liveSky.lampGlow;
+    kit.emissives.forEach((m,i)=>{m.emissiveIntensity=emissiveBase[i]*lamp;});
+    village.lamps.forEach((l,i)=>{l.intensity=lampBase[i]*liveSky.lampGlow;l.visible=liveSky.lampGlow>.02;});
+    spriteMaterial.emissiveIntensity=.30+.32*liveSky.dayLight.value;
+    cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
+    environment.applySky({x:player.x,z:player.z});
   }
   function update(time:number){
     cloudField.update(time);
@@ -87,23 +114,24 @@ export function createCoastalWorld(){
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
     spriteTexture.offset.set(frame*.25,(3-facing)*.25);
-    avatar.position.y=1.10+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
+    avatar.position.y=1.15+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
     avatar.scale.x=1+Math.sin(time*1.2)*.002;
   }
   const batching=batchStaticScene(scene,scope);
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced"){
     environment.sunlight.castShadow=enabled;
-    cloudField.setStrength(quality==="basic"?.16:quality==="high"?.30:.24);
+    cloudField.setStrength((quality==="basic"?.16:quality==="high"?.30:.24)*liveSky.dayLight.value);
     fjord.setSkyQuality(quality);
     const density=quality==="basic"?.36:quality==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
+    cloudStrength=quality==="basic"?.16:quality==="high"?.30:.24;
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
-    movePlayer,faceCamera,update,setShadows,dispose,
+    movePlayer,faceCamera,update,setShadows,setHour,dispose,
   });
 }

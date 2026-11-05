@@ -1,6 +1,6 @@
 import { test,expect } from "@playwright/test";
 
-test("high quality exposes real cinematic effects without breaking camera switching",async({page})=>{
+test("every quality tier renders through the one HD-2D pipeline without breaking camera switching",async({page})=>{
   const errors=[];
   page.on("console",msg=>{
     if(msg.type()==="error"&&/Shader Error|WebGLProgram|VALIDATE_STATUS|COMPILE_STATUS/i.test(msg.text()))
@@ -12,7 +12,7 @@ test("high quality exposes real cinematic effects without breaking camera switch
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames)).toBeGreaterThan(2);
   let diag=await page.evaluate(()=>window.__pixelGame.read());
   expect(diag.status).toBe("ready");
-  expect(diag.cinematic).toBe("bypassed");
+  expect(diag.pipeline).toBe("on");
   const before=diag.frames;
   await page.locator("#menu-toggle").click();
   await page.locator("#quality").selectOption("high");
@@ -20,7 +20,8 @@ test("high quality exposes real cinematic effects without breaking camera switch
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames)).toBeGreaterThan(before+2);
   diag=await page.evaluate(()=>window.__pixelGame.read());
   expect(diag.status).toBe("ready");
-  expect(diag.cinematic).toBe("on");
+  expect(diag.pipeline).toBe("on");
+  expect(diag.grade).toBe("high");
   expect(errors).toEqual([]);
   await page.locator("#view-toggle").click();
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().camera)).toBe("first");
@@ -29,6 +30,7 @@ test("high quality exposes real cinematic effects without breaking camera switch
   await page.locator("#menu-toggle").click();
   await page.locator("#quality").selectOption("basic");
   await page.locator("#menu-close").click();
-  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().cinematic)).toBe("bypassed");
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().grade)).toBe("basic");
+  expect((await page.evaluate(()=>window.__pixelGame.read())).pipeline).toBe("on");
   expect(errors).toEqual([]);
 });

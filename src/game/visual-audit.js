@@ -1,9 +1,8 @@
 // Read-only authored camera markers for deterministic visual regression evidence.
 // This stays in the single playable game URL (?visualShot=<id>), not a new demo.
-// Until a time-of-day system exists, dusk/night shots are explicitly unsupported.
-const supported=(id,mode,x,z,yaw,pitch,viewport="desktop")=>
-  Object.freeze({id,mode,x,z,yaw,pitch,viewport,time:31,status:"supported"});
-const unavailable=(id,reason)=>Object.freeze({id,status:"unsupported",reason});
+// Each shot also fixes the hour of the day, so dawn, noon, dusk and night are reproducible.
+const supported=(id,mode,x,z,yaw,pitch,viewport="desktop",hour=9.5)=>
+  Object.freeze({id,mode,x,z,yaw,pitch,viewport,hour,time:31,status:"supported"});
 export const VISUAL_SHOTS=Object.freeze([
   supported("shot-01-quarter-street","quarter",9,4.2,0,0),
   supported("shot-02-first-wall","first",-12,-4.9,0,-.02),
@@ -11,8 +10,10 @@ export const VISUAL_SHOTS=Object.freeze([
   supported("shot-04-vista-fjord","vista",9,4.2,-1.18,-.18),
   supported("shot-05-harbour-boats","first",25,8,.548,-.06),
   supported("shot-06-mobile-portrait","quarter",9,4.2,0,0,"mobile"),
-  unavailable("shot-07-dusk","no day/night environment state yet"),
-  unavailable("shot-08-night","no night lighting or exposure state yet"),
+  supported("shot-07-dusk","quarter",9,4.2,0,0,"desktop",18.9),
+  supported("shot-08-night-moon","first",24,8,-1.5708,.42,"desktop",21.2),
+  supported("shot-09-sunrise-sea","first",24,8,-1.5708,.06,"desktop",6.3),
+  supported("shot-10-sunset-village","first",14.5,8,1.5708,.04,"desktop",17.8),
 ]);
 export function getVisualShot(id){
   return VISUAL_SHOTS.find(shot=>shot.id===id&&shot.status==="supported")??null;

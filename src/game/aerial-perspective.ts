@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SUN_DIRECTION } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
 
 /**
  * Light-weight WebGL2 aerial perspective for the existing StandardMaterial
@@ -16,7 +16,7 @@ export function applyAerialPerspective(
   options:{valleyBoost?:number;sunWarmth?:number}={}
 ){
   const uniforms={
-    uAerialSun:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+    uAerialSun:{value:liveSky.sunDir},
     uAerialWarmColor:{value:new THREE.Vector3(.90,.73,.53)},
     uAerialValleyBoost:{value:options.valleyBoost??.54},
     uAerialSunWarmth:{value:options.sunWarmth??.23},

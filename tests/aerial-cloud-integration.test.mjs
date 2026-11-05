@@ -21,7 +21,8 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   const sky=src("fjord.ts");
   const world=src("world.ts");
   const cloud=src("cloud-field.ts");
-  assert.match(sky,/new Sky\(\)/);
+  assert.match(sky,/skyMaterial/);
+  assert.doesNotMatch(sky,/new Sky\(\)/,"physical Preetham sky was replaced by the art-directed gradient");
   assert.match(sky,/uniform float uCloudDetailLevel/);
   assert.match(sky,/float low=texture2D\(uCloudMap,cloudUV\)\.r/);
   assert.match(sky,/float opticalDepth=/);
@@ -35,7 +36,7 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   assert.match(sky,/uCloudDetailLevel>1\.5/);
   assert.match(sky,/quality==="high"\?2:quality==="balanced"\?1:0/);
   assert.match(world,/fjord\.setSkyQuality\(quality\)/);
-  assert.match(world,/cloudField\.setStrength\(quality/);
+  assert.match(world,/cloudField\.setStrength\(\(quality/); // preset strength, scaled by daylight
   assert.match(cloud,/uCloudMap:\{value:texture\}/);
   assert.match(cloud,/uCloudWind\.value\.set/);
 });

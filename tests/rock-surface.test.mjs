@@ -1,4 +1,5 @@
 import test from "node:test";
+import { skyAt } from "../src/game/time-of-day.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 const source=(file)=>readFileSync(new URL("../src/game/"+file,import.meta.url),"utf8");
@@ -21,9 +22,12 @@ test("rock strata do not need large triplanar textures or new render passes",()=
   assert.match(rock,/customProgramCacheKey/);
   assert.doesNotMatch(rock,/new THREE\.WebGLRenderTarget|texture2D|triplanarTexture/);
 });
-test("clear-coast atmosphere is less aerosol-heavy than the original pale gradient",()=>{
+test("sky is an art-directed gradient driven by the time of day: deep blue zenith over a pale horizon at noon",()=>{
   const fjord=source("fjord.ts");
-  assert.match(fjord,/physicalUniforms\.turbidity\.value=2\.6/);
-  assert.match(fjord,/physicalUniforms\.mieCoefficient\.value=\.0028/);
-  assert.match(fjord,/new Sky\(\)/);
+  assert.match(fjord,/uZenith:\{value:liveSky\.zenith\}/);
+  assert.match(fjord,/uHorizon:\{value:liveSky\.horizon\}/);
+  assert.doesNotMatch(fjord,/new Sky\(\)/);
+  const noon=skyAt(12);
+  assert.ok(noon.zenith[0]<noon.mid[0]&&noon.mid[0]<noon.horizon[0],"deeper overhead than at the horizon");
+  assert.ok(noon.zenith[2]>noon.zenith[0]*5,"the zenith is clearly blue");
 });

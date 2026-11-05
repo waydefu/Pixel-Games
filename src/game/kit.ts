@@ -5,6 +5,8 @@ import { createArtLibrary } from "./art.js";
 export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose:()=>void}>(item:T)=>T}){
   const art=createArtLibrary(scope);
   const solidCache=new Map<string,THREE.MeshStandardMaterial>();
+  /** Lit windows, lanterns and fires: world.ts dims them by day and lights them at dusk. */
+  const emissives:THREE.MeshStandardMaterial[]=[];
   const patternCache=new Map<string,THREE.MeshStandardMaterial>();
   const colliders:{x:number;z:number;halfX:number;halfZ:number}[]=[];
   function solid(color:string,roughness=.92,emissive?:string){
@@ -14,14 +16,16 @@ export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose
       m=new THREE.MeshStandardMaterial({color,roughness,metalness:0,
         emissive:emissive??"#000000",emissiveIntensity:emissive?0.55:0});
       scope.track(m);solidCache.set(key,m);
+      if(emissive)emissives.push(m);
     }
     return m;
   }
-  function pattern(kind:Parameters<typeof art.material>[0],seed=1,rx=1,ry=1){
-    const key=kind+":"+seed+":"+rx+":"+ry;
+  // rx/ry are accepted for call-site compatibility but ignored: texel density is fixed in world space.
+  function pattern(kind:Parameters<typeof art.material>[0],seed=1,_rx=1,_ry=1){
+    const key=kind+":"+seed;
     let material=patternCache.get(key);
     if(!material){
-      material=art.material(kind,seed,rx,ry);
+      material=art.material(kind,seed);
       material.side=THREE.DoubleSide;
       patternCache.set(key,material);
     }
@@ -67,6 +71,6 @@ export function createStageKit(scene:THREE.Scene,scope:{track:<T extends{dispose
   function collider(x:number,z:number,halfX:number,halfZ:number){
     colliders.push({x,z,halfX,halfZ});
   }
-  return {scene,scope,art,colliders,solid,pattern,put,block,column,flat,ellipse,quad,segment,collider};
+  return {scene,scope,art,colliders,emissives,solid,pattern,put,block,column,flat,ellipse,quad,segment,collider};
 }
 export type StageKit=ReturnType<typeof createStageKit>;

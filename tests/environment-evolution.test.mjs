@@ -25,7 +25,7 @@ test("mountain forest uses region buckets, elevation and slope masks, never 150k
   const s=read("mountain-forest.ts");
   assert.match(s,/const BUDGET=370/);
   assert.match(s,/slopeAt\(x,z,region\)/);
-  assert.match(s,/y<11\|\|y>79/);
+  assert.match(s,/y<\(region==="mainland"\?11:2\.4\)\|\|y>79/); // backdrop needs 11m; low headlands carry trees too
   assert.match(s,/slope>1\.18/);
   assert.match(s,/new THREE\.InstancedMesh/);
   assert.match(s,/computeBoundingSphere\(\)/);
@@ -59,7 +59,8 @@ test("near-coast plants include branch silhouettes and instanced shrubs/grass",(
   assert.match(s,/name="coastal-understory-shrubs"/);
   assert.match(s,/new THREE\.InstancedMesh\(shrubGeo,shrubMat,280\)/);
   assert.match(s,/new THREE\.InstancedMesh\(grassGeom,grassMaterial,1600\)/);
-  assert.match(s,/branchMaterial/);
+  assert.match(s,/getTreeKit\(k,cloudField\)/);   // town trees: procedural branches + leaf cards
+  assert.match(s,/treeKit\.plant\(/);
 });
 
 test("water stays an analytic WebGL2 single-pass sea",()=>{

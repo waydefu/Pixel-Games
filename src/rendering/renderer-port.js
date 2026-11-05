@@ -67,7 +67,7 @@ export function createRendererPort({
       renderer.setSize(next.width, next.height, false);
       if (effects && !postFailed) {
         try { effects.setSize(next.width, next.height); }
-        catch (error) { postFailed = true; console.warn("Cinematic effects resize failed; using direct renderer", error); }
+        catch (error) { failPost("resize", error); }
       }
     }
     resizeCamera(cssWidth, cssHeight); // Camera uses CSS aspect, not drawing buffer aspect.
@@ -79,7 +79,9 @@ export function createRendererPort({
     getQualityPreset(next);
     if (state === "disposed") throw new Error("renderer already disposed");
     currentQuality = next;
-    if(effects && !postFailed)effects.setQuality(next);
+    if (effects && !postFailed) {
+      try { effects.setQuality(next); } catch (error) { failPost("quality", error); }
+    }
     if (renderer.shadowMap) renderer.shadowMap.enabled = getQualityPreset(next).shadows;
     return currentQuality;
   }
@@ -93,18 +95,18 @@ export function createRendererPort({
     if(state==="disposed")throw new Error("renderer already disposed");
     if(!next || typeof next.updateProjectionMatrix!=="function")throw new TypeError("camera must support updateProjectionMatrix");
     activeCamera=next;
-    if(effects && !postFailed)effects.setCamera(next);
+    if (effects && !postFailed) effects.setCamera(next);
   }
-  async function draw() {
+  function failPost(stage, error) {
+    postFailed = true;
+    console.warn("HD-2D pipeline failed during " + stage + "; falling back to the direct renderer", error);
+    try { effects?.onFailure?.(); } catch { /* fallback must never throw */ }
+  }
+  async function draw(time = 0) {
     if (state !== "ready") return false;
-    if (effects && !postFailed && effects.enabled(currentQuality)) {
-      try {
-        await effects.render();
-        return true;
-      } catch (error) {
-        postFailed = true;
-        console.warn("Cinematic effects failed; falling back to the playable direct renderer",error);
-      }
+    if (effects && !postFailed) {
+      try { if (effects.render(time)) return true; }
+      catch (error) { failPost("render", error); }
     }
     if (typeof renderer.renderAsync === "function") await renderer.renderAsync(scene, activeCamera);
     else await renderer.render(scene, activeCamera);
@@ -143,15 +145,18 @@ export function createRendererPort({
     report("disposed");
     canvas.removeEventListener("webglcontextlost", lost);
     canvas.removeEventListener("webglcontextrestored", restored);
-    try { await effects?.dispose(); } finally { await renderer.dispose(); }
+    try { effects?.dispose?.(); } finally { await renderer.dispose(); }
   }
 
   return Object.freeze({
     initialize, resize, setQuality, setRenderScale, setCamera, draw, stats, dispose,
+    setSun(direction) { if (effects && !postFailed) effects.setSun?.(direction); },
+    setRayScale(value) { if (effects && !postFailed) effects.setRayScale?.(value); },
+    setGrade(values) { if (effects && !postFailed) effects.setGrade?.(values); },
     get state() { return state; },
     get size() { return currentSize; },
     get quality() { return currentQuality; },
     get scale() { return renderScale; },
-    get effects() { return !effects ? "off" : postFailed ? "fallback" : effects.enabled(currentQuality) ? "on" : "bypassed"; },
+    get effects() { return !effects ? "off" : postFailed ? "fallback" : "on"; },
   });
 }

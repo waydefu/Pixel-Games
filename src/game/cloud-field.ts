@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SUN_DIRECTION } from "./environment-state.js";
+import { liveSky } from "./sky-live.js";
 
 const SIZE=128;
 const SPAN=230;
@@ -46,7 +46,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     uCloudWind:{value:new THREE.Vector2()},
     uCloudSpan:{value:SPAN},
     uCloudHeight:{value:CLOUD_HEIGHT},
-    uCloudSun:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
+    uCloudSun:{value:liveSky.sunDir},
     uCloudStrength:{value:.30},
   };
 
