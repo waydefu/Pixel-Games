@@ -1,9 +1,11 @@
 import * as THREE from "three";
-import { fjordSurfaceHeight } from "./terrain-profile.js";
+import { fjordSurfaceHeight, fjordMeshHeight } from "./terrain-profile.js";
+import type { CloudField } from "./cloud-field.js";
+import { addVegetationWind } from "./vegetation-wind.js";
 import type { StageKit } from "./kit.js";
 
 type Region="mainland"|"east"|"north"|"south";
-type Extent={x0:number;x1:number;z0:number;z1:number};
+type Extent={x0:number;x1:number;z0:number;z1:number;columns:number;rows:number};
 const BUDGET=370;
 
 function hash(n:number){
@@ -22,10 +24,11 @@ function slopeAt(x:number,z:number,region:Region){
  * Mountain trees are NOT 150k unculled grass blades: four local region buckets
  * with bounded forest counts allow frustum culling and a mobile quality ladder.
  */
-export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regionIndex:number){
+export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regionIndex:number,clouds:CloudField){
   const leafMat=k.scope.track(new THREE.MeshStandardMaterial({
     color:"#edf1e6",roughness:1,metalness:0,flatShading:true,
   }));
+  addVegetationWind(leafMat,clouds,.12);
   const trunkMat=k.pattern("timber",26+regionIndex);
   const trunkGeo=k.scope.track(new THREE.CylinderGeometry(.17,.32,1,6));
   const conesGeo=k.scope.track(new THREE.ConeGeometry(1,1,6));
@@ -54,9 +57,17 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
     const h=i+regionIndex*6391;
     // Keep a margin away from triangle-strip boundaries to avoid terrain
     // interpolation seams and from the tidal coastline.
-    const x=extent.x0+8+hash(h*17.31)*(extent.x1-extent.x0-16);
-    const z=extent.z0+8+hash(h*23.79)*(extent.z1-extent.z0-16);
-    const y=fjordSurfaceHeight(x,z,region);
+    const ux=hash(h*17.31),uz=hash(h*23.79);
+    const spanX=extent.x1-extent.x0-16,spanZ=extent.z1-extent.z0-16;
+    // Concentrate the same instance budget on visible inner fjord slopes.
+    // Distant outer cliffs can remain rock-dominated; this is NOT more trees.
+    const x=region==="mainland"?
+      extent.x1-8-Math.pow(ux,1.25)*spanX:
+      extent.x0+8+Math.pow(ux,1.25)*spanX;
+    const z=region==="mainland"||region==="east"?
+      (extent.z0+extent.z1)*.5+(uz-.5)*spanZ*.58:
+      extent.z0+8+uz*spanZ;
+    const y=fjordMeshHeight(x,z,region,extent);
     if(y<11||y>79)continue;
     const slope=slopeAt(x,z,region);
     if(slope>1.18)continue;
@@ -105,8 +116,11 @@ export function buildMountainForest(k:StageKit,region:Region,extent:Extent,regio
   for(const mesh of [trunks,cones,broad]){
     mesh.instanceMatrix.needsUpdate=true;
     if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
-    if(mesh.count)mesh.computeBoundingSphere();
-    else mesh.visible=false;
+    if(mesh.count){
+      mesh.computeBoundingSphere();
+      // Wind deforms foliage by <.3m, keep conservative culling bounds.
+      if(mesh.boundingSphere)mesh.boundingSphere.radius+=.42;
+    }else mesh.visible=false;
   }
   const counts={trees:t,coniferLobes:c,broadleafLobes:br};
   function setDensity(factor:number){
