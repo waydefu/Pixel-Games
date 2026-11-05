@@ -145,6 +145,12 @@
 - **目前處理**：以 `THREE.InstancedMesh` 的山體分區、坡度遮罩、單份 128px 雲場取樣，不加新雲 Pass；減少灌木細分，建立 `basic/balanced/high` 的山林完整樹木與海岸草叢密度梯度（prefix count 保證樹冠不離開樹幹）。
 - **驗收要求**：重新取得 G2 相機同條件 PNG、draw calls/triangles、Shader error；不同畫質檔各記數據。POCO F8 Ultra 真機 60FPS／熱測仍 **NOT RUN**，不得宣稱預算足夠。
 
+### PV-031｜風動植被通過程式測試，仍可能出現 Shader／裁切回歸
+- **類型／狀態**：`RISK / RISK-UNVERIFIED`（G3-E2 [PR #19](https://github.com/waydefu/Pixel-Games/pull/19)）。
+- **證據**：PR #19 首次完整 CI [41970871098](https://github.com/waydefu/Pixel-Games/actions/runs/41970871098) PASS，但 `visual-audit` 尚未加標籤，因此 PNG 擷取步驟為 **skipped**；這不足以證明材質 `onBeforeCompile` 動畫不會發生視覺錯誤、裁切閃爍或風向不一致。
+- **防呆**：標記 PR #19 為 `visual-audit`，在此條目提交之後重新執行 CI，要求真正的六鏡頭 PNG／JSON artifact、Shader error=0；對照已合併 G3-E1 的主線，而非沿用舊版 G3 的截圖。運動畫面尚需時間序列人工確認。
+- **驗收界線**：CI 綠燈 ≠ 風動畫自然；SwiftShader ≠ POCO F8 Ultra 實機 FPS，真機測試仍是 **NOT RUN**。未完成前保持 PR 待審。
+
 ### PV-032｜天空雲層在地平線形成整齊的垂直方塊
 - **類型／狀態**：`HISTORY / RESOLVED-CODE`，**後續新畫面仍待驗收**（PR #20）。
 - **實際證據**：[PR #20 CI #41977048393](https://github.com/waydefu/Pixel-Games/actions/runs/41977048393) 六視角的 `shot-04-vista-fjord.png` 可見白色／灰色直立矩形，非自然雲體。人工檢查 `fjord.ts` 發現原本計算 cloud-plane ray intersection 的分母 `max(.11, ray.y)`，使 `ray.y<.11` 一整段視線共用相同高度交點；但原 alpha mask 在 `ray.y≈0.055` 就已完全顯示雲層，因此容易形成垂直窗簾。
