@@ -11,7 +11,7 @@ src/game/main.ts (WASD、手機搖桿、相機、UI 與 RAF)
       │     ├── environment.ts (海洋、岸線、船、植被)
       │     └── batch.ts (靜態 geometry 合批與資源釋放)
       ├── input.ts / navigation.js (輸入、碰撞、步行邊界)
-      └── src/rendering/ (renderer-port、quality、frame-metrics、resource-scope)
+      └── src/rendering/ (renderer-port、hd2d-pipeline、quality、frame-metrics、resource-scope)
       ↓
 Vite + TypeScript → dist/index.html → GitHub Pages Actions
 ```
@@ -20,7 +20,7 @@ Vite + TypeScript → dist/index.html → GitHub Pages Actions
 
 - `src/platform/`：clock、scene-controller、viewport、registry 與資產描述，用於後續可測工程共用能力。
 - `src/integrations/tool-registry.js`：進程內 Host adapter 路由，**不是自動 MCP 工具或 OS sandbox**。
-- `src/rendering/three-host.js`：歷史 WebGL 相容封裝，現行玩家入口使用 `renderer-port.js`；未經獨立測試不將其宣稱為 WebGPU 支援。
+- `src/rendering/renderer-port.js`：目前唯一的渲染生命週期適配層，搭配 `hd2d-pipeline.js` 實作現行畫質流程；舊 `three-host.js` 無執行端引用，已淘汰，不再保留平行封裝。
 - `.agents/skills/`：按需求使用的程式、素材、性能和視覺研究技能；不會進玩家 JS。
 - `docs/`：美術規格、研究來源、ADR、工具與部署治理、歷史審查；舊文標明當時時間，**不拿過去進度當最新狀態**。
 
@@ -29,7 +29,7 @@ Vite + TypeScript → dist/index.html → GitHub Pages Actions
 ## 遊戲與渲染邊界
 
 - `world.ts` 只組裝當前小型原創中世紀海岸；物件與海域邊界的碰撞資料另由 `navigation.js` 決定。
-- Quarter View OrthographicCamera 是玩家指定視角；可調效能／解析度不等於有多後端引擎。
+- 現行預設斜角採 28° 窄透視相機；經典正交、第一人稱與觀景相機仍可切換。可調效能／解析度不等於多後端引擎。
 - `batch.ts` 只合併共享材質與渲染狀態的靜態 Mesh；合併後原 Geometry 須經 `resource-scope.release()` 釋放且不可影響仍被引用的幾何。
 - `environment.ts` 將船殼、船帆和桅杆放在同一個 Group，再做小幅上下晃動，避免動畫拆散船隻。
 - Vite 只建構單頁，GitHub Pages base 為 `/Pixel-Games/`；研究文件保留不會生成第二張網頁。
@@ -38,7 +38,7 @@ Vite + TypeScript → dist/index.html → GitHub Pages Actions
 參見 [現行文件索引](INDEX.md)、[程式審查](reviews/INDEPENDENT-AUDIT-2026-11-05.md) 及 [歷史 Three.js 研究](research/THREEJS-ENGINEERING-2026-11-04.md)。
 
 
-## P1-R2 景觀／鏡頭分離（待 PR 合併）
+## P1-R2 景觀／鏡頭分離（已合併 PR #10；歷史設計說明）
 
 `src/game/terrain-profile.js` 是可單測的 deterministic 峽灣高度函數。 `fjord.ts` 生成遠景山脈、兩側山壁與天空穹頂，與聚落美術/碰撞互不侵犯。這些**山脈目前不是玩家可步行地形**，不能將透視觀景鏡頭當作登山系統。
 

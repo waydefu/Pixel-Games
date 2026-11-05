@@ -55,7 +55,7 @@ P1-R2 將峽灣遠景、可切換的斜角／第一人稱／高處觀景三模�
 海港漁船另由 `src/game/boats.ts` 建立具有收尖船首、木船舷、內部甲板、桅杆、帆布與繩索的原創模型；不再用壓扁球體假裝船體。
 
 
-## P1-R3｜峽灣視覺品質重建（待審查 PR #11）
+## P1-R3｜峽灣視覺品質重建（已合併 PR #11；歷史階段）
 
 本輪不改單一遊戲入口，也不刪除研究、ADR、Agent Skills 或工程工具；聚焦第一人稱實際可見的近景與山海背景。
 
@@ -67,3 +67,9 @@ P1-R2 將峽灣遠景、可切換的斜角／第一人稱／高處觀景三模�
 官方與研究依據／未完成事項詳見 [P1-R3 美術與渲染審查](docs/reviews/P1-R3-RENDERING-REVIEW-2026-11-05.md)。正式畫面、POCO F8 Ultra GPU 時間及長時間熱測試，仍以人工與真機驗收為準。
 
 海岸邊界由 `coastal-outline.js` 和 `coastline.ts` 產生**有自然收尖弧度的草地／沙灘地形**，不再是一張突然中斷的矩形平面；峽灣東端改為有水深的出海水道，避免山壁直接封死海平線。
+
+## 最新 HD-2D 狀態（2026-11-05）
+
+- **已合併 [PR #21](https://github.com/waydefu/Pixel-Games/pull/21)**：統一 `src/rendering/hd2d-pipeline.js`（取代先前單獨的 `cinematic-post.js`、`effects-on-demand.js`）、HD-2D 像素材質、開放海灣、漁夫角色、日夜循環、Polyfork 合法授權資產與近城鎮樹木。作者自評約 **5～6/10**，仍有山體材質、遠山植被及曝光缺口，真機 GPU/FPS/熱測試 **NOT RUN**。
+- **待合併 [PR #22](https://github.com/waydefu/Pixel-Games/pull/22)**：修正非窗戶物件錯誤發光、增加火把／掛燈實際光照、房屋比例一致性。本次核對 CI 已通過，但人工與真機畫面尚未驗收，**不視為 main 已有功能**。
+- 目前**唯一現行狀態入口**：[docs/ROADMAP.md](docs/ROADMAP.md)。G1～G6 初版技術規劃保留為歷史背景，不能據此推定新版尚未開工。
