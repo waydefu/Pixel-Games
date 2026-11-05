@@ -7,7 +7,9 @@ import { createVillageMaterial, type VillageKit } from "./village-kit.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
-import { buildHarbourBeacon } from "./harbour-beacon.js";
+import { buildHarbourBeacon, BEACON_SITE } from "./harbour-beacon.js";
+import { createNightLights } from "./night-lights.js";
+import { createFixtures } from "./torches.js";
 import { batchStaticScene } from "./batch.js";
 import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
@@ -26,13 +28,16 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   const kit=createStageKit(scene,scope);
   const cloudField=createCloudField(scope);
   const villageAssets=villageKit?{kit:villageKit,material:createVillageMaterial(kit)}:null;
-  const village=buildVillage(kit,villageAssets);
+  const lights=createNightLights(scene);
+  const fixtures=createFixtures(kit,lights);
+  const village=buildVillage(kit,villageAssets,{lights,fixtures});
   buildHarbourBeacon(kit);
+  // The beacon fire is the strongest light on the coast: it reaches far across the harbour.
+  lights.add({x:BEACON_SITE.x,y:15,z:BEACON_SITE.z,intensity:110,distance:48,color:"#ffcf8a",flicker:.1});
   const environment=buildEnvironment(kit,cloudField,villageAssets);
   const fjord=buildFjordLandscape(kit,cloudField);
   // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
   const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
-  const lampBase=village.lamps.map(l=>l.intensity);
   let cloudStrength=.24;
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
@@ -102,13 +107,14 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     (scene.background as THREE.Color).copy(liveSky.fog);
     const lamp=.12+.88*liveSky.lampGlow;
     kit.emissives.forEach((m,i)=>{m.emissiveIntensity=emissiveBase[i]*lamp;});
-    village.lamps.forEach((l,i)=>{l.intensity=lampBase[i]*liveSky.lampGlow;l.visible=liveSky.lampGlow>.02;});
     spriteMaterial.emissiveIntensity=.30+.32*liveSky.dayLight.value;
     cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
     environment.applySky({x:player.x,z:player.z});
   }
   function update(time:number){
     cloudField.update(time);
+    lights.update(player,liveSky.lampGlow,time);
+    fixtures.animate(time);
     environment.update(time,player);
     fjord.update(time);
     const walking=time-lastMovedAt<.12;

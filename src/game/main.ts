@@ -46,7 +46,8 @@ type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:nu
 const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;
 // Time of day: ?hour=19.5 fixes it; visual-audit shots carry their own hour; otherwise the day flows.
 const hourParam=Number.parseFloat(new URLSearchParams(window.location.search).get("hour")??"");
-let hour=visualShot?visualShot.hour:Number.isFinite(hourParam)?wrapHour(hourParam):HOUR_START;
+// An explicit ?hour= also overrides a visual-audit shot, so one camera can be compared at any time of day.
+let hour=Number.isFinite(hourParam)?wrapHour(hourParam):visualShot?visualShot.hour:HOUR_START;
 const HOURS_PER_SECOND=1/40; // a full day lasts 16 real minutes
 function showHour(){
   const d=describeHour(hour);
