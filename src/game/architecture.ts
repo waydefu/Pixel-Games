@@ -1,13 +1,19 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { partitionFacade } from "./facade-geometry.js";
+import type { VillageKit } from "./village-kit.js";
+
+/** Optional Polyfork kit: when present its meshes replace procedural houses and props (which stay as the fallback). */
+export type VillageAssets={kit:VillageKit;material:THREE.Material};
+// Which kit model stands on each authored plot (index = position in `houses`).
+const HOUSE_MODELS=["village-tavern","two-story-house","thatched-cottage","fisherman-shack","two-story-house","thatched-cottage","blacksmith-forge","stone-chapel","timber-barn","two-story-house"] as const;
 
 function hash(n:number){const v=Math.sin(n*127.1+31.37)*43758.5453123;return v-Math.floor(v);}
 type Roof="red"|"blue"|"thatch";
 type House={x:number;z:number;w:number;d:number;h:number;roof:Roof;seed:number;name:string};
 
 /** Real medieval construction grammar: rubble footing, timber framing, pitched roofs and carved fixtures. */
-export function buildVillage(k:StageKit){
+export function buildVillage(k:StageKit,assets?:VillageAssets|null){
   const plaster=k.pattern("plaster"),stone=k.pattern("stone",2),timber=k.pattern("timber",4),
     wood=k.pattern("planks",6),brick=k.pattern("brick",11);
   const beams=k.solid("#554334"),trim=k.solid("#927758"),brass=k.solid("#bb9055"),
@@ -202,9 +208,20 @@ export function buildVillage(k:StageKit){
     {x:-8,z:26,w:5.1,d:4.4,h:4.2,roof:"thatch",seed:10,name:"residence"},
     {x:-33,z:27,w:4.6,d:4.2,h:3.7,roof:"red",seed:11,name:"residence"},
   ];
-  for(const h of houses)buildHouse(h);
+  houses.forEach((h,i)=>{
+    const model=HOUSE_MODELS[i%HOUSE_MODELS.length];
+    if(assets&&assets.kit.has(model)){
+      const face=h.z<0?1:-1; // street at z=0; kit fronts point +z
+      const info=assets.kit.instantiate(k,assets.material,model,{x:h.x,z:h.z,rotY:face>0?0:Math.PI,fit:{w:h.w,d:h.d},name:"kit-"+model});
+      k.collider(h.x,h.z,Math.max(h.w,info.width)/2+.3,Math.max(h.d,info.depth)/2+.3);
+    }else buildHouse(h);
+  });
   // Street furniture and everyday medieval use, outside the accessible promenade.
   function barrel(x:number,z:number,s=1){
+    if(assets?.kit.has("barrel")){
+      assets.kit.instantiate(k,assets.material,"barrel",{x,z,scale:1.45*s,rotY:x*3.1});
+      k.collider(x,z,.41*s,.41*s);return;
+    }
     const wood=k.pattern("timber",15);
     const cy=k.put(new THREE.CylinderGeometry(.36*s,.40*s,.91*s,10),wood,x,.46*s,z);
     cy.castShadow=true;
@@ -214,6 +231,10 @@ export function buildVillage(k:StageKit){
     const top=k.column(.36*s,.05*s,timber,x,.92*s,z,10);top.castShadow=false;
   }
   function crate(x:number,z:number,s=1){
+    if(assets?.kit.has("wooden-crate")){
+      assets.kit.instantiate(k,assets.material,"wooden-crate",{x,z,scale:.95*s,rotY:z*2.3});
+      k.collider(x,z,.55*s,.50*s);return;
+    }
     const w=k.pattern("planks",12);
     k.block(.94*s,.71*s,.87*s,w,x,.355*s,z);
     for(const y of [.08*s,.63*s])
@@ -225,23 +246,32 @@ export function buildVillage(k:StageKit){
   });
   // Stone drinking well anchors the centre of the settlement.
   const wellX=-5.0,wellZ=7.15;
-  const rim=k.pattern("stone",8);
-  const ring=k.put(new THREE.CylinderGeometry(1.09,1.14,1.16,12,1,true),rim,wellX,.56,wellZ);
-  k.column(1.08,.12,k.solid("#b6a88f"),wellX,1.14,wellZ,12);
-  k.column(.88,.08,k.solid("#293b44",.48),wellX,1.19,wellZ,12);
-  for(const s of [-1,1])k.block(.23,3,.23,beams,wellX+s*.92,2.0,wellZ);
-  const wellRoof=k.block(2.55,.19,2.12,k.pattern("thatch",11),wellX,3.41,wellZ);
-  wellRoof.rotation.z=-.07;
+  if(assets?.kit.has("village-well")){
+    assets.kit.instantiate(k,assets.material,"village-well",{x:wellX,z:wellZ,scale:1.2,name:"kit-village-well"});
+  }else{
+    const rim=k.pattern("stone",8);
+    const ring=k.put(new THREE.CylinderGeometry(1.09,1.14,1.16,12,1,true),rim,wellX,.56,wellZ);
+    k.column(1.08,.12,k.solid("#b6a88f"),wellX,1.14,wellZ,12);
+    k.column(.88,.08,k.solid("#293b44",.48),wellX,1.19,wellZ,12);
+    for(const s of [-1,1])k.block(.23,3,.23,beams,wellX+s*.92,2.0,wellZ);
+    const wellRoof=k.block(2.55,.19,2.12,k.pattern("thatch",11),wellX,3.41,wellZ);
+    wellRoof.rotation.z=-.07;
+  }
   k.collider(wellX,wellZ,1.18,1.18);
 
   // Fishmonger's rustic trestle market, canvas roof and fish crates.
   const mx=8.0,mz=11.0;
-  for(const x of [mx-1.8,mx+1.8])for(const z of [mz-1,mz+1])
-    k.column(.115,2.4,beams,x,1.25,z,6);
-  const awning=k.block(4.3,.11,3.0,k.pattern("canvas",4,2,1),mx,2.63,mz);
-  awning.rotation.z=-.04;
-  k.block(3,.45,1.06,wood,mx,1.08,mz-.4);
-  k.collider(mx,mz-.4,1.55,.62);
+  if(assets?.kit.has("market-stall")){
+    assets.kit.instantiate(k,assets.material,"market-stall",{x:mx,z:mz-.4,scale:2.05,rotY:Math.PI,name:"kit-market-stall"});
+    k.collider(mx,mz-.4,1.55,.62);
+  }else{
+    for(const x of [mx-1.8,mx+1.8])for(const z of [mz-1,mz+1])
+      k.column(.115,2.4,beams,x,1.25,z,6);
+    const awning=k.block(4.3,.11,3.0,k.pattern("canvas",4,2,1),mx,2.63,mz);
+    awning.rotation.z=-.04;
+    k.block(3,.45,1.06,wood,mx,1.08,mz-.4);
+    k.collider(mx,mz-.4,1.55,.62);
+  }
   for(const x of [mx-1,mx+.1,mx+1.1])crate(x,mz-.39,.51);
   // A few hand-crafted medieval essentials: wall baskets, mooring posts, sacks.
   k.put(new THREE.SphereGeometry(.46,8,6),k.pattern("thatch",8),-8,.27,-5.75,false);

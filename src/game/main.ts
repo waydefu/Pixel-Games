@@ -4,6 +4,7 @@ import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
+import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
@@ -32,7 +33,9 @@ const knob=element<HTMLElement>("#joystick-knob");
 const hint=element<HTMLElement>("#hint");
 const lookHint=element<HTMLElement>("#look-hint");
 
-const world=createCoastalWorld();
+// Polyfork Medieval Village Kit (CC BY 4.0). If it cannot load, the procedural village is used instead.
+const villageKit=await loadVillageKit().catch(error=>{console.warn("Village kit unavailable; using procedural village",error);return null;});
+const world=createCoastalWorld(villageKit);
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
 type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;viewport:string};
 const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;

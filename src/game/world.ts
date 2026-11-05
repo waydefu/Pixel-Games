@@ -3,6 +3,7 @@ import { createResourceScope } from "../rendering/resource-scope.js";
 import { configurePixelTexture } from "../rendering/pixel-texture.js";
 import { createStageKit } from "./kit.js";
 import { buildVillage } from "./architecture.js";
+import { createVillageMaterial, type VillageKit } from "./village-kit.js";
 import { buildEnvironment } from "./environment.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
@@ -16,7 +17,7 @@ import { createCloudField } from "./cloud-field.js";
  * The game's one and only scene. Old test geometry and electric street lamps
  * have been removed; this world is composed from shared original art modules.
  */
-export function createCoastalWorld(){
+export function createCoastalWorld(villageKit:VillageKit|null=null){
   const scope=createResourceScope();
   const scene=new THREE.Scene();
   const horizon=new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b);
@@ -24,7 +25,7 @@ export function createCoastalWorld(){
   scene.fog=new THREE.FogExp2(horizon.clone(),FOG_DENSITY);
   const kit=createStageKit(scene,scope);
   const cloudField=createCloudField(scope);
-  buildVillage(kit);
+  buildVillage(kit,villageKit?{kit:villageKit,material:createVillageMaterial(kit)}:null);
   buildHarbourBeacon(kit);
   const environment=buildEnvironment(kit,cloudField);
   const fjord=buildFjordLandscape(kit,cloudField);

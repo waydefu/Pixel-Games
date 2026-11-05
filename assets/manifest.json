@@ -1,4 +1,176 @@
 {
   "version": 1,
-  "assets": []
+  "assets": [
+    {
+      "id": "polyfork-village-tavern",
+      "path": "assets/models/polyfork/village-tavern.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/village-tavern-4e94e3",
+      "sha256": "de95da4c0c6cc5831f8252bad9c0ccb6cc7441366ad937f51055db3e54c82a52",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Village Tavern by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-two-story-house",
+      "path": "assets/models/polyfork/two-story-house.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/two-story-house-40f6dc",
+      "sha256": "71fb1590a2ac01270617504a15976912bebd3c672577c4ed8e0dcc9e6f7f6d78",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Two Story House by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-thatched-cottage",
+      "path": "assets/models/polyfork/thatched-cottage.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/thatched-cottage-0e63f5",
+      "sha256": "f34857a8e3e3e796480ba83c936e3a25a50a882f5311929cdaf840f63d5abbf3",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Thatched Cottage by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-stone-chapel",
+      "path": "assets/models/polyfork/stone-chapel.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/stone-chapel-03e774",
+      "sha256": "bb3a3c25a9a40065ac94423abdf3b09d90173f91862d88790edac32078811146",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Stone Chapel by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-timber-barn",
+      "path": "assets/models/polyfork/timber-barn.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/timber-barn-90b3ce",
+      "sha256": "6929b76199dc74bd1519dc726f60455a52b433277260876390d83f805fca1ad4",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Timber Barn by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-blacksmith-forge",
+      "path": "assets/models/polyfork/blacksmith-forge.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/blacksmith-forge-09fa85",
+      "sha256": "ce980001d22b8a5aec0c7015d33e23ef0ecf351e0ada1954babbf4c75d494785",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Blacksmith Forge by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-stilted-granary",
+      "path": "assets/models/polyfork/stilted-granary.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/stilted-granary-3e7d7d",
+      "sha256": "3e5b7a55cd0f6d2d2775c51f6ab44e6093aabca3d0aa0efd32293e49628b7111",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Stilted Granary by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-fisherman-shack",
+      "path": "assets/models/polyfork/fisherman-shack.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/fisherman-shack-ea9b2b",
+      "sha256": "ef5e2671efe8faa4c9dfbbd0a141946388b34478e7eaca119c76afc630baa617",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Fisherman Shack by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-market-stall",
+      "path": "assets/models/polyfork/market-stall.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/market-stall-94937d",
+      "sha256": "d8a505aba4c753eb23af6b904db3d983b4c7fc4e623e8e1f02dc042489f0f09f",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Market Stall by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-village-well",
+      "path": "assets/models/polyfork/village-well.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/village-well-f8e361",
+      "sha256": "b7a025678ce56b59a501838a34253077a061dbe9776994579f146a8aca94af36",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Village Well by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-barrel",
+      "path": "assets/models/polyfork/barrel.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/barrel-aadc94",
+      "sha256": "69a553f3598b7005957b18de39c3abb1e5f044aba768162cc98be6ae6278ac00",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Barrel by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-wooden-crate",
+      "path": "assets/models/polyfork/wooden-crate.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/wooden-crate-b9c96a",
+      "sha256": "498edb7a60db1aed1fc2caff1e1cb5f6d81bcb2ee782783425a17b4951bb983b",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Wooden Crate by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-haystack",
+      "path": "assets/models/polyfork/haystack.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/haystack-77b0dd",
+      "sha256": "a77309c0ef9a735c0a67c37ab8ec09aadb881ad4695ca11c3bb649639b8c38c4",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Haystack by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-wooden-cart",
+      "path": "assets/models/polyfork/wooden-cart.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/wooden-cart-bf83d8",
+      "sha256": "cba8a07478ed7af57d5c53d19b3660c75705e51b1c5b4d1f233fbed784853d78",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Wooden Cart by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-signpost",
+      "path": "assets/models/polyfork/signpost.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/signpost-8287c3",
+      "sha256": "002b3b8e063ff22868dfa25893dee6e85a5a5a7adf7df217008bb5f7adfcfe05",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Signpost by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-drying-net-rack",
+      "path": "assets/models/polyfork/drying-net-rack.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/drying-net-rack-93ec3b",
+      "sha256": "c6fea1c7884fe011575b723319a4e2c1afbb7f070c80f5130d0396178c0eba1d",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Drying Net Rack by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-oak-tree",
+      "path": "assets/models/polyfork/oak-tree.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/oak-tree-50ee7c",
+      "sha256": "4a8aca87c32c4356a22babdfa9f53f701a867454e6391f568790952ffbc66e9f",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Oak Tree by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-orchard-apple-tree",
+      "path": "assets/models/polyfork/orchard-apple-tree.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/orchard-apple-tree-b21f85",
+      "sha256": "ea0225db26bdf39a5d1c1f8b425035b12f05a9209b4e95391da0ecc1441e4ce9",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Orchard Apple Tree by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "polyfork-wooden-fence",
+      "path": "assets/models/polyfork/wooden-fence.glb",
+      "author": "Polyfork",
+      "license": "CC-BY-4.0",
+      "source": "https://polyfork.dev/asset/wooden-fence-3d8ee7",
+      "sha256": "ffc7cd6a65d418f6a928397d0b6ddc7b99fc4fa3f1f1c13557cad440d6d17bd8",
+      "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Wooden Fence by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    }
+  ]
 }
