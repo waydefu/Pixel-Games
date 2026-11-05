@@ -46,7 +46,7 @@ export function fjordSurfaceHeight(x,z,region){
  * Sampling the analytic noise at a tree's x,z can differ from the rendered
  * mesh between vertices, leaving roots floating or buried in steep relief.
  */
-export function fjordMeshHeight(x,z,region,extent){
+export function fjordMeshHeight(x,z,region,extent,sampleVertex){
   const {x0,x1,z0,z1,columns,rows}=extent;
   if(!Number.isFinite(x)||!Number.isFinite(z)||columns<1||rows<1)
     throw new RangeError("invalid mountain sample");
@@ -55,10 +55,13 @@ export function fjordMeshHeight(x,z,region,extent){
   const ix=Math.floor(tx),iz=Math.floor(tz),u=tx-ix,v=tz-iz;
   const xA=x0+(x1-x0)*ix/columns,xB=x0+(x1-x0)*(ix+1)/columns;
   const zA=z0+(z1-z0)*iz/rows,zB=z0+(z1-z0)*(iz+1)/rows;
-  const a=fjordSurfaceHeight(xA,zA,region);
-  const b=fjordSurfaceHeight(xB,zA,region);
-  const c=fjordSurfaceHeight(xA,zB,region);
-  const d=fjordSurfaceHeight(xB,zB,region);
+  // Reuse already-generated BufferGeometry heights when available instead
+  // of recomputing four procedural-noise samples per forest candidate.
+  const at=(i,j,xx,zz)=>sampleVertex?sampleVertex(i,j):fjordSurfaceHeight(xx,zz,region);
+  const a=at(ix,iz,xA,zA);
+  const b=at(ix+1,iz,xB,zA);
+  const c=at(ix,iz+1,xA,zB);
+  const d=at(ix+1,iz+1,xB,zB);
   return u+v<=1 ? a*(1-u-v)+b*u+c*v :
     b*(1-v)+c*(1-u)+d*(u+v-1);
 }
