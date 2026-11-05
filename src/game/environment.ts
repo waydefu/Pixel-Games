@@ -5,19 +5,25 @@ import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
 import { SUN_DIRECTION } from "./environment-state.js";
+import type { CloudField } from "./cloud-field.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
-export function buildEnvironment(k:StageKit){
+export function buildEnvironment(k:StageKit,cloudField:CloudField){
   const stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
   const cliff=k.pattern("cliff",9),leaves=[k.pattern("foliage",1,2,2),k.pattern("foliage",3,2,2),k.pattern("foliage",5,2,2),k.pattern("foliage",7,2,2)];
   // The curved mesh closes toward both headlands; no rectangular lawn edge.
-  buildCoastalLand(k);
+  buildCoastalLand(k,cloudField);
+  cloudField.applyToMaterial(stone);
   // Cobblestone promenade & irregular town square, not a grid of raised box tiles.
   k.flat(42,6.3,stone,-8.0,-.062,0);
-  k.flat(3.2,13,k.pattern("cobble",4,3,9),9,-.059,5.2);
-  k.ellipse(6.0,5.0,k.pattern("cobble",6,4,4),-5.0,-.057,6.1);
+  const pierRoad=k.pattern("cobble",4,3,9);
+  const townSquare=k.pattern("cobble",6,4,4);
+  cloudField.applyToMaterial(pierRoad);
+  cloudField.applyToMaterial(townSquare);
+  k.flat(3.2,13,pierRoad,9,-.059,5.2);
+  k.ellipse(6.0,5.0,townSquare,-5.0,-.057,6.1);
   for(let i=0;i<40;i++){
     const x=-26+i*.98;
     for(const s of [-1,1]){
