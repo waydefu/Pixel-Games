@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
+import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -64,8 +65,10 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
+const pipelineInfo={hdr:false,quality:"balanced"};
+let focusPipeline:(distance:number,active:boolean)=>void=()=>{};
 let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserver|null=null;
 function mark(state:GameState,message:string){
   diagnostics.status=state;
@@ -153,12 +156,24 @@ async function start(){
     if(!context){mark("unsupported","WebGL2 不可用");return;}
     const renderer=new THREE.WebGLRenderer({canvas,context,antialias:false,alpha:false,powerPreference:"high-performance"});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
-    renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.15;
+    // Tone mapping, grading and sRGB encoding happen once, in the HD-2D composite pass.
+    renderer.toneMapping=THREE.NoToneMapping;
+    renderer.toneMappingExposure=1;
     renderer.shadowMap.enabled=true;
-    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type=THREE.PCFShadowMap; // r187 removed PCFSoftShadowMap
+    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value});
+    pipelineInfo.hdr=pipeline.hdr;pipelineInfo.quality=quality.value;
+    focusPipeline=(distance:number,active:boolean)=>pipeline.setFocus({distance,range:2.2,span:10,strength:active?1:0});
+    const effects={
+      setSize:(w:number,h:number)=>pipeline.setSize(w,h),
+      setQuality:(q:string)=>{pipeline.setQuality(q);pipelineInfo.quality=q;},
+      setCamera:(c:THREE.Camera)=>pipeline.setCamera(c),
+      render:(t:number)=>pipeline.render(t),
+      dispose:()=>pipeline.dispose(),
+      onFailure:()=>{renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;},
+    };
     host=createRendererPort({
-      renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,
+      renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,effects,
       onStatus:(state:string)=>{
         if(state==="ready")mark("ready","自由探索中");
         if(state==="lost")mark("lost","圖形連線中斷，等待恢復");
@@ -203,7 +218,9 @@ async function start(){
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
-        const drawn=await host.draw();
+        if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);
+        else focusPipeline(30,false);
+        const drawn=await host.draw(elapsed);
         if(drawn){diagnostics.frames++;diagnostics.drawCalls=host.stats().calls??0;}
       }catch{
         mark("failed","3D 繪製失敗");

@@ -9,12 +9,13 @@ import { calculateRenderSize, getQualityPreset } from "./quality.js";
  *   quality?: string,
  *   onStatus?: (status: string) => void,
  *   resizeCamera?: (width: number, height: number) => void,
- *   restoreResources?: () => Promise<void>
+ *   restoreResources?: () => Promise<void>,
+ *   effects?: any
  * }} options
  */
 export function createRendererPort({
   renderer, canvas, scene, camera, quality = "balanced", onStatus = () => {},
-  resizeCamera = () => {}, restoreResources = async () => {},
+  resizeCamera = () => {}, restoreResources = async () => {}, effects = null,
 } = {}) {
   if (!renderer || typeof renderer.render !== "function" && typeof renderer.renderAsync !== "function") {
     throw new TypeError("renderer must expose render() or renderAsync()");
@@ -31,6 +32,7 @@ export function createRendererPort({
   let currentQuality = quality;
   let activeCamera = camera;
   let renderScale = 1;
+  let postFailed = false;
   let currentSize = null;
   let initialPromise = null;
   let generation = 0;
@@ -63,6 +65,10 @@ export function createRendererPort({
     const next = calculateRenderSize({ cssWidth, cssHeight, devicePixelRatio, quality: currentQuality, renderScale });
     if (!currentSize || next.width !== currentSize.width || next.height !== currentSize.height) {
       renderer.setSize(next.width, next.height, false);
+      if (effects && !postFailed) {
+        try { effects.setSize(next.width, next.height); }
+        catch (error) { failPost("resize", error); }
+      }
     }
     resizeCamera(cssWidth, cssHeight); // Camera uses CSS aspect, not drawing buffer aspect.
     currentSize = next;
@@ -73,6 +79,9 @@ export function createRendererPort({
     getQualityPreset(next);
     if (state === "disposed") throw new Error("renderer already disposed");
     currentQuality = next;
+    if (effects && !postFailed) {
+      try { effects.setQuality(next); } catch (error) { failPost("quality", error); }
+    }
     if (renderer.shadowMap) renderer.shadowMap.enabled = getQualityPreset(next).shadows;
     return currentQuality;
   }
@@ -86,9 +95,19 @@ export function createRendererPort({
     if(state==="disposed")throw new Error("renderer already disposed");
     if(!next || typeof next.updateProjectionMatrix!=="function")throw new TypeError("camera must support updateProjectionMatrix");
     activeCamera=next;
+    if (effects && !postFailed) effects.setCamera(next);
   }
-  async function draw() {
+  function failPost(stage, error) {
+    postFailed = true;
+    console.warn("HD-2D pipeline failed during " + stage + "; falling back to the direct renderer", error);
+    try { effects?.onFailure?.(); } catch { /* fallback must never throw */ }
+  }
+  async function draw(time = 0) {
     if (state !== "ready") return false;
+    if (effects && !postFailed) {
+      try { if (effects.render(time)) return true; }
+      catch (error) { failPost("render", error); }
+    }
     if (typeof renderer.renderAsync === "function") await renderer.renderAsync(scene, activeCamera);
     else await renderer.render(scene, activeCamera);
     return true;
@@ -126,7 +145,7 @@ export function createRendererPort({
     report("disposed");
     canvas.removeEventListener("webglcontextlost", lost);
     canvas.removeEventListener("webglcontextrestored", restored);
-    await renderer.dispose();
+    try { effects?.dispose?.(); } finally { await renderer.dispose(); }
   }
 
   return Object.freeze({
@@ -135,5 +154,6 @@ export function createRendererPort({
     get size() { return currentSize; },
     get quality() { return currentQuality; },
     get scale() { return renderScale; },
+    get effects() { return !effects ? "off" : postFailed ? "fallback" : "on"; },
   });
 }

@@ -81,6 +81,7 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
   tick(0);
   return {setMode,cycle,look,setAuditAngles,movement,resize,tick,
     get mode(){return mode;},
+    get focusPoint(){return target;},
     get camera(){return mode==="quarter"?quarter:perspective;},
     get projection(){return mode==="quarter"?"orthographic":"perspective";},
     get yaw(){return mode==="first"?yaw:vistaYaw;},
