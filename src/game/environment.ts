@@ -5,6 +5,8 @@ import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
 import { SUN_DIRECTION } from "./environment-state.js";
+import { buildGroundCloudShadows } from "./cloud-shadows.js";
+import { enableCoastalWind } from "./wind-material.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
@@ -12,6 +14,8 @@ export function buildEnvironment(k:StageKit){
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
   const cliff=k.pattern("cliff",9),leaves=[k.pattern("foliage",1,2,2),k.pattern("foliage",3,2,2),k.pattern("foliage",5,2,2),k.pattern("foliage",7,2,2)];
+  const windTime={value:0};
+  for(const leaf of leaves)enableCoastalWind(leaf,windTime,"leaves");
   // The curved mesh closes toward both headlands; no rectangular lawn edge.
   buildCoastalLand(k);
   // Cobblestone promenade & irregular town square, not a grid of raised box tiles.
@@ -26,6 +30,7 @@ export function buildEnvironment(k:StageKit){
     }
   }
   const ocean=createCoastalWater(k);
+  const cloudShadows=buildGroundCloudShadows(k);
   // Curved surf edge: tiny sunlit stones and tidal foam ribbons.
   for(let i=0;i<85;i++){
     const z=-33+i*.79;
@@ -117,7 +122,11 @@ export function buildEnvironment(k:StageKit){
     tree(x,z,.70+noise(i+31)*.60,i+3);
   }
   // Instanced grasses and flowers; no runtime geometry per blade.
-  const grassMaterial=k.solid("#8ba777");
+  const grassMaterial=k.scope.track(new THREE.MeshStandardMaterial({
+    color:"#b8c8ac",roughness:1,metalness:0,flatShading:true,
+  }));
+  enableCoastalWind(grassMaterial,windTime,"grass");
+  const grassPalette=["#557957","#6b915e","#7d9f6b","#9cad7c","#aba67a"].map(v=>new THREE.Color(v));
   const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
   const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,900));
   let count=0;
@@ -128,9 +137,14 @@ export function buildEnvironment(k:StageKit){
     if(x>10)continue;
     const s=.45+noise(i*8.2)*1.9;
     dummy.position.set(x,-.04,z);dummy.scale.set(s,s,s);dummy.rotation.set(0,i*.28,0);dummy.updateMatrix();
-    grass.setMatrixAt(count++,dummy.matrix);
+    grass.setMatrixAt(count,dummy.matrix);
+    grass.setColorAt(count,grassPalette[Math.floor(noise(i+11)*grassPalette.length)]);
+    count++;
   }
-  grass.count=count;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;k.scene.add(grass);
+  grass.count=count;
+  grass.instanceMatrix.needsUpdate=true;
+  if(grass.instanceColor)grass.instanceColor.needsUpdate=true;
+  grass.castShadow=false;k.scene.add(grass);
   const flowerColors=["#e7be8b","#edd7bc","#c997ae","#d8bf6b"];
   for(let color=0;color<flowerColors.length;color++){
     const geo=k.scope.track(new THREE.IcosahedronGeometry(.115,0));
@@ -160,6 +174,8 @@ export function buildEnvironment(k:StageKit){
   sunlight.target=target;
   function update(time:number,player?:{x:number;z:number}){
     ocean.update(time);
+    cloudShadows.update(time);
+    windTime.value=time;
     boats.update(time);
     // The sun keeps a fixed direction but its shadow camera follows players.
     if(player){
