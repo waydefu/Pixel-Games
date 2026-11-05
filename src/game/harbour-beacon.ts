@@ -6,7 +6,7 @@ import type { StageKit } from "./kit.js";
  * modular and static so the existing static-material batcher can merge pieces.
  * Its lantern is emissive (ready for G4 selective bloom), not a heavy point-light.
  */
-export const BEACON_SITE = Object.freeze({x:-4,z:-21,radius:2.85,height:18.5});
+export const BEACON_SITE = Object.freeze({x:-4,z:-21,radius:3.60,height:19.73});
 
 export function buildHarbourBeacon(k:StageKit){
   const {x,z}=BEACON_SITE;
@@ -42,7 +42,8 @@ export function buildHarbourBeacon(k:StageKit){
     const dx=Math.cos(angle),dz=Math.sin(angle);
     for(const y of [4.6,8.2]){
       const pane=k.block(.63,1.16,.10,glass,x+dx*1.97,y,z+dz*1.97,false);
-      pane.rotation.y=-angle;
+      // Front of the aperture must be tangent to the circular shaft.
+      pane.rotation.y=Math.PI/2-angle;
       k.block(.24,1.24,.22,edging,x+dx*2.02+dz*.40,y,z+dz*2.02-dx*.40,false);
     }
   }
