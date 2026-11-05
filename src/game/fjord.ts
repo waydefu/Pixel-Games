@@ -120,7 +120,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // Shared precomputed world-space cloud field: the same density drives
         // sky cover and projected mountain/ground shadow, with no second pass.
         // An upper cloud layer is sampled where the view ray reaches the sheet.
-        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.11,ray.y);
+        // Never clamp the cloud-plane intersection over a visible horizon band.
+        // The previous max(.11,ray.y) produced vertical cloud columns.
+        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
         vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
         float low=texture2D(uCloudMap,cloudUV).r;
         float cumulus=smoothstep(.39,.56,low);
@@ -138,7 +140,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
             stacked+=smoothstep(.43,.63,top)*.38;
           }
         }
-        float mask=smoothstep(-.04,.055,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
+        // Fade the sheet to physical aerial haze where rays graze the horizon.
+        // Suppresses the column/curtain artifact in shot-04-vista-fjord.
+        float mask=smoothstep(.075,.205,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
         float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount;
         float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
         // Cloud edge self-shading: sample the same cloud field in sunlight's
