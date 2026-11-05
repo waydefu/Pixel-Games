@@ -40,3 +40,25 @@ export function fjordSurfaceHeight(x,z,region){
   const crack=Math.sin(x*.145+Math.sin(z*.046)*2.1)*Math.cos(z*.17-x*.033);
   return base+exposure*crack;
 }
+
+/**
+ * Exact barycentric height of the triangle-strip geometry in fjord.ts.
+ * Sampling the analytic noise at a tree's x,z can differ from the rendered
+ * mesh between vertices, leaving roots floating or buried in steep relief.
+ */
+export function fjordMeshHeight(x,z,region,extent){
+  const {x0,x1,z0,z1,columns,rows}=extent;
+  if(!Number.isFinite(x)||!Number.isFinite(z)||columns<1||rows<1)
+    throw new RangeError("invalid mountain sample");
+  const tx=Math.min(columns-1e-7,Math.max(0,(x-x0)/(x1-x0)*columns));
+  const tz=Math.min(rows-1e-7,Math.max(0,(z-z0)/(z1-z0)*rows));
+  const ix=Math.floor(tx),iz=Math.floor(tz),u=tx-ix,v=tz-iz;
+  const xA=x0+(x1-x0)*ix/columns,xB=x0+(x1-x0)*(ix+1)/columns;
+  const zA=z0+(z1-z0)*iz/rows,zB=z0+(z1-z0)*(iz+1)/rows;
+  const a=fjordSurfaceHeight(xA,zA,region);
+  const b=fjordSurfaceHeight(xB,zA,region);
+  const c=fjordSurfaceHeight(xA,zB,region);
+  const d=fjordSurfaceHeight(xB,zB,region);
+  return u+v<=1 ? a*(1-u-v)+b*u+c*v :
+    b*(1-v)+c*(1-u)+d*(u+v-1);
+}
