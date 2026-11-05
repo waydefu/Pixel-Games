@@ -18,6 +18,8 @@ export function buildHarbourBeacon(k:StageKit){
   const copper=k.solid("#506e70",.68);
   const roof=k.pattern("roof-blue",23,2,2);
   const glow=k.solid("#ffdf9a",.56,"#e8a85d");
+  // HDR signal above bloom threshold: the lantern glows, never the whole tower.
+  glow.emissiveIntensity=3.2;
   const glass=k.solid("#353d42",.45);
 
   const podium=k.put(new THREE.CylinderGeometry(3.1,3.5,.86,12),foundation,x,.36,z);

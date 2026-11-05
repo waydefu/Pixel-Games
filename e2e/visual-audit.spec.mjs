@@ -31,6 +31,8 @@ test("canonical visual audit URL uses the real game and a fixed camera pose",asy
 // They are created only by the explicit npm run visual:audit command.
 for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.status==="supported") : [])){
   test("capture "+shot.id,async({page},testInfo)=>{
+    // High-tier software rasterization can take longer than the ordinary smoke.
+    test.setTimeout(process.env.VISUAL_AUDIT_QUALITY==="high" ? 90_000 : 45_000);
     test.skip(shot.viewport==="mobile" ? testInfo.project.name!=="mobile-chromium" :
       testInfo.project.name!=="desktop-chromium","Shot belongs to the other viewport");
 
@@ -49,9 +51,22 @@ for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.sta
       await page.locator("#quality").selectOption(quality);
       await page.locator("#menu-close").click();
       await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames)).toBeGreaterThan(diag.frames+2);
+      if(quality==="high")await expect.poll(()=>
+        page.evaluate(()=>window.__pixelGame.read().pipeline)).toBe("on");
     }
     const png=join(output,shot.id+".png");
-    await page.locator("#stage").screenshot({path:png,animations:"disabled"});
+    // Avoid locator.screenshot waiting for the continuously animating WebGL
+    // canvas to become "stable" in slow SwiftShader CI. CDP captures the
+    // rendered browser surface directly without scroll/stability heuristics.
+    const cdp=await page.context().newCDPSession(page);
+    try{
+      const capture=await cdp.send("Page.captureScreenshot",{
+        format:"png",captureBeyondViewport:false,fromSurface:true,
+      });
+      await writeFile(png,Buffer.from(capture.data,"base64"));
+    }finally{
+      await cdp.detach();
+    }
     const measurements=await page.evaluate(()=>({
       state:window.__pixelGame.read(),
       viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},

@@ -77,3 +77,60 @@ test("adaptive resolution degrades and recovers with hysteresis",()=>{
  assert.equal(q.scale,1);
  assert.throws(()=>q.observe(NaN),RangeError);
 });
+
+test("the HD-2D pipeline renders every tier, tracks camera, size and quality, and disposes cleanly",async()=>{
+  const {renderer,listeners}=setup();
+  const calls=[];
+  const effects={
+    setSize:(w,h)=>calls.push(["size",w,h]),
+    setQuality:q=>calls.push(["quality",q]),
+    setCamera:cam=>calls.push(["camera",cam]),
+    render:t=>{calls.push(["post",t]);return true;},
+    dispose:()=>calls.push(["disposed-post"]),
+  };
+  const port=createRendererPort({
+    renderer,canvas:{addEventListener:(n,fn)=>listeners.set(n,fn),removeEventListener:n=>listeners.delete(n)},
+    scene:{},camera:{},quality:"balanced",effects,
+  });
+  renderer.render=()=>calls.push(["direct"]);
+  await port.initialize();
+  port.resize(640,480,1);
+  assert.deepEqual(calls[0],["size",640,480]);
+  assert.equal(port.effects,"on");
+  await port.draw(1.5);
+  assert.ok(calls.some(x=>x[0]==="post"&&x[1]===1.5));
+  assert.ok(!calls.some(x=>x[0]==="direct"),"no direct render while the pipeline works");
+  const nextCamera={updateProjectionMatrix(){}};
+  port.setCamera(nextCamera);
+  port.setQuality("basic");
+  await port.draw();
+  assert.equal(port.effects,"on");
+  assert.ok(calls.some(x=>x[0]==="camera"&&x[1]===nextCamera));
+  assert.ok(calls.some(x=>x[0]==="quality"&&x[1]==="basic"));
+  await port.dispose();
+  assert.ok(calls.some(x=>x[0]==="disposed-post"));
+});
+
+test("failed pipeline falls back to the direct renderer instead of making the game unplayable",async()=>{
+  const {renderer,listeners}=setup();
+  let direct=0,post=0,failed=0;
+  const effects={
+    setSize(){},setCamera(){},setQuality(){},
+    render(){post++;throw Error("simulated shader failure");},dispose(){},
+    onFailure(){failed++;},
+  };
+  renderer.render=()=>direct++;
+  const port=createRendererPort({
+    renderer,canvas:{addEventListener:(n,fn)=>listeners.set(n,fn),removeEventListener:n=>listeners.delete(n)},
+    scene:{},camera:{},quality:"high",effects,
+  });
+  await port.initialize();port.resize(400,300,1);
+  const old=console.warn;console.warn=()=>{};
+  try{assert.equal(await port.draw(),true);}finally{console.warn=old;}
+  assert.equal(port.effects,"fallback");
+  assert.equal(failed,1,"the host gets a chance to restore tone mapping");
+  assert.equal(post,1);assert.equal(direct,1);
+  assert.equal(await port.draw(),true);
+  assert.equal(post,1);assert.equal(direct,2);
+  await port.dispose();
+});
