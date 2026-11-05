@@ -139,7 +139,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   // Instanced grasses and flowers; no runtime geometry per blade.
   // Shrubs are the missing mid-scale silhouette between flower and tree.
   // Instancing costs one main draw call, never hundreds of individual spheres.
-  const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,1));
+  const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,0));
   const shrubMat=k.solid("#86ac82");
   const shrubs=k.scope.track(new THREE.InstancedMesh(shrubGeo,shrubMat,280));
   const shrubColors=[new THREE.Color("#446a4e"),new THREE.Color("#537d59"),
