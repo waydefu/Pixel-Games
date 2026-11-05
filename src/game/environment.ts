@@ -3,6 +3,8 @@ import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
 import { buildCoastalLand } from "./coastline.js";
+import { intersectsBoatFootprint } from "./placements.js";
+import { SUN_DIRECTION } from "./environment-state.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit){
@@ -38,7 +40,7 @@ export function buildEnvironment(k:StageKit){
   for(let z=-29;z<30;z+=3.3){
     if(z>5.3&&z<11.2)continue;
     k.block(.55,.44,3.0,seawall,12.4,.13,z,false);
-    k.block(.83,.14,3.06,k.solid("#c7b99a"),12.4,.40,z,false);
+    k.block(.83,.14,3.06,k.pattern("stone",14,2,1),12.4,.40,z,false);
   }
 
   // Functional, approachable wood wharf with piers, decks, mooring ropes.
@@ -87,6 +89,7 @@ export function buildEnvironment(k:StageKit){
     // Oversized shoreline rocks must not obscure the wooden pier.
     if(x>=10&&x<=31&&z>=3.0&&z<=12.8)continue;
     const r=.22+noise(i+33)*.92;
+    if(intersectsBoatFootprint(x,z,r))continue;
     const rock=k.put(new THREE.IcosahedronGeometry(r,1),stones[i%3],x,-.1,z);
     rock.scale.set(1.2,.5,1.8);rock.rotation.y=i*.67;
   }
@@ -146,7 +149,7 @@ export function buildEnvironment(k:StageKit){
   // Lighting: soft upper atmosphere and low sun, physically motivated windows.
   const sky=new THREE.HemisphereLight("#c8dbd6","#675a48",1.17);k.scene.add(sky);
   const sunlight=new THREE.DirectionalLight("#ffd09a",3.1);
-  sunlight.position.set(-19,25,-10);sunlight.castShadow=true;
+  sunlight.position.set(SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,SUN_DIRECTION.z*34);sunlight.castShadow=true;
   sunlight.shadow.mapSize.set(1024,1024);
   sunlight.shadow.camera.left=-26;sunlight.shadow.camera.right=26;
   sunlight.shadow.camera.top=27;sunlight.shadow.camera.bottom=-27;
@@ -161,7 +164,7 @@ export function buildEnvironment(k:StageKit){
     // The sun keeps a fixed direction but its shadow camera follows players.
     if(player){
       target.position.set(player.x,0,player.z);
-      sunlight.position.set(player.x-19,25,player.z-10);
+      sunlight.position.set(player.x+SUN_DIRECTION.x*34,SUN_DIRECTION.y*34,player.z+SUN_DIRECTION.z*34);
       target.updateMatrixWorld();
     }
   }
