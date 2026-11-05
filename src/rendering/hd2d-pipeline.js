@@ -223,7 +223,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
   const depthUniform = { value: null };
   const materials = {
     prefilter: fullscreenMaterial(PREFILTER_FRAG, {
-      tScene: { value: null }, uTexel: { value: new THREE.Vector2() }, uThreshold: { value: new THREE.Vector2(1.05, 0.55) },
+      tScene: { value: null }, uTexel: { value: new THREE.Vector2() }, uThreshold: { value: new THREE.Vector2(1.9, 0.8) },
     }),
     down: fullscreenMaterial(DOWN_FRAG, { tSource: { value: null }, uTexel: { value: new THREE.Vector2() } }),
     up: fullscreenMaterial(UP_FRAG, {
@@ -235,8 +235,8 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
     }),
     composite: fullscreenMaterial(COMPOSITE_FRAG, {
       tScene: { value: null }, tBloom: { value: null }, tDof: { value: null },
-      uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uBloomStrength: { value: 0.55 },
-      uExposure: { value: 1.18 }, uSaturation: { value: 1.12 }, uContrast: { value: 1.06 },
+      uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uBloomStrength: { value: 0.42 },
+      uExposure: { value: 1.0 }, uSaturation: { value: 1.04 }, uContrast: { value: 1.04 },
       uVignette: { value: 0.30 }, uGrain: { value: 0.022 }, uTime: { value: 0 },
       uShadowTint: { value: new THREE.Vector3(0.93, 0.98, 1.07) },
       uHighlightTint: { value: new THREE.Vector3(1.07, 1.01, 0.91) },

@@ -3,14 +3,26 @@ import { groundHeight } from "./navigation.js";
 
 export type CameraMode="quarter"|"first"|"vista";
 const modes:CameraMode[]=["quarter","first","vista"];
-const quarterOffset=new THREE.Vector3(14,19,15);
+export type QuarterProjection="perspective"|"orthographic";
+// Horizontal bearing shared by both quarter projections, so movement mapping never changes.
+const quarterOffset=new THREE.Vector3(14,19,15); // classic orthographic offset
 const quarterRight=new THREE.Vector3(quarterOffset.z,0,-quarterOffset.x).normalize();
 const quarterForward=new THREE.Vector3(-quarterOffset.x,0,-quarterOffset.z).normalize();
+// Diorama lens: a narrow field of view from far away flattens perspective but keeps real depth,
+// which is what makes depth of field read as a miniature model.
+export const DIORAMA={fov:28,distance:32,elevationDeg:40};
+const dioramaOffset=(()=>{
+  const e=DIORAMA.elevationDeg*Math.PI/180,flat=Math.cos(e)*DIORAMA.distance,h=new THREE.Vector3(quarterOffset.x,0,quarterOffset.z).normalize();
+  return new THREE.Vector3(h.x*flat,Math.sin(e)*DIORAMA.distance,h.z*flat);
+})();
 const clamp=(x:number,a:number,b:number)=>Math.min(b,Math.max(a,x));
 
 /** Scene-independent cameras. The eye is collision-bound to the player; panoramic mode is spectator-only. */
 export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D,shadow:THREE.Object3D){
-  const quarter=new THREE.OrthographicCamera(-12,12,8,-8,.1,1300);
+  const quarterOrtho=new THREE.OrthographicCamera(-12,12,8,-8,.1,1300);
+  const quarterPersp=new THREE.PerspectiveCamera(DIORAMA.fov,1,.1,1300);
+  let quarterProjection:QuarterProjection="perspective";
+  const quarterCamera=()=>quarterProjection==="perspective"?quarterPersp:quarterOrtho;
   const perspective=new THREE.PerspectiveCamera(64,1,.08,1300);
   let mode:CameraMode="quarter";
   let yaw=-Math.PI/2,pitch=-.08;
@@ -57,17 +69,22 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
     if(width<=0||height<=0)return;
     const aspect=width/height;
     const span=aspect<.76?19.5:aspect<1.1?17.6:14.2;
-    quarter.left=-span*aspect*.5;quarter.right=span*aspect*.5;
-    quarter.top=span*.5;quarter.bottom=-span*.5;quarter.updateProjectionMatrix();
+    quarterOrtho.left=-span*aspect*.5;quarterOrtho.right=span*aspect*.5;
+    quarterOrtho.top=span*.5;quarterOrtho.bottom=-span*.5;quarterOrtho.updateProjectionMatrix();
+    quarterPersp.aspect=aspect;
+    // Tall portrait screens need a wider lens or the village is cropped.
+    quarterPersp.fov=aspect<.76?DIORAMA.fov*1.55:aspect<1.1?DIORAMA.fov*1.28:DIORAMA.fov;
+    quarterPersp.updateProjectionMatrix();
     perspective.aspect=aspect;perspective.updateProjectionMatrix();
   }
   function tick(dt:number){
     if(mode==="quarter"){
       dest.set(player.x,1.3+groundHeight(player.x,player.z),player.z);
       target.lerp(dest,1-Math.exp(-Math.max(0,dt)*6.5));
-      quarter.position.copy(target).add(quarterOffset);
-      quarter.lookAt(target);
-      return quarter;
+      const camera=quarterCamera();
+      camera.position.copy(target).add(quarterProjection==="perspective"?dioramaOffset:quarterOffset);
+      camera.lookAt(target);
+      return camera;
     }
     if(mode==="first"){
       perspective.position.set(player.x,1.68+groundHeight(player.x,player.z),player.z);
@@ -82,8 +99,13 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
   return {setMode,cycle,look,setAuditAngles,movement,resize,tick,
     get mode(){return mode;},
     get focusPoint(){return target;},
-    get camera(){return mode==="quarter"?quarter:perspective;},
-    get projection(){return mode==="quarter"?"orthographic":"perspective";},
+    get camera(){return mode==="quarter"?quarterCamera():perspective;},
+    get projection(){return mode==="quarter"?quarterProjection:"perspective";},
+    get quarterProjection(){return quarterProjection;},
+    setQuarterProjection(next:QuarterProjection){
+      if(next!=="perspective"&&next!=="orthographic")throw new RangeError("Unknown quarter projection");
+      quarterProjection=next;
+    },
     get yaw(){return mode==="first"?yaw:vistaYaw;},
     get pitch(){return mode==="first"?pitch:vistaPitch;},
   };

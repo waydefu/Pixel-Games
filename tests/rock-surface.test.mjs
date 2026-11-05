@@ -21,9 +21,12 @@ test("rock strata do not need large triplanar textures or new render passes",()=
   assert.match(rock,/customProgramCacheKey/);
   assert.doesNotMatch(rock,/new THREE\.WebGLRenderTarget|texture2D|triplanarTexture/);
 });
-test("clear-coast atmosphere is less aerosol-heavy than the original pale gradient",()=>{
+test("sky is an art-directed clear-day gradient: deep blue zenith over a pale horizon",()=>{
   const fjord=source("fjord.ts");
-  assert.match(fjord,/physicalUniforms\.turbidity\.value=2\.6/);
-  assert.match(fjord,/physicalUniforms\.mieCoefficient\.value=\.0028/);
-  assert.match(fjord,/new Sky\(\)/);
+  assert.match(fjord,/uZenith:\{value:new THREE\.Color\(\)\.setRGB\(/);
+  assert.match(fjord,/uHorizon:\{value:new THREE\.Color\(\)\.setRGB\(/);
+  assert.doesNotMatch(fjord,/new Sky\(\)/);
+  const rgb=name=>{const m=fjord.match(new RegExp(name+":\\{value:new THREE\\.Color\\(\\)\\.setRGB\\(([^)]*)\\)"));return m[1].split(",")[0];};
+  const zenithRed=Number.parseFloat(rgb("uZenith")),midRed=Number.parseFloat(rgb("uMid"));
+  assert.ok(zenithRed<midRed,"the zenith is deeper than the mid sky");
 });

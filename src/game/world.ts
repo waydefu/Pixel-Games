@@ -36,12 +36,15 @@ export function createCoastalWorld(){
   spriteTexture.needsUpdate=true;
   const spriteMaterial=scope.track(new THREE.MeshStandardMaterial({
     map:spriteTexture,transparent:true,alphaTest:.4,side:THREE.DoubleSide,
-    roughness:1,emissive:"#293a3e",emissiveIntensity:.15,
+    roughness:1,
+    // The sun is usually behind the player; a texture-driven glow keeps the hero readable in shade
+    // without flattening the sprite into an unlit cut-out.
+    emissive:"#ffffff",emissiveMap:spriteTexture,emissiveIntensity:.62,
   }));
-  const avatar=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(1.62,2.17)),spriteMaterial);
+  const avatar=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(2.3,2.3)),spriteMaterial);
   avatar.castShadow=false; // Billboard rectangle is not a physical silhouette.
   avatar.userData.dynamic=true;
-  avatar.position.set(9,1.1,4.2);scene.add(avatar);
+  avatar.position.set(9,1.15,4.2);scene.add(avatar);
   const shadowCanvas=document.createElement("canvas");
   shadowCanvas.width=shadowCanvas.height=64;
   const ctx=shadowCanvas.getContext("2d");
@@ -63,13 +66,16 @@ export function createCoastalWorld(){
   const player={x:9,z:4.2};
   let lastMovedAt=-10,lastX=9,lastZ=4.2,facing=0;
   const cameraPosition=new THREE.Vector3();
+  // Screen-space basis of the active camera: the sprite faces where the player moves ON SCREEN.
+  const screenRight=new THREE.Vector3(1,0,0),screenUp=new THREE.Vector3(0,0,-1),viewDir=new THREE.Vector3();
   function movePlayer(x:number,z:number,elapsed:number){
     const deltaX=x-lastX,deltaZ=z-lastZ;
     const moving=Math.hypot(deltaX,deltaZ)>.0001;
     if(moving){
       lastMovedAt=elapsed;
-      if(Math.abs(deltaX)>Math.abs(deltaZ))facing=deltaX>0?1:3;
-      else facing=deltaZ>0?0:2;
+      const across=deltaX*screenRight.x+deltaZ*screenRight.z,along=deltaX*screenUp.x+deltaZ*screenUp.z;
+      if(Math.abs(across)>Math.abs(along))facing=across>0?1:3; // right / left on screen
+      else facing=along>0?2:0;                                  // away from / toward the camera
     }
     player.x=x;player.z=z;lastX=x;lastZ=z;
     avatar.position.x=x;avatar.position.z=z;
@@ -78,6 +84,9 @@ export function createCoastalWorld(){
   }
   function faceCamera(camera:THREE.Camera){
     camera.getWorldPosition(cameraPosition);
+    camera.getWorldDirection(viewDir);
+    screenUp.set(viewDir.x,0,viewDir.z);
+    if(screenUp.lengthSq()>1e-6){screenUp.normalize();screenRight.set(-screenUp.z,0,screenUp.x);}
     avatar.rotation.y=Math.atan2(cameraPosition.x-player.x,cameraPosition.z-player.z);
   }
   function update(time:number){
@@ -87,7 +96,7 @@ export function createCoastalWorld(){
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
     spriteTexture.offset.set(frame*.25,(3-facing)*.25);
-    avatar.position.y=1.10+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
+    avatar.position.y=1.15+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
     avatar.scale.x=1+Math.sin(time*1.2)*.002;
   }
   const batching=batchStaticScene(scene,scope);

@@ -25,6 +25,7 @@ const menuClose=element<HTMLButtonElement>("#menu-close");
 const fullButton=element<HTMLButtonElement>("#fullscreen");
 const quality=element<HTMLSelectElement>("#quality");
 const cameraPicker=element<HTMLSelectElement>("#camera-mode");
+const projectionPicker=element<HTMLSelectElement>("#quarter-projection");
 const viewToggle=element<HTMLButtonElement>("#view-toggle");
 const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
@@ -94,6 +95,12 @@ window.addEventListener("keydown",(e)=>{
   else if(map[e.key])setCameraMode(map[e.key]);
 });
 cameraPicker.addEventListener("change",()=>setCameraMode(cameraPicker.value as CameraMode));
+projectionPicker.addEventListener("change",()=>{
+  rig.setQuarterProjection(projectionPicker.value as "perspective"|"orthographic");
+  rig.tick(12); // snap: do not lerp the lens position across projections
+  if(host)host.setCamera(rig.camera);
+  resize();
+});
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{

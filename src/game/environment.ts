@@ -40,7 +40,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     const r=.08+noise(i)*.16;
     k.ellipse(r*2,r*.45,foam,x,-.082,z);
     if(i%3===0)k.put(new THREE.IcosahedronGeometry(.13+noise(i*2)*.18,0),
-      k.pattern("cliff",2),11.2+noise(i)*1.5,.06,z,false);
+      k.pattern("rock",2),11.2+noise(i)*1.5,.06,z,false);
   }
   // Water-facing low masonry seawall, interrupted naturally for the fishing pier.
   const seawall=k.pattern("stone",13,2,1);
@@ -82,7 +82,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   const boats=buildFishingBoats(k);
 
   // Natural stone banks and no harsh rectangular cliff wall.
-  const stones=[k.pattern("cliff",2),k.pattern("cliff",3),k.solid("#8c9788")];
+  const stones=[k.pattern("rock",2),k.pattern("rock",3),k.solid("#8c9788")];
   for(let i=0;i<42;i++){
     const x=9.8+(noise(i*3)*2.7),z=-31+i*1.5;
     if(z>2.2&&z<12.3)continue;
@@ -141,11 +141,12 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   // Shrubs are the missing mid-scale silhouette between flower and tree.
   // Instancing costs one main draw call, never hundreds of individual spheres.
   const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,0));
-  const shrubMat=k.solid("#86ac82");
+  const shrubMat=k.pattern("foliage",11);
   addVegetationWind(shrubMat,cloudField,.075);
   const shrubs=k.scope.track(new THREE.InstancedMesh(shrubGeo,shrubMat,280));
-  const shrubColors=[new THREE.Color("#446a4e"),new THREE.Color("#537d59"),
-    new THREE.Color("#738963"),new THREE.Color("#567b67")];
+  // Tints multiply the (already green) pixel foliage, so they stay near-white or shrubs go black.
+  const shrubColors=[new THREE.Color("#e2efd2"),new THREE.Color("#d2e8c4"),
+    new THREE.Color("#ecf3cf"),new THREE.Color("#cde3c2")];
   let shrubCount=0;
   for(let i=0;i<1150&&shrubCount<280;i++){
     const x=-39+noise(i*6.3+14)*47,z=-35+noise(i*3.9+21)*70;
