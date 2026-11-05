@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Sky } from "three/addons/objects/Sky.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildMountainForest } from "./mountain-forest.js";
 import type { CloudField } from "./cloud-field.js";
@@ -74,8 +75,24 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uSunDirection:{value:new THREE.Vector3(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z)},
     uHorizon:{value:new THREE.Color().setRGB(HORIZON_LINEAR.r,HORIZON_LINEAR.g,HORIZON_LINEAR.b)},
   };
-  const sky=k.scope.track(new THREE.ShaderMaterial({
-    uniforms:skyUniforms,depthWrite:false,depthTest:false,side:THREE.BackSide,fog:false,
+  // Reuse Three.js r187's maintained Preetham scattering atmosphere instead
+  // of rebuilding an increasingly inaccurate flat gradient. Native clouds are
+  // disabled: the shared cloud field below must align with land cloud shadows.
+  const physicalSky=new Sky();
+  physicalSky.name="sky-atmosphere";
+  physicalSky.scale.setScalar(2400);
+  physicalSky.renderOrder=-1000;
+  const physicalUniforms=physicalSky.material.uniforms;
+  physicalUniforms.turbidity.value=5.8;
+  physicalUniforms.rayleigh.value=2.35;
+  physicalUniforms.mieCoefficient.value=.005;
+  physicalUniforms.mieDirectionalG.value=.77;
+  physicalUniforms.sunPosition.value.set(SUN_DIRECTION.x,SUN_DIRECTION.y,SUN_DIRECTION.z).multiplyScalar(450000);
+  physicalUniforms.cloudCoverage.value=0; // cloud source shared with mountain shadows
+  k.scope.track(physicalSky.geometry);k.scope.track(physicalSky.material);
+  k.scene.add(physicalSky);
+  const cloudShader=k.scope.track(new THREE.ShaderMaterial({
+    uniforms:skyUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
     vertexShader:String.raw`varying vec3 vRay;
       void main(){
         vRay=position;
@@ -125,14 +142,21 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         vec3 underside=vec3(.36,.47,.55),lit=vec3(1.07,1.04,.94);
         float rim=pow(sun,18.0);
         vec3 cloud=mix(underside,lit,clamp(.50+.34*sun+.25*rim,0.0,1.0));
-        sky=mix(sky,cloud,amount);
-        gl_FragColor=vec4(sky,1.0);
+        // Transparent cloud sheet rendered over the physical atmosphere;
+        // shared cloudMap controls both visible cover and mountain cloud shade.
+        // Keep depth testing on, otherwise clouds paint over buildings.
+        gl_FragColor=vec4(cloud,amount);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
   }));
-  const dome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,28,16)),sky);
-  dome.name="sky-atmosphere";dome.renderOrder=-1000;k.scene.add(dome);
-  function update(time:number){skyUniforms.uTime.value=time;}
-  return {peaks,forests,sky:dome,update};
+  const cloudDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,36,20)),cloudShader);
+  cloudDome.name="sky-moving-cloud-sheet";
+  cloudDome.renderOrder=-999;
+  k.scene.add(cloudDome);
+  function update(time:number){
+    skyUniforms.uTime.value=time;
+    physicalUniforms.time.value=time;
+  }
+  return {peaks,forests,sky:physicalSky,clouds:cloudDome,update};
 }
