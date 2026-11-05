@@ -6,6 +6,7 @@ import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
 import { SUN_DIRECTION } from "./environment-state.js";
 import type { CloudField } from "./cloud-field.js";
+import { addVegetationWind } from "./vegetation-wind.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit,cloudField:CloudField){
@@ -141,6 +142,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   // Instancing costs one main draw call, never hundreds of individual spheres.
   const shrubGeo=k.scope.track(new THREE.IcosahedronGeometry(.53,0));
   const shrubMat=k.solid("#86ac82");
+  addVegetationWind(shrubMat,cloudField,.075);
   const shrubs=k.scope.track(new THREE.InstancedMesh(shrubGeo,shrubMat,280));
   const shrubColors=[new THREE.Color("#446a4e"),new THREE.Color("#537d59"),
     new THREE.Color("#738963"),new THREE.Color("#567b67")];
@@ -164,9 +166,11 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
   shrubs.castShadow=false;shrubs.receiveShadow=true;
   shrubs.name="coastal-understory-shrubs";
   shrubs.computeBoundingSphere();
+  if(shrubs.boundingSphere)shrubs.boundingSphere.radius+=.36;
   k.scene.add(shrubs);
 
   const grassMaterial=k.solid("#8ba777");
+  addVegetationWind(grassMaterial,cloudField,.13);
   const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
   const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,1600));
   let count=0;
@@ -180,7 +184,9 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField){
     grass.setMatrixAt(count++,dummy.matrix);
   }
   grass.count=count;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;
-  grass.computeBoundingSphere();k.scene.add(grass);
+  grass.computeBoundingSphere();
+  if(grass.boundingSphere)grass.boundingSphere.radius+=.36;
+  k.scene.add(grass);
   const flowerColors=["#e7be8b","#edd7bc","#c997ae","#d8bf6b"];
   for(let color=0;color<flowerColors.length;color++){
     const geo=k.scope.track(new THREE.IcosahedronGeometry(.115,0));
