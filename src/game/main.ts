@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
+import { createCinematicPost } from "../rendering/cinematic-post.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -64,7 +65,7 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,cinematic:host?.effects??"unavailable"})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserver|null=null;
 function mark(state:GameState,message:string){
@@ -157,8 +158,16 @@ async function start(){
     renderer.toneMappingExposure=1.15;
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    // Scene remains playable without postprocessing (basic/balanced/fallback).
+    // High is the owner's cinematic tier with actual Bloom and tilt-shift DoF.
+    let effects=null;
+    try{
+      effects=createCinematicPost({renderer,scene:world.scene,camera:rig.camera});
+    }catch(error){
+      console.warn("Optional cinematic pipeline unavailable; using direct WebGL2",error);
+    }
     host=createRendererPort({
-      renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,
+      renderer,canvas,scene:world.scene,camera:rig.camera,quality:quality.value,effects,
       onStatus:(state:string)=>{
         if(state==="ready")mark("ready","自由探索中");
         if(state==="lost")mark("lost","圖形連線中斷，等待恢復");
