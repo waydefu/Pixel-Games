@@ -10,6 +10,7 @@ import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
+import { createFishingView } from "./fishing.js";
 import { getVisualShot } from "./visual-audit.js";
 
 type GameState = "starting" | "ready" | "unsupported" | "lost" | "failed";
@@ -128,6 +129,11 @@ projectionPicker.addEventListener("change",()=>{
   resize();
 });
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
+const fishing=createFishingView({
+  scene:world.scene,scope:world.scope,player:world.player,
+  getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
+  ui:{hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count")},
+});
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{
   if(!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
@@ -249,6 +255,7 @@ async function start(){
       const camera=rig.tick(dt);
       host.setCamera(camera);
       world.faceCamera(camera);
+      fishing.update();
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;

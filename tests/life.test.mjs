@@ -81,7 +81,30 @@ test("the church closes the promenade and the farm keeps its land clear", () => 
   for (const crop of ["wheat", "cabbage", "pumpkin", "leek"]) assert.match(land, new RegExp(crop));
   assert.match(land, /gate=\{z0:/, "the fence has a gate toward the village");
   const env = read("src/game/environment.ts");
-  assert.match(env, /buildLandmarks\(k,assets\)/);
+  assert.match(env, /buildLandmarks\(k,assets,fixtures\)/);
+  assert.equal((land.match(/hangingLantern\(doorX/g) || []).length, 2, "a lantern either side of the church door");
   assert.equal((env.match(/isReserved\(x,z\)/g) || []).length, 4, "trees, shrubs, grass and flowers all stay out");
   assert.doesNotMatch(read("src/game/architecture.ts"), /"blacksmith-forge","stone-chapel"/, "no second church among the houses");
+});
+
+test("stars are depth-tested at the far plane so they cannot shine through geometry", () => {
+  const fjord = read("src/game/fjord.ts");
+  const stars = fjord.slice(fjord.indexOf("const starMaterial"), fjord.indexOf("const stars=new THREE.Points"));
+  assert.match(stars, /depthTest:true/);
+  assert.match(stars, /gl_Position\.z=gl_Position\.w\*\.99999/);
+  assert.doesNotMatch(stars, /depthTest:false/);
+});
+
+test("the gull is a real bird: head, beak, tail and two-segment wings in three instanced draws", () => {
+  const life = read("src/game/life.ts");
+  for (const part of ["torso", "head", "bill", "tail", "innerGeometry", "outerGeometry"]) assert.match(life, new RegExp(part));
+  assert.match(life, /new THREE\.InstancedMesh\(scope\.track\(outerGeometry\),gullMaterial,GULLS\*2\)/);
+  assert.doesNotMatch(life, /wingGeometry/, "the flat one-triangle wing is gone");
+});
+
+test("night lamps reach farther before the traveller arrives", () => {
+  const torches = read("src/game/torches.ts");
+  assert.match(torches, /distance:22,color:"#ffbf70"/);
+  assert.match(torches, /distance:24,color:"#ffa64d"/);
+  assert.match(read("src/game/village-kit.ts"), /uWindowGlow\*1\.0\*flicker/, "windows are softer");
 });

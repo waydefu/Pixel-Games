@@ -37,7 +37,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   fixtures.bigFlame(BEACON_SITE.x,14.3,BEACON_SITE.z,2.5,3.9);
   // The beacon fire is the strongest light on the coast: it reaches far across the harbour.
   lights.add({x:BEACON_SITE.x,y:15,z:BEACON_SITE.z,intensity:110,distance:48,color:"#ffcf8a",flicker:.1});
-  const environment=buildEnvironment(kit,cloudField,villageAssets);
+  const environment=buildEnvironment(kit,cloudField,villageAssets,fixtures);
   const fjord=buildFjordLandscape(kit,cloudField);
   // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
   const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
@@ -141,7 +141,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
-    scene,colliders:kit.colliders,player,avatar,shadow,
+    scene,scope,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
     movePlayer,faceCamera,update,setShadows,setHour,dispose,
   });

@@ -3,6 +3,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { StageKit } from "./kit.js";
 import type { VillageAssets } from "./architecture.js";
 import { mulberry32 } from "./wander.js";
+import type { Fixtures } from "./torches.js";
 
 /**
  * Two things the village was missing: a church closing the western end of the promenade, and a working farm in the
@@ -64,7 +65,7 @@ function cropGeometry(crop:Crop){
   return mergeGeometries(parts,false) as THREE.BufferGeometry;
 }
 
-export function buildLandmarks(k:StageKit,assets?:VillageAssets|null){
+export function buildLandmarks(k:StageKit,assets?:VillageAssets|null,fixtures?:Fixtures){
   const rng=mulberry32(2026);
   const cobble=k.pattern("cobble",4,3,9);
   const kit=assets?.kit,material=assets?.material;
@@ -74,6 +75,9 @@ export function buildLandmarks(k:StageKit,assets?:VillageAssets|null){
     const info=kit.instantiate(k,material,"stone-chapel",{x:CHURCH.x,z:CHURCH.z,scale:CHURCH.scale,rotY:Math.PI/2,name:"kit-stone-chapel-church"});
     k.collider(CHURCH.x,CHURCH.z,info.width/2+.3,info.depth/2+.3);
     const doorX=CHURCH.x+info.width/2;
+    // An iron lantern either side of the door (the wall runs along z, so the arms reach out along +x).
+    fixtures?.hangingLantern(doorX,2.7,CHURCH.z-1.7,1,.62,"x");
+    fixtures?.hangingLantern(doorX,2.7,CHURCH.z+1.7,1,.62,"x");
     k.flat(Math.abs(-29-doorX)+1,3.4,cobble,(doorX-29)/2,-.058,CHURCH.z);   // path from the door to the promenade
     // Headstones in the churchyard, either side of the path.
     const stone=k.solid("#9aa09a",.95),dark=k.solid("#6e746e",.95);

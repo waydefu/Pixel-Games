@@ -44,7 +44,7 @@ test("models without windows (boats, barrels) are not in the glazed list", () =>
 
 test("night light pool has a fixed size and fades slots instead of popping", () => {
   const src = read("src/game/night-lights.ts");
-  assert.match(src, /POOL_SIZE=6/);
+  assert.match(src, /POOL_SIZE=8/, "eight lights follow the traveller: lamps start to glow well before they are close");
   assert.match(src, /castShadow=false/);
   assert.match(src, /slot\.level=Math\.max\(0,slot\.level-dt/, "leaving spots fade out");
   assert.match(src, /slot\.level=Math\.min\(1,slot\.level\+dt/, "arriving spots fade in");

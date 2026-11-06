@@ -17,7 +17,7 @@ export type LightSpot={
   flicker?:number;
 };
 
-export const POOL_SIZE=6;
+export const POOL_SIZE=8;
 
 type Slot={spot:LightSpot|null;level:number};
 
