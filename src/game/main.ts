@@ -224,14 +224,20 @@ async function start(){
       restoreResources:async()=>{},
     });
     await host.initialize();
-    world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high");
+    // A software rasteriser (SwiftShader, llvmpipe) cannot afford the sea's second scene pass: it keeps the analytic
+    // sky reflection. `?mirror=1` forces the real reflection back on, for screenshots taken on such a machine.
+    const gpuInfo=context.getExtension("WEBGL_debug_renderer_info");
+    const gpuName=gpuInfo?String(context.getParameter(gpuInfo.UNMASKED_RENDERER_WEBGL)):"";
+    const softwareGpu=/swiftshader|llvmpipe|software/i.test(gpuName)&&new URLSearchParams(location.search).get("mirror")!=="1";
+    const applyQuality=()=>world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high",softwareGpu);
+    applyQuality();
     if(visualShot)setCameraMode(visualShot.mode);
     resize();
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
       if(!host)return;
       host.setQuality(quality.value);
-      world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high");
+      applyQuality();
       resize();
     });
     document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();});

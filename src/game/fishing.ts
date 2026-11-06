@@ -32,17 +32,17 @@ export function createFishingView(opts:{
   const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),matrix=new THREE.Matrix4(),quat=new THREE.Quaternion(),scaleV=new THREE.Vector3();
 
   // ============ the rod: a tapered cane built from 9 instanced segments that bend, with guides, cork grip and reel ============
-  const SEGMENTS=9,ROD_LENGTH=2.15,segLength=ROD_LENGTH/SEGMENTS;
+  const SEGMENTS=10,ROD_LENGTH=3.4,segLength=ROD_LENGTH/SEGMENTS;   // a 7-8 ft spinning rod, drawn long enough to read in first person
   const rod=new THREE.Group();rod.visible=false;rod.userData.dynamic=true;scene.add(rod);
   const caneMaterial=scope.track(new THREE.MeshStandardMaterial({roughness:.55,emissive:"#2a1a0c",emissiveIntensity:.55}));
   const segmentGeometry=scope.track(new THREE.CylinderGeometry(.5,.5,1,8));
   const segments=new THREE.InstancedMesh(segmentGeometry,caneMaterial,SEGMENTS);
   const caneColor=[new THREE.Color("#6e4526"),new THREE.Color("#5f3b20"),new THREE.Color("#6e4526")];
-  for(let i=0;i<SEGMENTS;i++)segments.setColorAt(i,i===2||i===5?new THREE.Color("#5a2f22"):caneColor[i%3]);  // thread wraps
+  for(let i=0;i<SEGMENTS;i++)segments.setColorAt(i,i===2||i===5||i===8?new THREE.Color("#5a2f22"):caneColor[i%3]);  // thread wraps
   segments.frustumCulled=false;rod.add(segments);
   const metal=scope.track(new THREE.MeshStandardMaterial({color:"#cfd3d6",roughness:.35,metalness:.8,emissive:"#222629",emissiveIntensity:.5}));
   const guideGeometry=scope.track(new THREE.TorusGeometry(.022,.0035,6,12));
-  const GUIDE_AT=[1,2,3,4,6,8];
+  const GUIDE_AT=[1,2,3,4,5,7,9];
   const guides=new THREE.InstancedMesh(guideGeometry,metal,GUIDE_AT.length);guides.frustumCulled=false;rod.add(guides);
   const cork=scope.track(new THREE.MeshStandardMaterial({color:"#c89a62",roughness:.9,emissive:"#5a3d1c",emissiveIntensity:.6}));
   const dark=scope.track(new THREE.MeshStandardMaterial({color:"#2a2624",roughness:.7,emissive:"#161312",emissiveIntensity:.6}));
@@ -63,7 +63,7 @@ export function createFishingView(opts:{
     chain.identity();
     let guide=0;
     for(let i=0;i<SEGMENTS;i++){
-      const radius=.0135*(1-i/SEGMENTS)+.0035;
+      const radius=.0135*Math.pow(1-i/SEGMENTS,1.2)+.0028;
       link.makeTranslation(0,segLength/2,0);
       matrix.multiplyMatrices(chain,link);
       matrix.decompose(tmp,quat,scaleV);
@@ -300,21 +300,21 @@ export function createFishingView(opts:{
     rod.visible=showRod;
     const since=now-castStart;
     // pitch of the rod about the angler's right axis: rests raised, cocks back while charging, whips forward, settles
-    let pitch=.5,flick=0;
-    if(phase==="charging")pitch=.5+st.power*.8;
+    let pitch=.34,flick=0;
+    if(phase==="charging")pitch=.34+st.power*.8;
     else if(phase==="casting"){
       const u=since/CAST;
       pitch=u<.2?1.3-smooth(0,.2,u)*1.25:.05+smooth(.2,1,u)*.45;     // whip forward from the cocked position
       flick=Math.sin(Math.min(1,Math.max(0,(u-.05)/.35))*Math.PI);
-    }else if(phase==="strike")pitch=.9+Math.sin(now*20)*.03;
-    else if(phase==="fighting")pitch=.72+Math.sin(now*2.2)*.03+st.tension*.25;
+    }else if(phase==="strike")pitch=.6+Math.sin(now*20)*.03;
+    else if(phase==="fighting")pitch=.55+Math.sin(now*2.2)*.03+st.tension*.2;
     else if(phase==="landed")pitch=.95-smooth(0,1.2,now-landedAt)*.35;
-    else if(active)pitch=.55+Math.sin(now*1.3)*.012;
+    else if(active)pitch=.36+Math.sin(now*1.3)*.012;
     const bobbing=active?Math.sin(now*1.7)*.008:Math.sin(now*.8)*.004;
-    rod.position.set(camera.position.x+right.x*.34+forward.x*.5,camera.position.y-.36+bobbing,camera.position.z+right.z*.34+forward.z*.5);
+    rod.position.set(camera.position.x+right.x*.3+forward.x*.4,camera.position.y-.34+bobbing,camera.position.z+right.z*.3+forward.z*.4);
     rod.quaternion.copy(camera.quaternion);
-    rod.rotateX(Math.PI/2+pitch-.1);
-    rod.rotateZ(-.1);
+    rod.rotateX(-Math.PI/2+pitch);   // the shaft points forward, `pitch` radians above the horizon
+    rod.rotateZ(-.3);
     rod.updateMatrixWorld(true);
     zAxis.set(0,0,1).transformDirection(rod.matrixWorld);
     const bendSign=zAxis.y<0?1:-1;

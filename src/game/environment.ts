@@ -258,5 +258,5 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,moonlight,update,applySky,setFoliageDensity,sea:ocean.material};
+  return {sunlight,moonlight,update,applySky,setFoliageDensity,setSeaReflection:ocean.setReflection,sea:ocean.material};
 }

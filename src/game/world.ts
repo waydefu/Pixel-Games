@@ -130,13 +130,14 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   }
   const batching=batchStaticScene(scene,scope);
   scene.userData.batching=batching;
-  function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced"){
+  function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced",softwareGpu=false){
     environment.sunlight.castShadow=enabled;
     cloudField.setStrength((quality==="basic"?.16:quality==="high"?.30:.24)*liveSky.dayLight.value);
     fjord.setSkyQuality(quality);
     const density=quality==="basic"?.36:quality==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
+    environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier
     cloudStrength=quality==="basic"?.16:quality==="high"?.30:.24;
   }
   function dispose(){scope.dispose();}
