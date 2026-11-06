@@ -6,7 +6,7 @@
 
 - 必要檔案和 JS 語法、沒有已淘汰的首頁與原型目錄。
 - 物件與碰撞的單元測試（包含西側村莊、碼頭邊緣和生活道具）、asset hash / glTF companion、安全路徑、還原的共用 API contract tests。
-- TypeScript strict 與 Vite 單頁 build；JS gzip 上限 270 kB（初始 budget）。
+- TypeScript strict 與 Vite 單頁 build；JS gzip 上限 285 kB（初始 budget；2026-11-06 由 270 kB 上調，原因：路亞釣魚系統、程序化魚模型與官方 Water 海面合計約 +10 kB，main 為 261 kB）。
 - 角色 Billboard 不再投射生硬的矩形陰影；改用原創軟邊地面陰影。
 - 靜態物件依材質合批，來源幾何正確釋放；Draw Calls 必須從 Chrome 診斷量測，不能假設效果。
 - Playwright Chromium 桌面和手機 viewport，驗證網頁滿版、真 WebGL2 frame/draw calls（GPU 可用時）、鍵盤位移、畫質與 UI。**另外監控 console 中 WebGLProgram / Shader Error**；draw calls 正常不代表每個 Shader 都成功連結。
