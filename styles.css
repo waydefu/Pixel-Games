@@ -38,3 +38,17 @@
 .fish-count{padding:4px 10px;border-radius:8px;background:rgba(10,20,26,.5);color:rgba(243,236,216,.85);font-size:13px}
 @keyframes fish-pulse{from{transform:scale(1)}to{transform:scale(1.07)}}
 @media (prefers-reduced-motion:reduce){.fish-button.urgent{animation:none}}
+
+/* Lure fishing gauges */
+.fish-meter{width:min(240px,60vw);padding:8px 10px;border-radius:10px;background:rgba(10,20,26,.62);display:flex;flex-direction:column;gap:6px;backdrop-filter:blur(4px)}
+.fish-bar{position:relative;height:12px;border-radius:7px;background:rgba(243,236,216,.16);overflow:hidden}
+.fish-fill{height:100%;width:0;border-radius:7px;background:#e8c76a;transition:width .06s linear}
+.fish-meter[data-mode="power"] .fish-bar-tension,.fish-meter[data-mode="lure"] .fish-bar-power,.fish-meter[data-mode="fight"] .fish-bar-power,.fish-meter[data-mode="lure"] .fish-bar-tension{display:none}
+.fish-zone{position:absolute;left:32%;width:40%;top:0;bottom:0;background:rgba(98,196,120,.32);border-left:2px solid rgba(98,196,120,.8);border-right:2px solid rgba(98,196,120,.8)}
+.fish-bar-tension .fish-fill{position:relative}
+.fish-fill[data-zone="good"]{background:#62c478}
+.fish-fill[data-zone="slack"]{background:#7fb7d9}
+.fish-fill[data-zone="danger"]{background:#e0543c}
+.fish-distance{color:#f3ecd8;font-size:13px;text-align:right}
+.fish-button{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.fish-button.held{background:rgba(40,96,112,.95);transform:scale(.97)}

@@ -132,7 +132,7 @@ viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 const fishing=createFishingView({
   scene:world.scene,scope:world.scope,player:world.player,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
-  ui:{hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count")},
+  ui:{hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{
