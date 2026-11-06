@@ -131,3 +131,9 @@ test("fishing is wired into the game: hold F or the button, with a tension gauge
   for (const id of ["fish-button", "fish-meter", "fish-tension", "fish-power"]) assert.match(html, new RegExp('id="' + id + '"'));
   assert.match(read("src/game/main.ts"), /createFishingView/);
 });
+
+test("HUD messages survive slow frames: written at once and kept for at least two rendered frames", () => {
+  const src = read("src/game/fishing.ts");
+  assert.match(src, /messageFrames=2;ui\.status\.textContent=text/);
+  assert.match(src, /now<messageUntil\|\|messageFrames>0/);
+});

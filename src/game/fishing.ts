@@ -178,8 +178,10 @@ export function createFishingView(opts:{
   const showCount=()=>{ui.count.textContent="漁獲 "+tally.count+(tally.best?"　最大 "+tally.best.name+" "+tally.best.length+"cm":"");};
   showCount();
 
-  let message="",messageUntil=0,landedAt=-10,previousPhase="idle";
-  const say=(text:string,now:number,seconds=3)=>{message=text;messageUntil=now+seconds;};
+  let message="",messageUntil=0,messageFrames=0,landedAt=-10,previousPhase="idle";
+  // A message lasts `seconds` of wall time but is always shown for at least two rendered frames (a slow device can
+  // take longer than that per frame) and is written to the HUD at once, even when the update returns early.
+  const say=(text:string,now:number,seconds=3)=>{message=text;messageUntil=now+seconds;messageFrames=2;ui.status.textContent=text;};
   const nearWater=()=>player.x>=10;
 
   // ---- input: one button, and HOLDING it matters ----
@@ -291,7 +293,9 @@ export function createFishingView(opts:{
       :phase==="lure"||phase==="strike"?"路亞距離 "+st.lureDistance.toFixed(1)+" 公尺"
       :phase==="fighting"?"魚在 "+st.fishDistance.toFixed(1)+" 公尺・體力 "+Math.round(st.stamina*100)+"%":"";
     const idleHint=nearWater()&&mode==="first"?"面向海面，按住 F 蓄力拋竿":"";
-    ui.status.textContent=now<messageUntil?message:(
+    const showMessage=now<messageUntil||messageFrames>0;
+    if(messageFrames>0)messageFrames--;
+    ui.status.textContent=showMessage?message:(
       phase==="lure"?"按住收線，慢慢把路亞拉回來":phase==="charging"?"放開就拋出去":phase==="strike"?"快提竿！":
       phase==="fighting"?"張力保持在綠色區：太緊放線、太鬆收線":phase==="casting"||phase==="landed"||phase==="lost"?"":idleHint);
 
