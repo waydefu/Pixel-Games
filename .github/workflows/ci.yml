@@ -32,7 +32,14 @@ jobs:
       - name: Static, asset, unit, TypeScript, Vite and bundle checks
         run: npm run validate
       - name: Install Chromium browser with system dependencies
-        run: timeout --signal=TERM --kill-after=10s 150s npx playwright install --with-deps chromium
+        # The Ubuntu mirror is occasionally slow (21 MB of fonts took >2 min and hit the old 150 s cap twice in a row):
+        # allow 300 s per attempt and retry once. A real failure (missing package, no network) still fails the step.
+        run: |
+          for attempt in 1 2; do
+            if timeout --signal=TERM --kill-after=10s 300s npx playwright install --with-deps chromium; then exit 0; fi
+            echo "Chromium install attempt $attempt failed" >&2
+          done
+          exit 1
       - name: Browser smoke test (desktop and mobile viewport)
         run: npm run test:e2e
       # Expensive PNG capture is opt-in for future PRs; G2 gets an initial
