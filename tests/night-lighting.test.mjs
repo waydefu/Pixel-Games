@@ -84,3 +84,14 @@ test("kit buildings and mountains use pixel-art surface patterns", () => {
   assert.match(rock, /snowLine/, "mountains have a snowline");
   assert.match(rock, /rockLevels=5\.0/, "mountain light is cel-shaded");
 });
+
+test("the sea has foam skirts and a baked mountain reflection, still without an extra pass", () => {
+  const ocean = read("src/game/ocean.ts");
+  assert.match(ocean, /export const FOAM_SPOTS=40/);
+  assert.match(ocean, /uniform vec4 uSpots\[\$\{FOAM_SPOTS\}\]/);
+  assert.match(ocean, /texture2D\(uSkyline/);
+  assert.doesNotMatch(ocean, /WebGLRenderTarget|renderTarget|depthTexture/i, "no extra pass or depth read");
+  const env = read("src/game/environment.ts");
+  assert.match(env, /ocean\.setSpots\(foamSpots\)/);
+  assert.match(env, /foamSpots\.push\(\[x,z,\.34\]\)/, "pier piles get a skirt");
+});

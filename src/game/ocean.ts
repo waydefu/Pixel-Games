@@ -1,11 +1,23 @@
 import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { liveSky } from "./sky-live.js";
+import { skylineTangents, skylineBytes, SKYLINE_BINS, SKYLINE_MAX_TANGENT } from "./skyline.js";
+import { BOAT_LOCATIONS } from "./placements.js";
+
+/** How many rocks, piles and hulls can wear a foam skirt (uniform array size in the shader). */
+export const FOAM_SPOTS=40;
 
 // WebGL2 production fallback: camera-space Fresnel, analytic Gerstner-style
 // directional wave normal, coherent shoreline foam and a sky-light surrogate.
-// The owner explicitly excludes FFT, SSR, planar reflection and extra sea passes.
-export function createCoastalWater(k:StageKit) {
+// The owner lifted the "lightweight sea" limit (2026-11-06) but it still has no extra pass: foam skirts around rocks,
+// piles and hulls come from an analytic spot list, and the mountain reflection from a baked skyline table.
+export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>number=()=>0) {
+  // Mountains and islands seen from the harbour, baked once: a 256x1 table of skyline tangents by azimuth.
+  const skylineTexture=k.scope.track(new THREE.DataTexture(
+    skylineBytes(skylineTangents(heightAt,25,8,{waterline:-.38})),SKYLINE_BINS,1,THREE.RGBAFormat));
+  skylineTexture.wrapS=THREE.RepeatWrapping;skylineTexture.magFilter=skylineTexture.minFilter=THREE.LinearFilter;
+  skylineTexture.needsUpdate=true;
+  const spots=Array.from({length:FOAM_SPOTS},()=>new THREE.Vector4(0,0,0,0));
   const uniforms={
     ...THREE.UniformsLib.fog,
     uTime:{value:0},
@@ -13,6 +25,7 @@ export function createCoastalWater(k:StageKit) {
     uSunColor:{value:liveSky.sunColor},uMoonColor:{value:liveSky.moonColor},
     uHorizon:{value:liveSky.fog},uSkyMid:{value:liveSky.mid},
     uDayLight:liveSky.dayLight,uMoonStrength:liveSky.moonStrength,
+    uSpots:{value:spots},uSkyline:{value:skylineTexture},
   };
   const material=k.scope.track(new THREE.ShaderMaterial({
     uniforms,transparent:false,depthWrite:true,side:THREE.DoubleSide,fog:true,
@@ -43,7 +56,7 @@ export function createCoastalWater(k:StageKit) {
         gl_Position=projectionMatrix*mvPosition;
         #include <fog_vertex>
       }`,
-    fragmentShader:String.raw`
+    fragmentShader:`
       precision highp float;
       uniform float uTime;
       varying vec3 vWorld;
@@ -57,6 +70,8 @@ export function createCoastalWater(k:StageKit) {
       uniform vec3 uSkyMid;
       uniform float uDayLight;
       uniform float uMoonStrength;
+      uniform vec4 uSpots[${FOAM_SPOTS}];
+      uniform sampler2D uSkyline;
       #include <fog_pars_fragment>
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float noise(vec2 p){
@@ -79,6 +94,13 @@ export function createCoastalWater(k:StageKit) {
         float skyHeight=clamp(reflected.y*.70+.30,0.0,1.0);
         vec3 sky=mix(uHorizon*.58,uSkyMid*.6,
           pow(skyHeight,.70));
+        // Mountains and islands mirror in the sea: the reflected ray is compared with a baked skyline table.
+        float refAz=atan(reflected.z,reflected.x);
+        float ridge=max(0.0,texture2D(uSkyline,vec2(fract(refAz/6.2831853),.5)).r*${SKYLINE_MAX_TANGENT.toFixed(2)}-.10);
+        float refTangent=reflected.y/max(1e-3,length(reflected.xz));
+        float landMask=ridge>0.0?1.0-smoothstep(ridge-.03,ridge+.03,refTangent):0.0;
+        vec3 land=mix(vec3(.09,.17,.15),uHorizon*.72,.40+.35*smoothstep(.0,.35,refTangent));
+        sky=mix(sky,land,landMask);
         water=mix(water,sky,clamp(f*.66+.09,0.0,.67));
         float sunRef=max(0.0,dot(reflect(-normalize(uSunDirection),n),v));
         // Glitter path toward the sun: a tight HDR core plus a broad warm sheen (both feed bloom).
@@ -102,6 +124,23 @@ export function createCoastalWater(k:StageKit) {
         float foam=shoreline*smoothstep(.45,.76,
           .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));
         water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
+        // Foam skirts around rocks, piles and hulls, in chunky texel cells to match the pixel world.
+        float spotFoam=0.0,shoal=0.0;
+        if(vWorld.x>8.0&&vWorld.x<34.0&&vWorld.z>-36.0&&vWorld.z<26.0){
+          vec2 fc=floor(vWorld.xz*7.0);
+          float fn=hash(fc)*.5+hash(fc*.37+9.0)*.5;
+          for(int i=0;i<${FOAM_SPOTS};i++){
+            vec4 sp=uSpots[i];
+            if(sp.z<=0.0)continue;
+            float edge=length(vWorld.xz-sp.xy)-sp.z;
+            float ripple=.5+.5*sin(edge*7.0-uTime*2.2+sp.x);
+            float skirt=(1.0-smoothstep(.12,.70+.22*ripple,edge))*step(-.35,edge);
+            spotFoam=max(spotFoam,skirt*smoothstep(.28,.62,fn+.22*ripple));
+            shoal=max(shoal,1.0-smoothstep(.0,2.2,edge));
+          }
+        }
+        water=mix(water,vec3(.50,.88,.82),shoal*.28);
+        water=mix(water,vec3(.86,.93,.88),clamp(spotFoam*.72,0.0,.7));
         // Deep water goes dark at night, caustics and foam included; the sun and moon glitter stay bright.
         water=water*(.12+.88*uDayLight)+glitter;
         gl_FragColor=vec4(max(water,vec3(0.0)),1.0);
@@ -122,5 +161,15 @@ export function createCoastalWater(k:StageKit) {
   mesh.userData.dynamic=true;  // Waves must not be merged into the static batch.
   k.scene.add(mesh);
   function update(time:number){uniforms.uTime.value=time;}
-  return {material,mesh,update};
+  /** Rocks and piles as [x,z,radius]; the moored boats are added here (two circles per hull, along x). */
+  function setSpots(list:readonly (readonly [number,number,number])[]){
+    const all:[number,number,number][]=list.map(([x,z,r])=>[x,z,r]);
+    BOAT_LOCATIONS.forEach((boat,i)=>{
+      const length=i?6.3:4.5,r=length*.17;
+      all.push([boat.x-length*.26,boat.z,r],[boat.x+length*.26,boat.z,r]);
+    });
+    spots.forEach((v,i)=>{const e=all[i];if(e)v.set(e[0],e[1],e[2],1);else v.set(0,0,0,0);});
+    return Math.min(all.length,FOAM_SPOTS);
+  }
+  return {material,mesh,update,setSpots};
 }

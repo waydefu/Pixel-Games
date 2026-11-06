@@ -14,6 +14,8 @@ const layouts:Record<Region,Extent>={
   north:{x0:-30,x1:245,z0:84,z1:204,columns:115,rows:65},
   south:{x0:-30,x1:245,z0:-204,z1:-84,columns:115,rows:65},
 };
+/** The four mountain meshes' extents, shared with the sea (it bakes the mountain reflection from them). */
+export {layouts as FJORD_LAYOUTS};
 function makeMass(scope:StageKit["scope"],region:Region,e:Extent){
   const verts:number[]=[];const colors:number[]=[];const indexes:number[]=[];
   // Muted cool granite, darker fracture lines and lighter wind-worn ledges.
