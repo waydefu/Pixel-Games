@@ -95,3 +95,11 @@ test("the sea has foam skirts and a baked mountain reflection, still without an 
   assert.match(env, /ocean\.setSpots\(foamSpots\)/);
   assert.match(env, /foamSpots\.push\(\[x,z,\.34\]\)/, "pier piles get a skirt");
 });
+
+test("torch flames are a pixel-art shader billboard, not a cone", () => {
+  const src = read("src/game/torches.ts");
+  assert.match(src, /export function createFlameMaterial\(\)/);
+  assert.match(src, /vec2 grid=vec2\(10\.0,16\.0\)/, "flame is painted on a texel grid");
+  assert.match(src, /if\(!body&&!ember\)discard/, "crisp pixel edge, no blending");
+  assert.doesNotMatch(src, /ConeGeometry\(\.17,\.55/, "the cream cone is gone");
+});
