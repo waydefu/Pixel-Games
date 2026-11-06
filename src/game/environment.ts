@@ -3,6 +3,7 @@ import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
 import { FJORD_LAYOUTS } from "./fjord.js";
+import { buildLandmarks, isReserved } from "./landmarks.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
@@ -129,6 +130,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   const townTrees=new Map<string,{seed:number;items:TreeItem[]}>();
   for(let i=0;i<treeLocations.length;i++){
     const [x,z]=treeLocations[i];
+    if(isReserved(x,z))continue;   // the farm and the churchyard are clear of trees
     const scale=.82+noise(i+31)*.42,roll=noise(i*7.13+2);
     // A mixed coastal wood: mostly oak, some birch, a few pines.
     const species:TreeSpecies=roll<.55?"oak":roll<.8?"birch":"pine";
@@ -143,6 +145,9 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   for(const [key,bucket] of townTrees){
     treeKit.plant(key.replace(/\d+$/,"") as TreeSpecies,bucket.seed,"high",bucket.items,{shadows:true});
   }
+  // The church and the farm claim their land before anything is scattered over it.
+  buildLandmarks(k,assets);
+
   // Instanced grasses and flowers; no runtime geometry per blade.
   // Shrubs are the missing mid-scale silhouette between flower and tree.
   // Instancing costs one main draw call, never hundreds of individual spheres.
@@ -156,7 +161,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   let shrubCount=0;
   for(let i=0;i<1150&&shrubCount<280;i++){
     const x=-39+noise(i*6.3+14)*47,z=-35+noise(i*3.9+21)*70;
-    if(x>9.5||Math.abs(z)<4.2&&x>-33)continue;
+    if(x>9.5||Math.abs(z)<4.2&&x>-33||isReserved(x,z))continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.65&&Math.abs(z-c.z)<c.halfZ+.65))continue;
     const scale=.45+noise(i*9.1+2)*.87;
     dummy.position.set(x,.37*scale,z);
@@ -183,7 +188,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   let count=0;
   for(let i=0;i<3100&&count<1600;i++){
     const x=-38+noise(i*3.03)*48,z=-34+noise(i*4.19)*68;
-    if(Math.abs(z)<4.1&&x>-32)continue;
+    if(Math.abs(z)<4.1&&x>-32||isReserved(x,z))continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
     if(x>10)continue;
     const s=.38+noise(i*8.2)*1.7;
@@ -201,7 +206,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     let j=0;
     for(let i=0;i<330&&j<95;i++){
       const x=-37+noise(i*2.3+color*.6)*46,z=-30+noise(i*8.9+color*.7)*64;
-      if(x>8||Math.abs(z)<4.5)continue;
+      if(x>8||Math.abs(z)<4.5||isReserved(x,z))continue;
       if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
       dummy.position.set(x,.21,z);dummy.scale.set(1,1,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();
       inst.setMatrixAt(j++,dummy.matrix);

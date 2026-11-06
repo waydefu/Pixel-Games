@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { fjordSurfaceHeight } from "./terrain-profile.js";
+import { fjordSurfaceHeight, FJORD_EXTENTS } from "./terrain-profile.js";
 import { buildMountainForest } from "./mountain-forest.js";
 import { applyAerialPerspective } from "./aerial-perspective.js";
 import { applyRockSurface } from "./rock-surface.js";
@@ -8,12 +8,7 @@ import { liveSky } from "./sky-live.js";
 import type { StageKit } from "./kit.js";
 type Region="mainland"|"east"|"north"|"south";
 type Extent={x0:number;x1:number;z0:number;z1:number;columns:number;rows:number};
-const layouts:Record<Region,Extent>={
-  mainland:{x0:-175,x1:-43,z0:-190,z1:190,columns:86,rows:145},
-  east:{x0:72,x1:245,z0:-210,z1:210,columns:110,rows:160},
-  north:{x0:-30,x1:245,z0:84,z1:204,columns:115,rows:65},
-  south:{x0:-30,x1:245,z0:-204,z1:-84,columns:115,rows:65},
-};
+const layouts=FJORD_EXTENTS as unknown as Record<Region,Extent>;
 /** The four mountain meshes' extents, shared with the sea (it bakes the mountain reflection from them). */
 export {layouts as FJORD_LAYOUTS};
 function makeMass(scope:StageKit["scope"],region:Region,e:Extent){

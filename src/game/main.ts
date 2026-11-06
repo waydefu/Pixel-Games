@@ -58,9 +58,14 @@ timeAuto.checked=!visualShot&&!Number.isFinite(hourParam);
 timeSlider.addEventListener("input",()=>{hour=wrapHour(Number.parseFloat(timeSlider.value));timeAuto.checked=false;world.setHour(hour);showHour();});
 world.setHour(hour);showHour();
 if(visualShot){
-  world.movePlayer(visualShot.x,visualShot.z,0);
+  const poseQuery=new URLSearchParams(window.location.search);
+  const poseX=Number.parseFloat(poseQuery.get("x")??""),poseZ=Number.parseFloat(poseQuery.get("z")??"");
+  world.movePlayer(Number.isFinite(poseX)?poseX:visualShot.x,Number.isFinite(poseZ)?poseZ:visualShot.z,0); // ?x=&z= override the pose
   rig.setMode(visualShot.mode);
-  rig.setAuditAngles(visualShot.yaw,visualShot.pitch);
+  // Optional ?yaw=&pitch= (radians) override the shot's angles, so one pose can be swept around the horizon.
+  const query=new URLSearchParams(window.location.search);
+  const yawParam=Number.parseFloat(query.get("yaw")??""),pitchParam=Number.parseFloat(query.get("pitch")??"");
+  rig.setAuditAngles(Number.isFinite(yawParam)?yawParam:visualShot.yaw,Number.isFinite(pitchParam)?pitchParam:visualShot.pitch);
   rig.tick(12); // Snap the otherwise smoothed Quarter View to its canonical target.
 }
 const modeNames:Record<CameraMode,string>={quarter:"斜角",first:"第一人稱",vista:"風景"};
