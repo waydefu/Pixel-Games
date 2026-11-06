@@ -68,3 +68,19 @@ test("kit buildings use one world scale instead of fitting each model to a footp
   assert.match(src, /const HOUSE_SCALE=1;/);
   assert.doesNotMatch(src, /fit:\{w:h\.w,d:h\.d\}/);
 });
+
+test("torch flames only burn at dusk and night", () => {
+  const src = read("src/game/torches.ts");
+  assert.match(src, /function animate\(time:number,glow:number\)/);
+  assert.match(src, /f\.mesh\.visible=burn>\.01/, "flames are hidden by day");
+  assert.match(read("src/game/world.ts"), /fixtures\.animate\(time,liveSky\.lampGlow\)/);
+});
+
+test("kit buildings and mountains use pixel-art surface patterns", () => {
+  const kit = read("src/game/village-kit.ts");
+  for (const cls of ["isRoofRed", "isCream", "isWood", "isStone"]) assert.match(kit, new RegExp(cls), cls + " class is painted");
+  assert.match(kit, /fwidth\(q\)/, "patterns fade out when a texel is smaller than a pixel");
+  const rock = read("src/game/rock-surface.ts");
+  assert.match(rock, /snowLine/, "mountains have a snowline");
+  assert.match(rock, /rockLevels=5\.0/, "mountain light is cel-shaded");
+});

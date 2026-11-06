@@ -114,7 +114,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   function update(time:number){
     cloudField.update(time);
     lights.update(player,liveSky.lampGlow,time);
-    fixtures.animate(time);
+    fixtures.animate(time,liveSky.lampGlow);
     environment.update(time,player);
     fjord.update(time);
     const walking=time-lastMovedAt<.12;

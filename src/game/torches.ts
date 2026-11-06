@@ -63,11 +63,15 @@ export function createFixtures(k:StageKit,lights:NightLights){
     k.collider(x,z,.2,.2);
   }
 
-  /** Flames waver; the light pool does the same for the light itself. */
-  function animate(time:number){
+  /** Flames waver and only burn at dusk and night (`glow` is the sky's lamp factor, 0 by day). */
+  function animate(time:number,glow:number){
+    const burn=Math.min(1,Math.max(0,(glow-.05)*2.2));
     for(const f of flames){
-      const s=1+.16*Math.sin(time*11+f.phase)+.09*Math.sin(time*23+f.phase*2.3);
-      f.mesh.scale.set(1/Math.sqrt(s),s,1/Math.sqrt(s));
+      f.mesh.visible=burn>.01;
+      if(!f.mesh.visible)continue;
+      const s=(1+.16*Math.sin(time*11+f.phase)+.09*Math.sin(time*23+f.phase*2.3))*burn;
+      const w=burn/Math.sqrt(Math.max(.2,s));
+      f.mesh.scale.set(w,Math.max(.01,s),w);
       f.mesh.position.y=f.baseY+(s-1)*.275; // the flame grows from its base, not its middle
     }
   }

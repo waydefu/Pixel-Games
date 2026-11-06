@@ -136,14 +136,64 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 `)
       .replace("#include <color_fragment>",`#include <color_fragment>
   {
-    // World-space texel grain at 16 texels per unit, projected on the dominant axis.
-    vec3 n=abs(vKitNormal);
-    vec2 uv=n.y>=n.x&&n.y>=n.z?vKitWorld.xz:(n.x>=n.z?vec2(vKitWorld.z,vKitWorld.y):vec2(vKitWorld.x,vKitWorld.y));
-    vec2 texel=floor(uv*16.0);
+    // Material classes are read from the kit's flat vertex colours, then painted as pixel-art patterns in world
+    // space at 16 texels per unit: red roof tiles, straw thatch, stucco, wood planks, stone courses.
+    vec3 n=normalize(vKitNormal);
+    vec3 an=abs(n);
+    bool sloped=an.y>.25&&an.y<.97;
+    vec2 uv;
+    if(sloped){
+      // Roofs: rows follow the ridge, like the world material's slope projection.
+      vec2 h=normalize(n.xz+vec2(1e-5));
+      uv=vec2(dot(vKitWorld.xz,vec2(-h.y,h.x)),-dot(vKitWorld.xz,h)/max(an.y,.2));
+    }else if(an.y>=an.x&&an.y>=an.z){
+      uv=vKitWorld.xz;
+    }else if(an.x>=an.z){
+      uv=vec2(-vKitWorld.z*(n.x<0.?-1.:1.),vKitWorld.y);
+    }else{
+      uv=vec2(vKitWorld.x*(n.z<0.?-1.:1.),vKitWorld.y);
+    }
+    vec2 q=uv*16.0;
+    vec2 texel=floor(q);
     float grain=kitHash(texel)-.5;
-    // Coarser 2x2-texel patches give fabric/plank-like clumping instead of pure noise.
     float clump=kitHash(floor(uv*8.0)+17.0)-.5;
-    diffuseColor.rgb*=1.0+grain*.06+clump*.05;
+    vec3 kc=vColor.rgb;
+    float kmx=max(kc.r,max(kc.g,kc.b)),kmn=min(kc.r,min(kc.g,kc.b));
+    float ksat=(kmx-kmn)/max(kmx,1e-3);
+    bool isRoofRed=kc.r>.18&&kc.g<.12&&kc.b<.10;
+    bool isCream=kc.r>.55&&kc.g>.45&&kc.b>.28&&ksat<.5;
+    bool isWood=!isRoofRed&&!isCream&&kc.r>kc.g&&kc.g>=kc.b&&kmx>.05&&kmx<.65&&ksat>.35;
+    bool isStone=ksat<.2&&kmx>.15&&kmx<.85;
+    float pat=1.0;
+    if(isRoofRed){
+      float row=floor(q.y/3.0);
+      float x=q.x+mod(row,2.0)*4.0;
+      float fy=mod(q.y,3.0),fx=mod(x,8.0);
+      pat=1.0+(kitHash(vec2(floor(x/8.0),row))-.5)*.16;
+      if(fy<1.0)pat*=.80;else if(fy>=2.0)pat*=1.07;
+      if(fx<1.0)pat*=.90;
+    }else if(isCream&&sloped){
+      float col=floor(q.x),layer=floor(q.y/5.0);
+      pat=1.0+(kitHash(vec2(col,3.0))-.5)*.18+(kitHash(vec2(layer,col*.13))-.5)*.08;
+      if(mod(q.y,5.0)<1.0)pat*=.84;
+    }else if(isCream){
+      float s=kitHash(texel);
+      pat=s>.965?.88:(s<.03?1.05:1.0);
+    }else if(isWood){
+      float plank=floor(q.x/4.0);
+      pat=1.0+(kitHash(vec2(plank,7.0))-.5)*.16;
+      if(mod(q.x,4.0)<1.0)pat*=.84;
+      pat*=1.0+(kitHash(vec2(floor(q.x),floor(q.y/(2.0+kitHash(vec2(plank,1.0))*5.0))))-.5)*.10;
+    }else if(isStone){
+      float row=floor(q.y/4.0);
+      float x=q.x+mod(row,2.0)*4.0;
+      pat=1.0+(kitHash(vec2(floor(x/8.0),row))-.5)*.20;
+      if(mod(q.y,4.0)<1.0||mod(x,8.0)<1.0)pat*=.80;
+    }
+    // Far away a texel is smaller than a pixel: fade the pattern out instead of shimmering.
+    vec2 dq=fwidth(q);
+    pat=mix(1.0,pat,1.0-smoothstep(.55,1.25,max(dq.x,dq.y)));
+    diffuseColor.rgb*=(1.0+grain*.04+clump*.03)*pat;
     // Pull the kit's saturated vertex colours toward the shared palette: calmer, slightly lifted.
     float kitLuma=dot(diffuseColor.rgb,vec3(.299,.587,.114));
     diffuseColor.rgb=mix(vec3(kitLuma),diffuseColor.rgb,.84);
@@ -164,7 +214,7 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   }
   #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey=()=>"village-kit-pixel-v2";
+  material.customProgramCacheKey=()=>"village-kit-pixel-v3";
   k.scope.track(material);
   return material;
 }
