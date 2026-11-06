@@ -90,14 +90,15 @@ export function createFixtures(k:StageKit,lights:NightLights){
     k.column(.025,.13,iron,x,y+.39,z,6);
   }
 
-  /** Iron arm bolted to a wall at (x,y,z) that carries a hanging lantern `reach` out, `face` is +1/-1 along z. */
-  function hangingLantern(x:number,y:number,z:number,face:1|-1,reach=.62){
-    const outZ=z+face*reach;
-    k.segment(new THREE.Vector3(x,y+.62,z),new THREE.Vector3(x,y+.62,outZ),.035,iron,6);
-    k.segment(new THREE.Vector3(x,y+.20,z),new THREE.Vector3(x,y+.60,z+face*reach*.78),.026,iron,6);
-    k.column(.016,.2,iron,x,y+.50,outZ,6);
-    lantern(x,y+.1,outZ);
-    lights.add({x,y:y+.1,z:outZ+face*.15,intensity:11,distance:12,color:"#ffbf70",flicker:.07});
+  /** Iron arm bolted to a wall at (x,y,z) that carries a hanging lantern `reach` out. `face` is +1/-1 along `axis`. */
+  function hangingLantern(x:number,y:number,z:number,face:1|-1,reach=.62,axis:"x"|"z"="z"){
+    const dx=axis==="x"?face:0,dz=axis==="z"?face:0;
+    const ox=x+dx*reach,oz=z+dz*reach;
+    k.segment(new THREE.Vector3(x,y+.62,z),new THREE.Vector3(ox,y+.62,oz),.035,iron,6);
+    k.segment(new THREE.Vector3(x,y+.20,z),new THREE.Vector3(x+dx*reach*.78,y+.60,z+dz*reach*.78),.026,iron,6);
+    k.column(.016,.2,iron,ox,y+.50,oz,6);
+    lantern(ox,y+.1,oz);
+    lights.add({x:ox+dx*.15,y:y+.1,z:oz+dz*.15,intensity:11,distance:22,color:"#ffbf70",flicker:.07});
   }
 
   /** A wooden post with an iron arm and a hanging lantern, for street edges. `dir` is the arm's z direction. */
@@ -108,7 +109,7 @@ export function createFixtures(k:StageKit,lights:NightLights){
     k.segment(new THREE.Vector3(x,height-.75,z),new THREE.Vector3(x,height-.18,z+dir*.5),.03,iron,6);
     k.column(.016,.22,iron,x,height-.24,z+dir*.7,6);
     lantern(x,height-.5,z+dir*.7);
-    lights.add({x,y:height-.45,z:z+dir*.7,intensity:12,distance:13,color:"#ffbf70",flicker:.07});
+    lights.add({x,y:height-.45,z:z+dir*.7,intensity:12,distance:24,color:"#ffbf70",flicker:.07});
     k.collider(x,z,.2,.2);
   }
 
@@ -125,7 +126,7 @@ export function createFixtures(k:StageKit,lights:NightLights){
     const flame=k.put(new THREE.PlaneGeometry(.52,.9),flameMaterialLive,x,height+.40,z,false);
     flame.userData.dynamic=true;flame.castShadow=false;flame.receiveShadow=false;
     flames.push({mesh:flame,baseY:flame.position.y,phase:x*1.3+z*.7});
-    lights.add({x,y:height+.4,z,intensity:12,distance:14,color:"#ffa64d",flicker:.3});
+    lights.add({x,y:height+.4,z,intensity:12,distance:24,color:"#ffa64d",flicker:.3});
     k.collider(x,z,.2,.2);
   }
 

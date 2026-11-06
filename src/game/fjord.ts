@@ -135,12 +135,15 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   starGeometry.setAttribute("position",new THREE.BufferAttribute(starPositions,3));
   starGeometry.setAttribute("aSeed",new THREE.BufferAttribute(starSeeds,1));
   const starMaterial=k.scope.track(new THREE.ShaderMaterial({
-    transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,fog:false,
+    // depthTest ON with the points pushed to the far plane: stars show only where nothing else was drawn, so they can
+    // never shine through mountains, the church or houses.
+    transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,fog:false,
     uniforms:{uAlpha:liveSky.starAlpha,uTime:skyUniforms.uTime},
     vertexShader:String.raw`attribute float aSeed;uniform float uTime;varying float vTwinkle;
       void main(){
         vTwinkle=.55+.45*sin(uTime*(1.2+aSeed*2.0)+aSeed*40.0);
         gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+        gl_Position.z=gl_Position.w*.99999;
         gl_PointSize=1.0+aSeed*2.2;
       }`,
     fragmentShader:String.raw`precision highp float;uniform float uAlpha;varying float vTwinkle;

@@ -3,6 +3,7 @@ import type { StageKit } from "./kit.js";
 import { liveSky } from "./sky-live.js";
 import { groundHeight } from "./navigation.js";
 import { createWanderer, facingRow, mulberry32 } from "./wander.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paintVillagerSheet, paintAnimalSheet, VILLAGERS, NPC_FRAME } from "./pixel/npc.js";
 
 /**
@@ -59,27 +60,47 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
     addActor(paintAnimalSheet("chicken"),1.0,createWanderer({x:-9+i*1.5,z:5.5,home:{x:-9,z:6},radius:2.6,speed:.5,pause:[.5,2.5],seed:31+i}));
   addActor(paintAnimalSheet("cat"),1.2,createWanderer({x:-15,z:-4.4,home:{x:-16,z:-4.2},radius:2.2,speed:.7,pause:[3,9],seed:5}));
 
-  // ---- seagulls: two instanced meshes (wings, bodies); wings flap by rotating about the body axis ----
+  // ---- seagulls: a white body with head, orange beak and tail, and grey two-segment wings with black tips ----
+  // (no free, correctly licensed gull model could be downloaded; this one is authored here). Three instanced draw
+  // calls: bodies, inner wings, outer wings. The wing's hand segment lags the arm, which gives the gull its "M".
   const GULLS=11;
-  const wingGeometry=new THREE.BufferGeometry();
-  wingGeometry.setAttribute("position",new THREE.Float32BufferAttribute([0,0,.24, 1.15,0,-.10, .15,0,-.30],3));
-  wingGeometry.setAttribute("color",new THREE.Float32BufferAttribute([1,1,1, .28,.30,.34, .96,.96,.98],3));
-  wingGeometry.setIndex([0,1,2]);wingGeometry.computeVertexNormals();
-  const bodyGeometry=new THREE.BoxGeometry(.2,.17,.62);
-  const bodyColors:number[]=[];
-  for(let i=0;i<bodyGeometry.attributes.position.count;i++)bodyColors.push(.97,.97,.98);
-  bodyGeometry.setAttribute("color",new THREE.Float32BufferAttribute(bodyColors,3));
-  const gullMaterial=scope.track(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:1,emissive:"#ffffff",emissiveIntensity:.18}));
-  const wings=new THREE.InstancedMesh(scope.track(wingGeometry),gullMaterial,GULLS*2);
+  const gullAudit=Math.max(1,Math.min(8,Number.parseFloat(new URLSearchParams(window.location.search).get("gullScale")??"1")||1)); // audit only
+  const paint=(g:THREE.BufferGeometry,color:(x:number,y:number,z:number)=>THREE.Color)=>{
+    const out=g.index?g.toNonIndexed():g;
+    const pos=out.getAttribute("position"),col=new Float32Array(pos.count*3);
+    for(let i=0;i<pos.count;i++){const c=color(pos.getX(i),pos.getY(i),pos.getZ(i));col.set([c.r,c.g,c.b],i*3);}
+    out.setAttribute("color",new THREE.BufferAttribute(col,3));out.deleteAttribute("uv");return out;
+  };
+  const white=new THREE.Color("#f4f4f2"),belly=new THREE.Color("#dfe2e4"),beak=new THREE.Color("#e8a21c");
+  const bodyParts:THREE.BufferGeometry[]=[];
+  const torso=new THREE.SphereGeometry(1,8,6);torso.scale(.11,.10,.31);
+  bodyParts.push(paint(torso,(_x,y)=>y<0?belly:white));
+  const head=new THREE.SphereGeometry(.07,8,6);head.translate(0,.07,.32);bodyParts.push(paint(head,()=>white));
+  const bill=new THREE.ConeGeometry(.022,.12,5);bill.rotateX(Math.PI/2);bill.translate(0,.055,.45);bodyParts.push(paint(bill,()=>beak));
+  const tail=new THREE.BufferGeometry();
+  tail.setAttribute("position",new THREE.Float32BufferAttribute([-.07,0,-.26, .07,0,-.26, 0,0,-.52],3));
+  tail.computeVertexNormals();
+  bodyParts.push(paint(tail,()=>white));
+  const bodyGeometry=mergeGeometries(bodyParts,false) as THREE.BufferGeometry;
+  const wingTri=(verts:number[],color:(x:number,y:number,z:number)=>THREE.Color)=>{
+    const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(verts,3));g.computeVertexNormals();return paint(g,color);
+  };
+  const mantle=new THREE.Color("#aeb7bf"),pale=new THREE.Color("#e9ecee"),tip=new THREE.Color("#1f2226");
+  const innerGeometry=wingTri([0,0,.14, 0,0,-.14, .40,0,-.10,  0,0,.14, .40,0,-.10, .40,0,.08],(x)=>pale.clone().lerp(mantle,x/.4));
+  const outerGeometry=wingTri([0,0,.08, 0,0,-.10, .30,.03,-.04,  0,0,-.10, .36,.04,-.24, .30,.03,-.04],(x)=>mantle.clone().lerp(tip,Math.min(1,Math.max(0,(x-.12)/.22))));
+  const gullMaterial=scope.track(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:1,emissive:"#ffffff",emissiveIntensity:.16}));
   const bodies=new THREE.InstancedMesh(scope.track(bodyGeometry),gullMaterial,GULLS);
-  for(const m of [wings,bodies]){m.frustumCulled=false;m.castShadow=false;m.receiveShadow=false;m.userData.dynamic=true;k.scene.add(m);}
+  const inner=new THREE.InstancedMesh(scope.track(innerGeometry),gullMaterial,GULLS*2);
+  const outer=new THREE.InstancedMesh(scope.track(outerGeometry),gullMaterial,GULLS*2);
+  for(const m of [bodies,inner,outer]){m.frustumCulled=false;m.castShadow=false;m.receiveShadow=false;m.userData.dynamic=true;k.scene.add(m);}
   const rng=mulberry32(77);
-  const gulls=Array.from({length:GULLS},(_,i)=>({
+  const gulls=Array.from({length:GULLS},()=>({
     cx:12+rng()*26,cz:-24+rng()*54,radius:5+rng()*11,height:9+rng()*8,speed:(.16+rng()*.16)*(rng()<.5?-1:1),
-    phase:rng()*Math.PI*2,flap:6+rng()*3,scale:.85+rng()*.5,bob:rng()*6.28,
+    phase:rng()*Math.PI*2,flap:5+rng()*2.5,scale:.9+rng()*.45,bob:rng()*6.28,
   }));
   // The sea breeze lifts them: they circle the bay (never inland over the mountains).
-  const dummy=new THREE.Object3D(),gullMatrix=new THREE.Matrix4(),wingMatrix=new THREE.Matrix4(),tilt=new THREE.Matrix4(),flip=new THREE.Matrix4();
+  const dummy=new THREE.Object3D(),gullMatrix=new THREE.Matrix4(),base=new THREE.Matrix4(),armMatrix=new THREE.Matrix4(),handMatrix=new THREE.Matrix4(),
+    spin=new THREE.Matrix4(),side=new THREE.Matrix4(),elbow=new THREE.Matrix4().makeTranslation(.40,0,0);
 
   // ---- chimney smoke: one instanced draw call, billboards, drift/fade computed in the vertex shader ----
   const PUFFS=18;
@@ -169,16 +190,19 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
       dummy.position.set(x,y,z);dummy.rotation.set(0,yaw,bank,"YXZ");
       // Gulls near the camera would be huge blurry smears (the quarter view floats above the harbour): fade them out.
       const near=Math.hypot(x-camPos.x,y-camPos.y,z-camPos.z);
-      const s=g.scale*flying*Math.min(1,Math.max(0,(near-9)/9));dummy.scale.set(s,s,s);dummy.updateMatrix();gullMatrix.copy(dummy.matrix);
+      const s=g.scale*flying*Math.min(1,Math.max(0,(near-9)/9))*gullAudit;dummy.scale.set(s,s,s);dummy.updateMatrix();gullMatrix.copy(dummy.matrix);
       bodies.setMatrixAt(i,gullMatrix);
-      // flap in bursts with glides in between
+      // flap in bursts with glides in between; the hand follows the arm with a lag
       const burst=Math.sin(time*.7+g.bob*2)>-.25?1:.12;
-      const angle=Math.sin(time*g.flap+g.phase)*.62*burst+.12;
-      tilt.makeRotationZ(angle);wingMatrix.multiplyMatrices(gullMatrix,tilt);wings.setMatrixAt(i*2,wingMatrix);
-      flip.makeScale(-1,1,1);tilt.makeRotationZ(-angle);
-      wingMatrix.multiplyMatrices(gullMatrix,tilt).multiply(flip);wings.setMatrixAt(i*2+1,wingMatrix);
+      const arm=Math.sin(time*g.flap+g.phase)*.55*burst+.10;
+      const hand=Math.sin(time*g.flap+g.phase-.9)*.42*burst+.14;
+      for(const sign of [1,-1] as const){
+        side.makeScale(sign,1,1);base.multiplyMatrices(gullMatrix,side);
+        spin.makeRotationZ(arm);armMatrix.multiplyMatrices(base,spin);inner.setMatrixAt(i*2+(sign>0?0:1),armMatrix);
+        spin.makeRotationZ(hand);handMatrix.multiplyMatrices(armMatrix,elbow).multiply(spin);outer.setMatrixAt(i*2+(sign>0?0:1),handMatrix);
+      }
     });
-    wings.instanceMatrix.needsUpdate=true;bodies.instanceMatrix.needsUpdate=true;
+    inner.instanceMatrix.needsUpdate=true;outer.instanceMatrix.needsUpdate=true;bodies.instanceMatrix.needsUpdate=true;
     smokeUniforms.uTime.value=time;
   }
   return {face,update,actors:actors.length,gulls:GULLS,puffs:chimneys.length*PUFFS};

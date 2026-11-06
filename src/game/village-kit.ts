@@ -203,7 +203,7 @@ float kitHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
   {
     // Only baked window panes (see markGlass) light up warm after dusk, with a candle-like flicker per pane.
     float flicker=.92+.08*sin(vKitWorld.x*3.1+vKitWorld.z*2.3+uWindowGlow*7.0);
-    totalEmissiveRadiance+=vec3(1.0,.70,.36)*step(.5,vKitGlow)*uWindowGlow*1.6*flicker;
+    totalEmissiveRadiance+=vec3(1.0,.70,.36)*step(.5,vKitGlow)*uWindowGlow*1.0*flicker;
   }`)
       .replace("#include <opaque_fragment>",`
   {

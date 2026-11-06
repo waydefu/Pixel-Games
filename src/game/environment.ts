@@ -4,6 +4,7 @@ import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
 import { FJORD_LAYOUTS } from "./fjord.js";
 import { buildLandmarks, isReserved } from "./landmarks.js";
+import type { Fixtures } from "./torches.js";
 import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
@@ -15,7 +16,7 @@ import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
-export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null){
+export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null,fixtures?:Fixtures){
   const stone=k.pattern("cobble",2,17,6);
   const dirt=k.solid("#957b5b"),oak=k.pattern("planks",9),posts=k.solid("#715742");
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
@@ -146,7 +147,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     treeKit.plant(key.replace(/\d+$/,"") as TreeSpecies,bucket.seed,"high",bucket.items,{shadows:true});
   }
   // The church and the farm claim their land before anything is scattered over it.
-  buildLandmarks(k,assets);
+  buildLandmarks(k,assets,fixtures);
 
   // Instanced grasses and flowers; no runtime geometry per blade.
   // Shrubs are the missing mid-scale silhouette between flower and tree.

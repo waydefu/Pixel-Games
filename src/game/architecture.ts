@@ -195,7 +195,7 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night)
         new THREE.Vector3(lx,ly+.16,lz+face*.43),.045,darkIron,6);
       k.block(.18,.46,.18,beams,lx,ly-.06,lz+face*.47,false);
       k.block(.13,.30,.13,lit,lx,ly+.07,lz+face*.47,false);
-      night?.lights.add({x:lx,y:ly+.14,z:lz+face*.49,intensity:9,distance:10,color:"#ffc77e",flicker:.08});
+      night?.lights.add({x:lx,y:ly+.14,z:lz+face*.49,intensity:9,distance:18,color:"#ffc77e",flicker:.08});
     }
   }
   const chimneys:[number,number,number][]=[];
