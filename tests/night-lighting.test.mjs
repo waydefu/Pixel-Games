@@ -68,3 +68,38 @@ test("kit buildings use one world scale instead of fitting each model to a footp
   assert.match(src, /const HOUSE_SCALE=1;/);
   assert.doesNotMatch(src, /fit:\{w:h\.w,d:h\.d\}/);
 });
+
+test("torch flames only burn at dusk and night", () => {
+  const src = read("src/game/torches.ts");
+  assert.match(src, /function animate\(time:number,glow:number\)/);
+  assert.match(src, /f\.mesh\.visible=burn>\.01/, "flames are hidden by day");
+  assert.match(read("src/game/world.ts"), /fixtures\.animate\(time,liveSky\.lampGlow\)/);
+});
+
+test("kit buildings and mountains use pixel-art surface patterns", () => {
+  const kit = read("src/game/village-kit.ts");
+  for (const cls of ["isRoofRed", "isCream", "isWood", "isStone"]) assert.match(kit, new RegExp(cls), cls + " class is painted");
+  assert.match(kit, /fwidth\(q\)/, "patterns fade out when a texel is smaller than a pixel");
+  const rock = read("src/game/rock-surface.ts");
+  assert.match(rock, /snowLine/, "mountains have a snowline");
+  assert.match(rock, /rockLevels=5\.0/, "mountain light is cel-shaded");
+});
+
+test("the sea has foam skirts and a baked mountain reflection, still without an extra pass", () => {
+  const ocean = read("src/game/ocean.ts");
+  assert.match(ocean, /export const FOAM_SPOTS=40/);
+  assert.match(ocean, /uniform vec4 uSpots\[\$\{FOAM_SPOTS\}\]/);
+  assert.match(ocean, /texture2D\(uSkyline/);
+  assert.doesNotMatch(ocean, /WebGLRenderTarget|renderTarget|depthTexture/i, "no extra pass or depth read");
+  const env = read("src/game/environment.ts");
+  assert.match(env, /ocean\.setSpots\(foamSpots\)/);
+  assert.match(env, /foamSpots\.push\(\[x,z,\.34\]\)/, "pier piles get a skirt");
+});
+
+test("torch flames are a pixel-art shader billboard, not a cone", () => {
+  const src = read("src/game/torches.ts");
+  assert.match(src, /export function createFlameMaterial\(\)/);
+  assert.match(src, /vec2 grid=vec2\(10\.0,16\.0\)/, "flame is painted on a texel grid");
+  assert.match(src, /if\(!body&&!ember\)discard/, "crisp pixel edge, no blending");
+  assert.doesNotMatch(src, /ConeGeometry\(\.17,\.55/, "the cream cone is gone");
+});

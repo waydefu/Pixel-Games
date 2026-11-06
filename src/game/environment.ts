@@ -2,6 +2,8 @@ import * as THREE from "three";
 import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
+import { FJORD_LAYOUTS } from "./fjord.js";
+import { fjordSurfaceHeight } from "./terrain-profile.js";
 import { buildCoastalLand } from "./coastline.js";
 import { intersectsBoatFootprint } from "./placements.js";
 import { liveSky } from "./sky-live.js";
@@ -35,7 +37,15 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
       k.block(.26,.035,.30,i%3?dirt:k.pattern("stone",3),x,-.040,zz,false);
     }
   }
-  const ocean=createCoastalWater(k);
+  // Terrain height anywhere on the four fjord meshes: the sea bakes its mountain reflection from this.
+  const landHeight=(x:number,z:number)=>{
+    let m=0;
+    for(const [region,e] of Object.entries(FJORD_LAYOUTS))
+      if(x>=e.x0&&x<=e.x1&&z>=e.z0&&z<=e.z1)m=Math.max(m,fjordSurfaceHeight(x,z,region as keyof typeof FJORD_LAYOUTS));
+    return m;
+  };
+  const ocean=createCoastalWater(k,landHeight);
+  const foamSpots:[number,number,number][]=[];
   // Curved surf edge: tiny sunlit stones and tidal foam ribbons.
   for(let i=0;i<85;i++){
     const z=-33+i*.79;
@@ -69,6 +79,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   for(let x=12.1;x<29.2;x+=4.0){
     for(const z of [5.65,10.35]){
       k.column(.29,2.2,posts,x,-.86,z,9);
+      foamSpots.push([x,z,.34]);
       k.column(.36,.17,k.solid("#af9774"),x,.35,z,9);
     }
   }
@@ -102,7 +113,10 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     if(intersectsBoatFootprint(x,z,r))continue;
     const rock=k.put(new THREE.IcosahedronGeometry(r,1),stones[i%3],x,-.1,z);
     rock.scale.set(1.2,.5,1.8);rock.rotation.y=i*.67;
+    foamSpots.push([x,z,r*1.45]);
   }
+
+  ocean.setSpots(foamSpots);
 
   // Town trees are procedural pixel trees (see trees.ts); only the trunk blocks the player.
   function treeCollider(x:number,z:number,scale:number){k.collider(x,z,.52*scale,.52*scale);}
