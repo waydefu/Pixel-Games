@@ -136,6 +136,13 @@ export function createFixtures(k:StageKit,lights:NightLights){
     flameMaterialLive.uniforms.uBurn.value=burn;
     for(const f of flames)f.mesh.visible=burn>.01;
   }
-  return {lantern,hangingLantern,lanternPost,torchPost,animate};
+  /** A large flame billboard (the beacon's signal fire) centred at (x,y,z), `width` wide and `height` tall. */
+  function bigFlame(x:number,y:number,z:number,width:number,height:number){
+    const flame=k.put(new THREE.PlaneGeometry(width,height),flameMaterialLive,x,y+height*.45,z,false);
+    flame.userData.dynamic=true;flame.castShadow=false;flame.receiveShadow=false;
+    flames.push({mesh:flame,baseY:flame.position.y,phase:x*.9+z*.4});
+    return flame;
+  }
+  return {lantern,hangingLantern,lanternPost,torchPost,bigFlame,animate};
 }
 export type Fixtures=ReturnType<typeof createFixtures>;

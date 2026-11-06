@@ -10,6 +10,7 @@ import { buildFjordLandscape } from "./fjord.js";
 import { buildHarbourBeacon, BEACON_SITE } from "./harbour-beacon.js";
 import { createNightLights } from "./night-lights.js";
 import { createFixtures } from "./torches.js";
+import { createLife } from "./life.js";
 import { batchStaticScene } from "./batch.js";
 import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
@@ -31,7 +32,9 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   const lights=createNightLights(scene);
   const fixtures=createFixtures(kit,lights);
   const village=buildVillage(kit,villageAssets,{lights,fixtures});
+  const life=createLife(kit,village.chimneys);
   buildHarbourBeacon(kit);
+  fixtures.bigFlame(BEACON_SITE.x,14.3,BEACON_SITE.z,2.5,3.9);
   // The beacon fire is the strongest light on the coast: it reaches far across the harbour.
   lights.add({x:BEACON_SITE.x,y:15,z:BEACON_SITE.z,intensity:110,distance:48,color:"#ffcf8a",flicker:.1});
   const environment=buildEnvironment(kit,cloudField,villageAssets);
@@ -94,6 +97,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     shadow.position.y=groundHeight(x,z)-.034;
   }
   function faceCamera(camera:THREE.Camera){
+    life.face(camera);
     camera.getWorldPosition(cameraPosition);
     camera.getWorldDirection(viewDir);
     screenUp.set(viewDir.x,0,viewDir.z);
@@ -114,6 +118,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   function update(time:number){
     cloudField.update(time);
     lights.update(player,liveSky.lampGlow,time);
+    life.update(time);
     fixtures.animate(time,liveSky.lampGlow);
     environment.update(time,player);
     fjord.update(time);

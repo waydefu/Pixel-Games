@@ -63,7 +63,8 @@ export function buildHarbourBeacon(k:StageKit){
   // The historic signal brazier is the focal warm emitter for future G4 bloom.
   const lanternBase=k.put(new THREE.CylinderGeometry(1.52,1.73,.44,10),copper,x,13.56,z);
   lanternBase.name="coastal-beacon-lantern-base";
-  const fire=k.put(new THREE.CylinderGeometry(.68,1.12,2.5,9),glow,x,15.05,z,false);
+  // A bed of glowing coals; the licking flame above it is a billboard added by the world (torches.ts bigFlame).
+  const fire=k.put(new THREE.CylinderGeometry(.62,1.05,.8,9),glow,x,14.0,z,false);
   fire.name="coastal-beacon-signal";
   for(let i=0;i<8;i++){
     const angle=i*Math.PI/4;

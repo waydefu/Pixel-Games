@@ -14,7 +14,44 @@ export const OPEN_SEA_CORRIDOR = Object.freeze({ originX: 9, originZ: 4, eye: 1.
 // Spur height multiplier: 1 at the mountain backdrop (x <= -30) -> ~0.1 at sea.
 export const flankScale = x => { const f = 1 - smooth(-30, 55, x); return .10 + .90*f*f; };
 
-export function fjordHeight(x,z,region) {
+
+/**
+ * Extents of the four terrain meshes (see fjord.ts). The north and south spurs start at the mainland's east edge so
+ * no gap is left between them.
+ */
+export const FJORD_EXTENTS = Object.freeze({
+  mainland: Object.freeze({ x0: -175, x1: -43, z0: -190, z1: 190, columns: 86, rows: 145 }),
+  east: Object.freeze({ x0: 72, x1: 245, z0: -210, z1: 210, columns: 110, rows: 160 }),
+  north: Object.freeze({ x0: -44, x1: 245, z0: 84, z1: 204, columns: 120, rows: 65 }),
+  south: Object.freeze({ x0: -44, x1: 245, z0: -204, z1: -84, columns: 120, rows: 65 }),
+});
+
+/** Sides of each mesh that face open water: the land must sink below the sea there, never end in a cut wall. */
+const OPEN_SIDES = Object.freeze({
+  mainland: ["x0", "x1", "z0", "z1"],
+  east: ["x1", "z0", "z1"],
+  north: ["x0", "x1", "z0", "z1"],
+  south: ["x0", "x1", "z0", "z1"],
+});
+export const EDGE_FALL = 55;
+export const SEABED = -6;
+
+/** 1 inside the mesh, falling to 0 over EDGE_FALL units toward each open side. */
+export function edgeFade(x, z, region) {
+  const e = FJORD_EXTENTS[region];
+  let fade = 1;
+  for (const side of OPEN_SIDES[region]) {
+    const d = side === "x0" ? x - e.x0 : side === "x1" ? e.x1 - x : side === "z0" ? z - e.z0 : e.z1 - z;
+    let f = smooth(0, EDGE_FALL, d);
+    // The mainland's east edge meets the village's own land (see coastline.ts) for |z| < ~40: only beyond that
+    // does it face open sea and have to sink.
+    if (region === "mainland" && side === "x1") f = 1 - smooth(36, 54, Math.abs(z)) * (1 - f);
+    fade *= f;
+  }
+  return fade;
+}
+
+function rawFjordHeight(x,z,region) {
   if(!Number.isFinite(x)||!Number.isFinite(z))return 0;
   if(region==="east"){
     if(x<72)return 0;
@@ -75,4 +112,14 @@ export function fjordMeshHeight(x,z,region,extent,sampleVertex){
   const d=at(ix+1,iz+1,xB,zB);
   return u+v<=1 ? a*(1-u-v)+b*u+c*v :
     b*(1-v)+c*(1-u)+d*(u+v-1);
+}
+
+/** Terrain height with the open sides sinking into the sea (a seabed below the water plane at the very edge). */
+export function fjordHeight(x,z,region) {
+  if(!Number.isFinite(x)||!Number.isFinite(z))return 0;
+  const raw=rawFjordHeight(x,z,region);
+  const e=FJORD_EXTENTS[region];
+  if(x<e.x0||x>e.x1||z<e.z0||z>e.z1)return raw; // outside the mesh nothing is drawn: leave the analytic value alone
+  const fade=edgeFade(x,z,region);
+  return fade>=1?raw:raw*fade+SEABED*(1-fade);
 }

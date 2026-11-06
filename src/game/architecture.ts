@@ -8,6 +8,8 @@ export type VillageAssets={kit:VillageKit;material:THREE.Material};
 // Which kit model stands on each authored plot (index = position in `houses`).
 /** Kit buildings are modelled at about 1 unit = 1 m, the same scale as the traveller (eye 1.68). */
 const HOUSE_SCALE=1;
+/** Chimney tops in model space (x, top y, z), read from the kit meshes: where the chimney smoke starts. */
+const CHIMNEYS:Record<string,readonly [number,number,number]>={"village-tavern":[-5.4,11.05,1.05],"blacksmith-forge":[-1.5,4.05,-.9]};
 const HOUSE_MODELS=["village-tavern","two-story-house","thatched-cottage","fisherman-shack","two-story-house","thatched-cottage","blacksmith-forge","stone-chapel","timber-barn","two-story-house"] as const;
 
 function hash(n:number){const v=Math.sin(n*127.1+31.37)*43758.5453123;return v-Math.floor(v);}
@@ -196,6 +198,7 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night)
       night?.lights.add({x:lx,y:ly+.14,z:lz+face*.49,intensity:9,distance:10,color:"#ffc77e",flicker:.08});
     }
   }
+  const chimneys:[number,number,number][]=[];
   const houses:House[]=[
     {x:-12,z:-9.5,w:6.1,d:5.4,h:4.4,roof:"red",seed:2,name:"tavern"},
     {x:-16,z:10.2,w:6,d:5.7,h:4.8,roof:"blue",seed:3,name:"residence"},
@@ -222,6 +225,8 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night)
       k.collider(h.x,cz,info.width/2+.3,info.depth/2+.3);
       // A hanging iron lantern beside the door (the kit's doors are centred on the street-side wall).
       night?.fixtures.hangingLantern(h.x+1.55,2.45,front,face as 1|-1);
+      const chimney=CHIMNEYS[model];
+      if(chimney)chimneys.push([h.x+chimney[0]*face*HOUSE_SCALE,chimney[1]*HOUSE_SCALE,cz+chimney[2]*face*HOUSE_SCALE]);
     }else buildHouse(h);
   });
   // Street furniture and everyday medieval use, outside the accessible promenade.
@@ -290,5 +295,5 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night)
     // Open torches mark the fishing pier and its end.
     for(const [x,z] of [[14.5,5.5],[14.5,10.5],[22,5.5],[22,10.5],[28.6,8]] as const)night.fixtures.torchPost(x,z);
   }
-  return {houses};
+  return {houses,chimneys};
 }

@@ -40,6 +40,8 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       void main(){
         vec3 w=(modelMatrix*vec4(position,1.0)).xyz;
         float dist=max(0.0,w.x-shore(w.z));
+        // The pale-shallows-over-sand colouring belongs to the harbour only: everywhere else the sea is open water.
+        dist=mix(60.0,dist,1.0-smoothstep(32.0,52.0,abs(w.z)));
         float damp=.22+.78*smoothstep(0.0,9.0,dist);
         float p0=w.x*.29+w.z*.08+uTime*.85;
         float p1=-w.x*.16+w.z*.34+uTime*.65;
@@ -160,6 +162,12 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   mesh.frustumCulled=true;
   mesh.userData.dynamic=true;  // Waves must not be merged into the static batch.
   k.scene.add(mesh);
+  // One endless sea: a huge, coarse plane just below the detailed one, so wherever there is no land the view ends in
+  // water that fades into the haze, never in a void. It is far beyond the fog, so its waves need no resolution.
+  const outer=new THREE.Mesh(k.scope.track(new THREE.PlaneGeometry(9000,9000,2,2)),material);
+  outer.name="endless-sea";outer.rotation.x=-Math.PI/2;outer.position.set(140,-.47,0);
+  outer.frustumCulled=false;outer.userData.dynamic=true;outer.receiveShadow=false;outer.castShadow=false;
+  k.scene.add(outer);
   function update(time:number){uniforms.uTime.value=time;}
   /** Rocks and piles as [x,z,radius]; the moored boats are added here (two circles per hull, along x). */
   function setSpots(list:readonly (readonly [number,number,number])[]){
