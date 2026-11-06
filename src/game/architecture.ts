@@ -10,7 +10,7 @@ export type VillageAssets={kit:VillageKit;material:THREE.Material};
 const HOUSE_SCALE=1;
 /** Chimney tops in model space (x, top y, z), read from the kit meshes: where the chimney smoke starts. */
 const CHIMNEYS:Record<string,readonly [number,number,number]>={"village-tavern":[-5.4,11.05,1.05],"blacksmith-forge":[-1.5,4.05,-.9]};
-const HOUSE_MODELS=["village-tavern","two-story-house","thatched-cottage","fisherman-shack","two-story-house","thatched-cottage","blacksmith-forge","stone-chapel","timber-barn","two-story-house"] as const;
+const HOUSE_MODELS=["village-tavern","two-story-house","thatched-cottage","fisherman-shack","two-story-house","thatched-cottage","blacksmith-forge","thatched-cottage","timber-barn","two-story-house"] as const;
 
 function hash(n:number){const v=Math.sin(n*127.1+31.37)*43758.5453123;return v-Math.floor(v);}
 import type { NightLights } from "./night-lights.js";

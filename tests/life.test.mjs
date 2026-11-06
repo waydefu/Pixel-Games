@@ -73,3 +73,15 @@ test("life is wired in: villagers, gulls, smoke and the beacon flame", () => {
   assert.match(world, /fixtures\.bigFlame\(BEACON_SITE\.x/);
   assert.match(read("src/game/architecture.ts"), /CHIMNEYS:Record/);
 });
+
+test("the church closes the promenade and the farm keeps its land clear", () => {
+  const land = read("src/game/landmarks.ts");
+  assert.match(land, /stone-chapel/);
+  assert.match(land, /rotY:Math\.PI\/2/, "the church faces the street");
+  for (const crop of ["wheat", "cabbage", "pumpkin", "leek"]) assert.match(land, new RegExp(crop));
+  assert.match(land, /gate=\{z0:/, "the fence has a gate toward the village");
+  const env = read("src/game/environment.ts");
+  assert.match(env, /buildLandmarks\(k,assets\)/);
+  assert.equal((env.match(/isReserved\(x,z\)/g) || []).length, 4, "trees, shrubs, grass and flowers all stay out");
+  assert.doesNotMatch(read("src/game/architecture.ts"), /"blacksmith-forge","stone-chapel"/, "no second church among the houses");
+});
