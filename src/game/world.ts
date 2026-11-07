@@ -118,8 +118,13 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
     environment.applySky({x:player.x,z:player.z});
   }
+  let transmit=1;
   function update(time:number){
     cloudField.update(time);
+    // A cloud between the sun and the traveller takes most of the direct light (and the shadows soften with it).
+    const occ=cloudField.sunOcclusion(player.x,player.z,liveSky.sunDir)*liveSky.dayLight.value;
+    transmit+=((1-.78*occ)-transmit)*.04;
+    environment.setSunTransmit(transmit);
     lights.update(player,liveSky.lampGlow,time);
     life.update(time);
     fixtures.animate(time,liveSky.lampGlow);
@@ -135,13 +140,13 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced",softwareGpu=false){
     environment.sunlight.castShadow=enabled;
-    cloudField.setStrength((quality==="basic"?.16:quality==="high"?.30:.24)*liveSky.dayLight.value);
+    cloudField.setStrength((quality==="basic"?.2:quality==="high"?.42:.34)*liveSky.dayLight.value);
     fjord.setSkyQuality(quality);
     const density=quality==="basic"?.36:quality==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier
-    cloudStrength=quality==="basic"?.16:quality==="high"?.30:.24;
+    cloudStrength=quality==="basic"?.2:quality==="high"?.42:.34;
   }
   function dispose(){scope.dispose();}
   return Object.freeze({

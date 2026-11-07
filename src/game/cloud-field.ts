@@ -73,9 +73,22 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
   function update(time:number){
     uniforms.uCloudWind.value.set(time*.28,time*.16);
   }
-  function setStrength(value:number){
-    uniforms.uCloudStrength.value=THREE.MathUtils.clamp(value,0,.36);
+  const sample=(u:number,v:number)=>{
+    // bilinear read of the same tiling map the shaders use
+    const x=((u%1)+1)%1*SIZE,y=((v%1)+1)%1*SIZE,ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
+    const at=(a:number,b:number)=>pixels[(((b+SIZE)%SIZE)*SIZE+((a+SIZE)%SIZE))*4]/255;
+    return (at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;
+  };
+  /** 0 (clear) .. 1 (solid cloud) between a ground point and the sun: the same projection the ground shadows use. */
+  function sunOcclusion(x:number,z:number,sun:{x:number;y:number;z:number}){
+    if(sun.y<=.02)return 0;
+    const k=CLOUD_HEIGHT/Math.max(.16,sun.y),w=uniforms.uCloudWind.value;
+    const cover=sample((x+sun.x*k+w.x)/SPAN,(z+sun.z*k+w.y)/SPAN);
+    return THREE.MathUtils.smoothstep(cover,.39,.57);
   }
-  return {texture,uniforms,applyToMaterial,update,setStrength};
+  function setStrength(value:number){
+    uniforms.uCloudStrength.value=THREE.MathUtils.clamp(value,0,.5);
+  }
+  return {texture,uniforms,applyToMaterial,update,setStrength,sunOcclusion};
 }
 export type CloudField=ReturnType<typeof createCloudField>;

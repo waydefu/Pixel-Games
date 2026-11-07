@@ -131,22 +131,49 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
           float band=exp(-b*b/(2.0*.17*.17));
           float coreAng=abs(atan(sin(l-.6),cos(l-.6)));
           float core=exp(-coreAng*coreAng/(2.0*.75*.75))*exp(-b*b/(2.0*.11*.11));
-          float cloudy=fbm3(q*5.0),fine=fbm3(q*17.0+vec3(3.0));
-          float dust=smoothstep(.46,.68,fbm3(q*7.0+vec3(8.0,1.0,2.0)+vec3(0.0,b*6.0,0.0)));
-          float density=band*(.35+.9*cloudy)*(1.0-.78*dust*smoothstep(.1,.9,band));
+          vec3 qw=q+.18*vec3(fbm3(q*3.0),fbm3(q*3.0+vec3(5.0)),fbm3(q*3.0+vec3(9.0)));   // domain warp: wispy arms
+          float cloudy=fbm3(qw*5.0),fine=fbm3(qw*19.0+vec3(3.0));
+          float dust=smoothstep(.44,.66,fbm3(qw*7.0+vec3(8.0,1.0,2.0)+vec3(0.0,b*6.0,0.0)))+.5*smoothstep(.55,.75,fbm3(qw*21.0+vec3(2.0)))*band;
+          dust=min(dust,1.0);
+          float density=band*(.30+1.1*cloudy)*(.7+.6*fine)*(1.0-.82*dust*smoothstep(.1,.9,band));
           vec3 mw=mix(vec3(.05,.09,.22),vec3(.11,.16,.36),cloudy)*density*1.9;
-          mw+=vec3(.95,.52,.20)*core*(.30+.7*fine)*(1.0-.7*dust)*.55;               // warm galactic core
+          mw+=vec3(1.0,.58,.22)*core*(.35+.9*fine)*(1.0-.7*dust)*.8;               // warm galactic core
           mw+=vec3(.30,.18,.45)*band*smoothstep(.55,.8,cloudy)*.35;                // violet nebulosity
-          // fine stars: a jittered 3D grid; denser inside the Milky Way
-          vec3 sp=q*150.0;vec3 cell=floor(sp);
-          float hs=h31(cell),hs2=h31(cell+vec3(7.1,3.3,1.9));
-          vec3 centre=cell+vec3(.3+.4*h31(cell+vec3(1.0)),.3+.4*h31(cell+vec3(2.0)),.3+.4*h31(cell+vec3(3.0)));
-          float thresh=.955-.10*band;
-          float star=step(thresh,hs)*smoothstep(.34,.0,length(sp-centre))*(.25+2.2*pow(hs2,5.0));
-          vec3 starCol=mix(vec3(.65,.80,1.0),vec3(1.0,.78,.55),smoothstep(.3,.9,h31(cell+vec3(4.0))));
-          float tw=.8+.2*sin(uTime*(2.0+hs*5.0)+hs*40.0);
+          // Three magnitude classes on jittered 3D grids: many faint stars (denser in the Milky Way), fewer bright ones with
+          // a soft halo and diffraction cross, and a handful of brilliant ones. Colour follows a stellar temperature.
+          vec3 starSum=vec3(0.0);
+          for(int k=0;k<3;k++){
+            float scale=k==0?170.0:k==1?62.0:26.0;
+            vec3 sp=q*scale;vec3 cell=floor(sp);
+            float hs=h31(cell+vec3(float(k)*13.0)),hs2=h31(cell+vec3(7.1,3.3,1.9)+float(k));
+            vec3 centre=cell+vec3(.25+.5*h31(cell+vec3(1.0)),.25+.5*h31(cell+vec3(2.0)),.25+.5*h31(cell+vec3(3.0)));
+            float thresh=k==0?.93-.12*band:k==1?.975-.02*band:.992;
+            vec3 dv=sp-centre;float dd=length(dv);
+            float mag=pow(hs2,k==0?7.0:k==1?4.0:2.0);                                  // bright stars are rare: power-law magnitudes
+            float core=smoothstep(k==0?.26:.22,.0,dd);
+            float halo=k==0?0.0:exp(-dd*dd*(k==1?60.0:34.0))*.6;
+            float cross=k==2?(exp(-abs(dv.x)*30.0)*exp(-abs(dv.y)*9.0)+exp(-abs(dv.y)*30.0)*exp(-abs(dv.x)*9.0))*.4:0.0;
+            vec3 tint=mix(mix(vec3(.62,.76,1.0),vec3(1.0,.96,.90),smoothstep(.2,.5,h31(cell+vec3(4.0)))),vec3(1.0,.70,.45),smoothstep(.62,.95,h31(cell+vec3(4.0))));
+            float tw=.82+.18*sin(uTime*(2.0+hs*5.0)+hs*40.0);
+            starSum+=tint*step(thresh,hs)*(core+halo+cross)*(k==0?.35+1.8*mag:k==1?.9+2.6*mag:3.2+2.0*mag)*tw;
+          }
+          // a few steady planets (Venus bright and white, Jupiter cream, Mars red) on a faint ecliptic
+          starSum+=vec3(1.0,.97,.88)*(pow(max(dot(q,normalize(vec3(.50,.55,-.67))),0.0),9000.0)*5.0+pow(max(dot(q,normalize(vec3(.50,.55,-.67))),0.0),400.0)*.05);
+          starSum+=vec3(1.0,.88,.66)*(pow(max(dot(q,normalize(vec3(-.55,.62,.56))),0.0),7000.0)*3.2+pow(max(dot(q,normalize(vec3(-.55,.62,.56))),0.0),300.0)*.03);
+          starSum+=vec3(1.0,.42,.28)*(pow(max(dot(q,normalize(vec3(-.12,.45,.88))),0.0),6000.0)*2.0);
+                    // an occasional meteor: a bright head with a fading tail, a few seconds apart
+          float mt=uTime*.17,mi=floor(mt),mf=fract(mt);
+          float seed=h31(vec3(mi,3.7,1.3));
+          if(seed>.55){
+            vec3 mstart=normalize(vec3(seed*2.0-1.0,.6+.3*h31(vec3(mi,9.0,2.0)),h31(vec3(mi,5.0,8.0))*2.0-1.0));
+            vec3 mdir=normalize(cross(mstart,vec3(0.0,1.0,0.3))+vec3(0.0,-.4,0.0));
+            vec3 mpos=normalize(mstart+mdir*mf*.35);
+            float close=1.0-dot(ray,mpos);
+            float head=smoothstep(.00004,.0,close);
+            starSum+=vec3(.9,.95,1.0)*head*3.0*smoothstep(.0,.08,mf)*(1.0-smoothstep(.55,.62,mf));
+          }
           float horizonFade=smoothstep(.0,.16,ray.y);
-          col+=(mw*1.25+starCol*star*tw*1.6)*uStarAlpha*horizonFade;
+          col+=(mw*1.6+starSum*1.5)*uStarAlpha*horizonFade;
         }
         // ---- the moon: a lit disc with phase, maria, earthshine and a faint halo ----
         vec3 md=normalize(uMoonDirection);
@@ -165,9 +192,10 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
           float lit=smoothstep(-.03,.05,dot(nrm,L));
           float maria=smoothstep(.45,.62,fbm3(nrm*2.6+vec3(4.0)));
           vec3 surf=vec3(.90,.93,1.0)*(1.0-.38*maria)*(.9+.1*n3(nrm*30.0));
-          vec3 mcol=surf*(lit+.045);
           float edge=smoothstep(1.0,.94,r2);
-          col=mix(col,mcol*(2.4+1.6*uNight),edge*moonUp*smoothstep(-.02,.03,ray.y));
+          float vis=moonUp*smoothstep(-.02,.03,ray.y);
+          col=mix(col,surf*(2.4+1.6*uNight),edge*lit*vis);                       // only the lit part is opaque ...
+          col+=surf*.07*edge*(1.0-lit)*vis*uNight;                               // ... the dark side is sky with a trace of earthshine
         }
         gl_FragColor=vec4(col,1.0);
       }`,
@@ -262,18 +290,30 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // Fade the sheet to physical aerial haze where rays graze the horizon.
         // Suppresses the column/curtain artifact in shot-04-vista-fjord.
         float mask=smoothstep(.04,.17,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
-        // long fibrous streaks (altocumulus / cirrus), strongest at twilight
-        float streak=smoothstep(.50,.72,texture2D(uCloudMap,cloudUV*vec2(.42,2.4)+vec2(.07,.21)).r)*(.30+.55*uTwilight);
-        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus+streak)*mask*uCloudAmount*(1.0-.88*uNightC);
+        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount*(1.0-.88*uNightC);
         float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
         // Cloud edge self-shading: sample the same cloud field in sunlight's
         // projected direction. Bright rims stay local instead of whitewashing sky.
         vec3 underside=uCloudShade,lit=uCloudLit;
-        float leading=texture2D(uCloudMap,cloudUV+sunDir.xz*.016).r;
-        float sideLight=clamp(.53+(low-leading)*6.2,0.0,1.0);
+        // Solid volume from the height field: bumps give a surface normal, and a short march toward the sun accumulates
+        // the cloud's own optical depth (Beer-Lambert), so thick clouds have dark, self-shadowed bases and lit crowns.
+        vec2 sdir=normalize(sunDir.xz+vec2(1e-4))*mix(.020,.007,clamp(sunDir.y*2.0,0.0,1.0));
+        float tau=0.0;
+        for(int i=1;i<=5;i++){
+          float d=texture2D(uCloudMap,cloudUV+sdir*float(i)).r;
+          tau+=smoothstep(.44,.62,d)*(1.0+.35*float(i));
+        }
+        float shadowed=exp(-tau*.34);
+        float gx=texture2D(uCloudMap,cloudUV+vec2(.006,0.0)).r-texture2D(uCloudMap,cloudUV-vec2(.006,0.0)).r;
+        float gy=texture2D(uCloudMap,cloudUV+vec2(0.0,.006)).r-texture2D(uCloudMap,cloudUV-vec2(0.0,.006)).r;
+        vec3 bump=normalize(vec3(-gx*9.0,1.0,-gy*9.0));
+        float lambert=clamp(dot(bump,normalize(vec3(sunDir.x,max(sunDir.y,.15)+.25,sunDir.z)))*.5+.55,0.0,1.0);
+        float sideLight=clamp(lambert*.55+shadowed*.45,0.0,1.0);
+        float thick=smoothstep(.52,.88,low);
         float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
           (1.0-smoothstep(.63,.78,low));
-        vec3 cloud=mix(underside,lit,clamp(.28+.50*sideLight+.22*sun,0.0,1.0));
+        vec3 cloud=mix(underside,lit,clamp(.10+.62*sideLight+.22*sun,0.0,1.0));
+        cloud*=1.0-.42*thick*(1.0-shadowed*.6);                                  // thick bodies are darker in the middle
         cloud+=vec3(.35,.24,.13)*silver;
         cloud*=mix(vec3(1.0),vec3(1.30,1.0,.74),pow(sun,3.0)); // sunward clouds glow warm
         // ---- sunrise / sunset: fiery undersides toward the sun, dark backlit bodies with burning rims, pink on the far side ----
