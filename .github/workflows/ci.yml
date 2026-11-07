@@ -62,3 +62,16 @@ jobs:
           path: visual-audit-output/
           retention-days: 7
           if-no-files-found: warn
+
+  # Keep the branch protection's existing required check name, while allowing both
+  # browser suites to run in parallel. The gate fails unless *all* matrix jobs pass.
+  required:
+    name: Build, typecheck, unit and browser tests
+    needs: validate
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require desktop and mobile verification
+        env:
+          MATRIX_RESULT: ${{ needs.validate.result }}
+        run: test "$MATRIX_RESULT" = "success"
