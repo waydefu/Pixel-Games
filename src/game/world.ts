@@ -163,10 +163,13 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced",softwareGpu=false){
     environment.sunlight.castShadow=enabled;
+    // A software rasteriser (CI, headless) takes seconds per frame: the High tier's volumetric clouds, 14000 raindrops and
+    // dense grass would only make it unusable, so there they run at the Balanced level. `?mirror=1` keeps the full High.
+    const heavy:"basic"|"balanced"|"high"=softwareGpu&&quality==="high"?"balanced":quality;
     cloudField.setStrength((quality==="basic"?.2:quality==="high"?.42:.34)*liveSky.dayLight.value);
-    fjord.setSkyQuality(quality);
-    weatherView.setQuality(quality);
-    const density=quality==="basic"?.36:quality==="balanced"?.70:1;
+    fjord.setSkyQuality(heavy);
+    weatherView.setQuality(heavy);
+    const density=heavy==="basic"?.36:heavy==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier

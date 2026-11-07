@@ -329,6 +329,10 @@ async function start(){
     const softwareGpu=/swiftshader|llvmpipe|software/i.test(gpuName)&&new URLSearchParams(location.search).get("mirror")!=="1";
     const applyQuality=()=>world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high",softwareGpu);
     applyQuality();
+    // A software rasteriser needs seconds per frame, so the adaptive controller (120-frame windows) never reacts in time:
+    // render it at a fixed reduced scale. Audit shots and `?mirror=1` keep full resolution.
+    const lowPower=softwareGpu&&!visualShot;
+    if(lowPower)host.setRenderScale(.55);
     if(visualShot)setCameraMode(visualShot.mode);
     resize();
     observer=new ResizeObserver(resize);observer.observe(canvas);
@@ -348,7 +352,7 @@ async function start(){
         const frameMs=now-previous;
         if(frameMs>0){
           frameMetrics.record(frameMs);
-          if(!visualShot){
+          if(!visualShot&&!lowPower){
             const next=adaptive.observe(frameMs);
             if(Math.abs(host.scale-next)>.001){host.setRenderScale(next);resize();}
           }
