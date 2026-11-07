@@ -21,7 +21,7 @@ const smooth=(a:number,b:number,v:number)=>{const t=Math.min(1,Math.max(0,(v-a)/
 
 export function createFishingView(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};
-  player:{x:number;z:number};isAboard?:()=>boolean;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
+  player:{x:number;z:number};isAboard?:()=>boolean;audio?:()=>import("./soundscape.js").Soundscape|null;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
 }){
   const {scene,scope,player,ui}=opts;
   // ?fishSeed= makes the bites reproducible (used by the e2e test and for audits).
@@ -87,6 +87,7 @@ export function createFishingView(opts:{
   drops.frustumCulled=false;drops.visible=false;drops.userData.dynamic=true;scene.add(drops);
   const dropPos=new Float32Array(DROPS*3),dropVel=new Float32Array(DROPS*3),dropLife=new Float32Array(DROPS);
   function splash(x:number,z:number,strength:number,now:number){
+    opts.audio?.()?.api.splash(strength,{x,y:WATER_Y,z});
     const ring=ringAge[0]>ringAge[1]?0:1;ringAge[ring]=0;
     rings[ring].position.set(x,WATER_Y+.03,z);
     let emitted=0;
@@ -241,6 +242,7 @@ export function createFishingView(opts:{
         landing.set(eye.x+castDir.x*distance,WATER_Y,eye.z+castDir.z*distance);
         origin.x=eye.x;origin.z=eye.z;
         castStart=now;body="held";released=false;ropeReady=false;
+        opts.audio?.()?.api.cast();
       }
       if(phase==="lure")splash(landing.x,landing.z,1,now);
       if(phase==="strike"){say("有魚上鉤！快提竿！",now,1.7);strikeSplashAt=now;strikeStart=now;strikeSide=effects()<.5?-1:1;}
@@ -475,7 +477,9 @@ export function createFishingView(opts:{
   function spoolSpin(phase:string,holding:boolean){
     // the reel's crank turns while the line comes in (hold) and spins free as the line goes out
     const turning=(holding&&(phase==="lure"||phase==="fighting"))?.5:(phase==="fighting"?-.25:phase==="casting"?.6:0);
+    const before=crankAngle;
     crankAngle=(crankAngle+turning)%(Math.PI*2);
+    if(turning>0&&Math.floor(crankAngle/(Math.PI/2))!==Math.floor(before/(Math.PI/2)))opts.audio?.()?.api.reelTick();   // the reel's ratchet clicks
     rodModel.spin(crankAngle);
   }
   return {update,logic,tally:()=>tally,species:SPECIES.length,maxLine:MAX_LINE};

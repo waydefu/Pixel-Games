@@ -12,6 +12,7 @@ import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
 import { createBoating } from "./boating.js";
+import { createSoundscape, DEFAULT_AUDIO, type Soundscape, type AudioSettings } from "./soundscape.js";
 import { getVisualShot } from "./visual-audit.js";
 
 type GameState = "starting" | "ready" | "unsupported" | "lost" | "failed";
@@ -97,10 +98,11 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 const pipelineInfo={hdr:false,quality:"balanced"};
 let focusPipeline:(distance:number,active:boolean)=>void=()=>{};
+let lastSoundX=0,lastSoundZ=0;
 let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserver|null=null;
 function mark(state:GameState,message:string){
   diagnostics.status=state;
@@ -133,14 +135,40 @@ projectionPicker.addEventListener("change",()=>{
   resize();
 });
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
+// ---- sound: synthesised coast soundscape, started by the first click / key / touch (browsers forbid sound before) ----
+let sound:Soundscape|null=null,soundCtx:AudioContext|null=null;
+const AUDIO_KEY="pixel-games.audio.v1";
+const audioSettings:AudioSettings={...DEFAULT_AUDIO};
+try{Object.assign(audioSettings,JSON.parse(window.localStorage.getItem(AUDIO_KEY)??"{}"));}catch{/* storage may be unavailable */}
+const volMaster=element<HTMLInputElement>("#vol-master"),volAmbient=element<HTMLInputElement>("#vol-ambient"),volSfx=element<HTMLInputElement>("#vol-sfx"),muteBox=element<HTMLInputElement>("#audio-mute");
+volMaster.value=String(audioSettings.master);volAmbient.value=String(audioSettings.ambient);volSfx.value=String(audioSettings.sfx);muteBox.checked=audioSettings.muted;
+function saveAudio(){
+  audioSettings.master=Number(volMaster.value);audioSettings.ambient=Number(volAmbient.value);audioSettings.sfx=Number(volSfx.value);audioSettings.muted=muteBox.checked;
+  sound?.setSettings(audioSettings);
+  try{window.localStorage.setItem(AUDIO_KEY,JSON.stringify(audioSettings));}catch{/* ignore */}
+}
+for(const el of [volMaster,volAmbient,volSfx,muteBox])el.addEventListener("input",saveAudio);
+function startAudio(){
+  if(sound)return;
+  try{
+    const Ctor=window.AudioContext||(window as unknown as {webkitAudioContext:typeof AudioContext}).webkitAudioContext;
+    if(!Ctor)return;
+    lastSoundX=world.player.x;lastSoundZ=world.player.z;
+    soundCtx=new Ctor({latencyHint:"interactive"});
+    sound=createSoundscape(soundCtx,{quality:quality.value as "basic"|"balanced"|"high",settings:audioSettings});
+    void soundCtx.resume();
+  }catch(error){console.warn("Audio could not start",error);}
+}
+for(const type of ["pointerdown","keydown","touchstart"])window.addEventListener(type,()=>{startAudio();if(soundCtx&&soundCtx.state==="suspended")void soundCtx.resume();},{passive:true});
+document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(document.visibilityState==="hidden")void soundCtx.suspend();else void soundCtx.resume();});
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,isAboard:()=>boating.aboard,
+  scene:world.scene,scope:world.scope,player:world.player,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
   scene:world.scene,scope:world.scope,boats:world.boats,movable:world.boatsMovable,blockers:world.seaBlockers,colliders:world.colliders,
-  player:world.player,world,rig,getMode:()=>rig.mode,setCameraMode,
+  player:world.player,audio:()=>sound,world,rig,getMode:()=>rig.mode,setCameraMode,
   ui:{hud:element<HTMLElement>("#boat-hud"),status:element<HTMLElement>("#boat-status"),button:element<HTMLButtonElement>("#boat-button")},
 });
 // Audit only (?visualShot=...&boat=1&bx=&bz=&bh=&row=1): start aboard a boat at a given place, optionally rowing.
@@ -286,6 +314,13 @@ async function start(){
       host.setCamera(camera);
       world.faceCamera(camera);
       fishing.update();
+      if(sound){
+        const cam=rig.camera,fwd=new THREE.Vector3();cam.getWorldDirection(fwd);
+        const moved=Math.hypot(world.player.x-lastSoundX,world.player.z-lastSoundZ);lastSoundX=world.player.x;lastSoundZ=world.player.z;
+        sound.update({time:elapsed,x:world.player.x,z:world.player.z,night:liveSky.night.value,windStrength:liveSky.windStrength.value,gust:world.gustAt(world.player.x,world.player.z),
+          aboard:boating.aboard,speed:dt>0?moved/dt:0,sprint:input.read().sprint,gulls:world.gulls(),hour,
+          listener:{x:cam.position.x,y:cam.position.y,z:cam.position.z,fx:fwd.x,fy:fwd.y,fz:fwd.z}});
+      }
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;

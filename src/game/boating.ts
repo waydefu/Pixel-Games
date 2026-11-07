@@ -19,7 +19,7 @@ const RINGS=10;
 export function createBoating(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};
   boats:THREE.Group[];movable:boolean;blockers:Blocker[];colliders:{x:number;z:number;halfX?:number;halfZ?:number}[];
-  player:{x:number;z:number};
+  player:{x:number;z:number};audio?:()=>import("./soundscape.js").Soundscape|null;
   world:{movePlayer:(x:number,z:number,t:number)=>void;setSeat:(lift:number)=>void;setBoatFoam:(p:Pose[])=>void};
   rig:{turn:(d:number)=>void;setEyeLift:(v:number)=>void;faceHeading:(h:number)=>void};
   getMode:()=>string;setCameraMode:(m:"quarter"|"first"|"vista")=>void;
@@ -40,6 +40,7 @@ export function createBoating(opts:{
     });
     return out;
   };
+  let lastStrokeIndex=0;
   let aboard=-1,request=false,message="",messageUntil=0,landingHint:string|null=null,previousHeading=0,wakeClock=0,time=0;
   const say=(text:string,seconds=2.2)=>{message=text;messageUntil=time+seconds;};
   window.addEventListener("keydown",e=>{
@@ -157,6 +158,7 @@ export function createBoating(opts:{
     rig3.position.set(s.x,boat.position.y+.62,s.z);
     rig3.rotation.set(boat.rotation.x,boat.rotation.y,boat.rotation.z,"YXZ");
     const p=s.stroking?s.stroke%1:0;
+    if(s.stroking&&Math.floor(s.stroke)!==lastStrokeIndex){lastStrokeIndex=Math.floor(s.stroke);opts.audio?.()?.api.oar(Math.abs(s.speed),undefined);}
     const drive=p<.5,u=drive?p/.5:(p-.5)/.5;
     const sweep=drive?.6-1.2*u:-.6+1.2*(u*u*(3-2*u));            // blade forward at the catch, back at the finish
     const dip=drive?.34:.34-.42*Math.sin(Math.PI*u);             // in the water while pulling, lifted clear on recovery

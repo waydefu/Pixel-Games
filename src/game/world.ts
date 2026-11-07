@@ -14,7 +14,7 @@ import { createLife } from "./life.js";
 import { batchStaticScene } from "./batch.js";
 import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
-import { createWind } from "./wind.js";
+import { createWind, gustAt } from "./wind.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
 
@@ -158,6 +158,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     scene,scope,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
     movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,
+    gulls:()=>life.gullPositions(),gustAt:(x:number,z:number)=>gustAt(x,z,wind.state.aloftDriftX,wind.state.aloftDriftZ),
     boats:environment.boats,boatsMovable:environment.boatsMovable,seaBlockers:environment.seaBlockers,setBoatFoam:environment.setBoatFoam,
   });
 }
