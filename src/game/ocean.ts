@@ -254,15 +254,23 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   };
   function setReflection(on:boolean){reflectionOn=on;}
   function update(time:number){uniforms.uTime.value=time;material.uniforms.time.value=time*.6;}
-  /** Rocks and piles as [x,z,radius]; the moored boats are added here (two circles per hull, along x). */
-  function setSpots(list:readonly (readonly [number,number,number])[]){
-    const all:[number,number,number][]=list.map(([x,z,r])=>[x,z,r]);
-    BOAT_LOCATIONS.forEach((boat,i)=>{
-      const length=i?6.3:4.5,r=length*.17;
-      all.push([boat.x-length*.26,boat.z,r],[boat.x+length*.26,boat.z,r]);
-    });
+  /** Rocks and piles as [x,z,radius]; each boat adds two foam circles along its hull (see setBoats). */
+  let fixedSpots:[number,number,number][]=[];
+  let boatPoses:{x:number;z:number;heading:number;length:number}[]=BOAT_LOCATIONS.map((b,i)=>({x:b.x,z:b.z,heading:0,length:i?6.3:4.5}));
+  function writeSpots(){
+    const all:[number,number,number][]=[...fixedSpots];
+    for(const boat of boatPoses){
+      const r=boat.length*.17,reach=boat.length*.26,cx=Math.cos(boat.heading),cz=Math.sin(boat.heading);
+      all.push([boat.x-cx*reach,boat.z-cz*reach,r],[boat.x+cx*reach,boat.z+cz*reach,r]);
+    }
     spots.forEach((v,i)=>{const e=all[i];if(e)v.set(e[0],e[1],e[2],1);else v.set(0,0,0,0);});
     return Math.min(all.length,FOAM_SPOTS);
   }
-  return {material,mesh,update,setSpots,setReflection};
+  function setSpots(list:readonly (readonly [number,number,number])[]){
+    fixedSpots=list.map(([x,z,r])=>[x,z,r]);
+    return writeSpots();
+  }
+  /** Foam rings follow the boats when they are rowed. */
+  function setBoats(poses:{x:number;z:number;heading:number;length:number}[]){boatPoses=poses;writeSpots();}
+  return {material,mesh,update,setSpots,setBoats,setReflection};
 }

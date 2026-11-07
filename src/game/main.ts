@@ -11,6 +11,7 @@ import { createMovementInput } from "./input.js";
 import { stepOnGround } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
+import { createBoating } from "./boating.js";
 import { getVisualShot } from "./visual-audit.js";
 
 type GameState = "starting" | "ready" | "unsupported" | "lost" | "failed";
@@ -93,7 +94,7 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 const pipelineInfo={hdr:false,quality:"balanced"};
 let focusPipeline:(distance:number,active:boolean)=>void=()=>{};
@@ -134,6 +135,24 @@ const fishing=createFishingView({
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
+const boating=createBoating({
+  scene:world.scene,scope:world.scope,boats:world.boats,movable:world.boatsMovable,blockers:world.seaBlockers,colliders:world.colliders,
+  player:world.player,world,rig,getMode:()=>rig.mode,setCameraMode,
+  ui:{hud:element<HTMLElement>("#boat-hud"),status:element<HTMLElement>("#boat-status"),button:element<HTMLButtonElement>("#boat-button")},
+});
+// Audit only (?visualShot=...&boat=1&bx=&bz=&bh=&row=1): start aboard a boat at a given place, optionally rowing.
+let boatDrive:{x:number;y:number;sprint:boolean}|null=null;
+if(visualShot){
+  const q=new URLSearchParams(window.location.search),num=(k:string)=>Number.parseFloat(q.get(k)??"");
+  if(q.get("boat")!==null){
+    const index=Math.max(0,Math.min(boating.sims.length-1,Number.parseInt(q.get("boat")||"0",10)||0));
+    const sim=boating.sims[index];
+    if(Number.isFinite(num("bx"))&&Number.isFinite(num("bz")))sim.place(num("bx"),num("bz"),Number.isFinite(num("bh"))?num("bh"):sim.state.heading);
+    world.movePlayer(sim.state.x,sim.state.z,0);
+    boating.board(index);
+    if(q.get("row")==="1")boatDrive={x:Number.isFinite(num("steer"))?num("steer"):0,y:-1,sprint:false};
+  }
+}
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{
   if(!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
@@ -184,6 +203,7 @@ function resize(){
 function update(dt:number){
   if(!settings.hidden)return;
   const values=input.read();
+  if(boating.update(dt,boatDrive??values,elapsed))return;   // in a boat the oars move the player, not the walking rules
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
   const delta=rig.movement(values,dt);
   const point=stepOnGround(world.player,delta,world.colliders);

@@ -78,6 +78,9 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   shadow.userData.dynamic=true;
   scene.add(shadow);
   const player={x:9,z:4.2};
+  // Sitting in a boat: the sprite and the eye sit lower than when standing.
+  let seatLift=0,seated=false;
+  function setSeat(lift:number){seatLift=lift;seated=lift!==0;}
   let lastMovedAt=-10,lastX=9,lastZ=4.2,facing=0;
   const cameraPosition=new THREE.Vector3();
   // Screen-space basis of the active camera: the sprite faces where the player moves ON SCREEN.
@@ -125,7 +128,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
     spriteTexture.offset.set(frame*.25,(3-facing)*.25);
-    avatar.position.y=1.15+groundHeight(player.x,player.z)+(walking?Math.sin(time*17)*.035:0);
+    avatar.position.y=1.15+groundHeight(player.x,player.z)+seatLift+(walking&&!seated?Math.sin(time*17)*.035:0);
     avatar.scale.x=1+Math.sin(time*1.2)*.002;
   }
   const batching=batchStaticScene(scene,scope);
@@ -144,6 +147,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   return Object.freeze({
     scene,scope,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
-    movePlayer,faceCamera,update,setShadows,setHour,dispose,
+    movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,
+    boats:environment.boats,boatsMovable:environment.boatsMovable,seaBlockers:environment.seaBlockers,setBoatFoam:environment.setBoatFoam,
   });
 }
