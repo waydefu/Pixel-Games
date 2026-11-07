@@ -308,7 +308,8 @@ async function start(){
     const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     async function frame(now:number){
       if(!host||closed)return;
-      const dt=previous?Math.min(.05,Math.max(0,(now-previous)*.001)):0;
+      const wallDt=previous?Math.max(0,(now-previous)*.001):0;
+      const dt=Math.min(.05,wallDt); // movement stays bounded; the in-game clock must not slow with FPS
       if(previous && document.visibilityState==="visible"){
         const frameMs=now-previous;
         if(frameMs>0){
@@ -329,7 +330,7 @@ async function start(){
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
-      if(timeAuto.checked&&!reduceMotion){hour=wrapHour(hour+dt*HOURS_PER_SECOND);if(now-uiTime>1200||!uiTime)showHour();}
+      if(timeAuto.checked&&!reduceMotion){hour=wrapHour(hour+wallDt*HOURS_PER_SECOND);if(now-uiTime>1200||!uiTime)showHour();}
       world.setHour(hour);
       diagnostics.hour=hour;diagnostics.phase=describeHour(hour).phase;diagnostics.sunElevation=liveSky.elevation;
       host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays);host.setGrade({uExposure:liveSky.exposure});
