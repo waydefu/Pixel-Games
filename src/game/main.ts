@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
 import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
-import { liveSky } from "./sky-live.js";
+import { liveSky, setMoonPhase } from "./sky-live.js";
 import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
@@ -50,6 +50,9 @@ const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("
 const hourParam=Number.parseFloat(new URLSearchParams(window.location.search).get("hour")??"");
 // An explicit ?hour= also overrides a visual-audit shot, so one camera can be compared at any time of day.
 let hour=Number.isFinite(hourParam)?wrapHour(hourParam):visualShot?visualShot.hour:HOUR_START;
+// The moon waxes and wanes over eight in-game days (?phase=0..1 fixes it: 0 new, .5 full).
+const phaseParam=Number.parseFloat(new URLSearchParams(window.location.search).get("phase")??"");
+let moonPhase=Number.isFinite(phaseParam)?phaseParam:.62;setMoonPhase(moonPhase);
 const HOURS_PER_SECOND=1/40; // a full day lasts 16 real minutes
 function showHour(){
   const d=describeHour(hour);
@@ -286,10 +289,10 @@ async function start(){
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
       diagnostics.yaw=rig.yaw;diagnostics.pitch=rig.pitch;
-      if(timeAuto.checked&&!reduceMotion){hour=wrapHour(hour+dt*HOURS_PER_SECOND);if(now-uiTime>1200||!uiTime)showHour();}
+      if(timeAuto.checked&&!reduceMotion){const before=hour;hour=wrapHour(hour+dt*HOURS_PER_SECOND);if(hour<before&&!Number.isFinite(phaseParam)){moonPhase=(moonPhase+1/8)%1;setMoonPhase(moonPhase);}if(now-uiTime>1200||!uiTime)showHour();}
       world.setHour(hour);
       diagnostics.hour=hour;diagnostics.phase=describeHour(hour).phase;diagnostics.sunElevation=liveSky.elevation;
-      host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays);host.setGrade({uExposure:liveSky.exposure});
+      host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays*(1+1.4*liveSky.twilight.value));host.setGrade({uExposure:liveSky.exposure});
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
         if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);

@@ -30,7 +30,7 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   // Regress the verified old shader bug: a .11 ray clamp with an active
   // cloud horizon band formed tall rectangular cloud curtains in G4 snapshots.
   assert.match(sky,/max\(\.035,ray\.y\)/);
-  assert.match(sky,/smoothstep\(\.075,\.205,ray\.y\)/);
+  assert.match(sky,/smoothstep\(\.04,\.17,ray\.y\)/);
   assert.doesNotMatch(sky,/max\(\.11,ray\.y\)/);
   assert.match(sky,/uCloudDetailLevel>0\.5/);
   assert.match(sky,/uCloudDetailLevel>1\.5/);

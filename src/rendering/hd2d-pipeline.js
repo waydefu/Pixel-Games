@@ -18,8 +18,8 @@ import * as THREE from "three";
 
 export const TIER_FEATURES = Object.freeze({
   basic: Object.freeze({ msaa: 0, bloom: false, dof: false, bloomLevels: 0, godRays: 0 }),
-  balanced: Object.freeze({ msaa: 4, bloom: true, dof: false, bloomLevels: 4, godRays: 12 }),
-  high: Object.freeze({ msaa: 4, bloom: true, dof: true, bloomLevels: 5, godRays: 28 }),
+  balanced: Object.freeze({ msaa: 4, bloom: true, dof: false, bloomLevels: 4, godRays: 20 }),
+  high: Object.freeze({ msaa: 4, bloom: true, dof: true, bloomLevels: 5, godRays: 32 }),
 });
 
 export function getTierFeatures(quality) {
