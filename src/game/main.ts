@@ -31,7 +31,8 @@ const fullButton=element<HTMLButtonElement>("#fullscreen");
 const quality=element<HTMLSelectElement>("#quality");
 const cameraPicker=element<HTMLSelectElement>("#camera-mode");
 const projectionPicker=element<HTMLSelectElement>("#quarter-projection");
-const timeSlider=element<HTMLInputElement>("#time-of-day");
+const timeHour=element<HTMLElement>("#time-hour");
+const timeMinute=element<HTMLElement>("#time-minute");
 const timeAuto=element<HTMLInputElement>("#time-auto");
 const timeLabel=element<HTMLElement>("#time-label");
 const viewToggle=element<HTMLButtonElement>("#view-toggle");
@@ -54,10 +55,52 @@ const HOURS_PER_SECOND=1/40; // a full day lasts 16 real minutes
 function showHour(){
   const d=describeHour(hour);
   timeLabel.textContent=d.text+" "+d.phase;
-  timeSlider.value=String(hour);
+  const [hh,mm]=d.text.split(":");
+  for(const [control,value] of [[timeHour,hh],[timeMinute,mm]] as const){
+    control.textContent=value;
+    control.setAttribute("aria-valuenow",String(Number(value)));
+    control.setAttribute("aria-valuetext",value);
+  }
 }
 timeAuto.checked=!visualShot&&!Number.isFinite(hourParam);
-timeSlider.addEventListener("input",()=>{hour=wrapHour(Number.parseFloat(timeSlider.value));timeAuto.checked=false;world.setHour(hour);showHour();});
+function adjustTime(minutes:number){
+  const [hh,mm]=describeHour(hour).text.split(":").map(Number);
+  const total=((hh*60+mm+minutes)%1440+1440)%1440;
+  hour=wrapHour(total/60+1e-9); // avoid floating-point underflow when formatting exact minutes
+  timeAuto.checked=false;
+  world.setHour(hour);
+  showHour();
+}
+for(const [control,step] of [[timeHour,60],[timeMinute,1]] as const){
+  control.addEventListener("keydown",e=>{
+    if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;
+    e.preventDefault();
+    adjustTime(e.key==="ArrowUp"?step:-step);
+  });
+  control.addEventListener("wheel",e=>{
+    if(!e.deltaY)return;
+    e.preventDefault();
+    adjustTime(e.deltaY<0?step:-step);
+  },{passive:false});
+  let pointer:number|null=null,lastY=0;
+  control.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="touch"&&e.pointerType!=="pen")return;
+    pointer=e.pointerId;lastY=e.clientY;
+    control.setPointerCapture(e.pointerId);
+  });
+  control.addEventListener("pointermove",e=>{
+    if(e.pointerId!==pointer)return;
+    const steps=Math.trunc((lastY-e.clientY)/24);
+    if(steps){adjustTime(steps*step);lastY-=steps*24;}
+  });
+  const endPointer=(e:PointerEvent)=>{if(e.pointerId===pointer)pointer=null;};
+  control.addEventListener("pointerup",endPointer);
+  control.addEventListener("pointercancel",endPointer);
+  control.addEventListener("lostpointercapture",endPointer);
+}
+for(const button of document.querySelectorAll<HTMLButtonElement>("[data-time-step]")){
+  button.addEventListener("click",()=>adjustTime(Number(button.dataset.timeStep)*(button.dataset.timeUnit==="hour"?60:1)));
+}
 world.setHour(hour);showHour();
 if(visualShot){
   const poseQuery=new URLSearchParams(window.location.search);

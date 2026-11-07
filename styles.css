@@ -26,7 +26,14 @@
 .settings .credit{margin:10px 0 0;font-size:11px;line-height:1.5;opacity:.72}
 .settings .credit a{color:inherit;text-decoration:underline}
 
-.settings input[type=range]{width:100%;margin:4px 0 8px}
+.time-heading{font-size:13px;color:#d7e7e3;margin-bottom:6px}
+.time-picker{display:flex;justify-content:center;align-items:center;gap:8px;margin:0 0 10px;color:#f5efdb}
+.time-column{display:flex;flex-direction:column;align-items:center}
+.time-column button{width:58px;min-height:36px;border:0;background:transparent;color:#d9be82;font-size:14px;touch-action:manipulation}
+.time-column button:hover{background:rgba(229,196,137,.12)}
+.time-value{min-width:58px;padding:3px 4px;text-align:center;font:600 25px/1.2 ui-monospace,monospace;font-variant-numeric:tabular-nums;touch-action:none;user-select:none;cursor:ns-resize}
+.time-value:focus-visible{outline:3px solid #ffe5a0;outline-offset:2px}
+.time-separator{font:600 25px ui-monospace,monospace}
 .settings label.check{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.4;margin:2px 0 8px}
 
 /* Fishing HUD: above the look hint on the right, clear of the joystick on the left. */
