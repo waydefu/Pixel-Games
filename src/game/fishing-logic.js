@@ -101,6 +101,8 @@ export function createFishing({ rng = Math.random, castTime = .8, strikeWindow =
         break;
       }
       case "strike":
+        // the fish is already running with the lure: it drags it away from the angler while the hook can still be set
+        state.lureDistance = Math.min(MAX_LINE - 6, state.lureDistance + (2.4 + (state.strength || 1)) * dt);
         if (pressed) hook();
         else if (clock - state.t > strikeWindow) lose("魚吐鉤了…");
         break;

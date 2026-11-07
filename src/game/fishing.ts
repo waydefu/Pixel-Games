@@ -365,7 +365,7 @@ export function createFishingView(opts:{
         if(phase==="strike"){
           // the strike: the lure is yanked under and darts to one side, throwing a splash
           const u=Math.min(1,(now-strikeStart)/.45);
-          height-=.12+.18*Math.sin(Math.min(1,u*1.4)*Math.PI);sway+=strikeSide*(.3+1.9*(1-Math.pow(1-u,2)));along-=.5*u;
+          height-=.12+.18*Math.sin(Math.min(1,u*1.4)*Math.PI);sway+=strikeSide*(.3+1.9*(1-Math.pow(1-u,2)));
           if(now-strikeSplashAt>.35){splash(lurePos.x,lurePos.z,.55,now);strikeSplashAt=now;}}
         if(phase==="fighting"){
           // The fish runs: the lure is dragged across the surface in long sweeps, leaving a wake. It rests, then is pulled in.

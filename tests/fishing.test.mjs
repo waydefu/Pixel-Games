@@ -222,3 +222,20 @@ test("a tap squeezed between two frames still sets the hook while the reel is he
   const src = read("src/game/fishing.ts");
   assert.match(src, /if\(tap&&lastHold\)logic\.update\(\.001,false\)/);
 });
+
+test("when a fish strikes it drags the lure away from the angler", () => {
+  const f = createFishing({ rng: mulberry32(11) });
+  let atStrike = null, later = null;
+  for (let i = 0; i < 60 * 40; i++) {
+    const s = f.state;
+    f.update(DT, s.phase === "idle" || s.phase === "lure" || (s.phase === "charging" && s.power < .45));
+    if (s.phase === "strike") { if (atStrike === null) atStrike = s.lureDistance; later = s.lureDistance; if (later > atStrike + 1) break; }
+  }
+  assert.ok(atStrike !== null && later > atStrike + 1, `the lure is pulled out (${atStrike} -> ${later})`);
+});
+
+test("no torch stands on the centreline of the pier: an angler at its end looks straight out to sea", () => {
+  const src = read("src/game/architecture.ts");
+  assert.doesNotMatch(src, /\[28\.6,8\]/);
+  assert.match(src, /\[28\.6,5\.5\],\[28\.6,10\.5\]/);
+});
