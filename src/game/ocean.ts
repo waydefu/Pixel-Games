@@ -138,10 +138,10 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         n=normalize(n+vec3(nDetail.x,0.0,nDetail.z)*uDetail);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         // Reference palette: pale aqua over sand at the shore -> vivid turquoise -> deep cobalt.
-        vec3 pale=vec3(.50,.84,.80),turquoise=vec3(.022,.56,.60),cobalt=vec3(.005,.16,.40);
+        vec3 pale=vec3(.42,.60,.56),turquoise=vec3(.03,.30,.36),cobalt=vec3(.008,.11,.24);
         // Narrow pale shallows; the deeper colours take over quickly so the bay reads as sea, not a lagoon.
-        vec3 water=mix(pale,turquoise,smoothstep(0.3,2.4,vDist));
-        water=mix(water,cobalt,smoothstep(3.5,32.0,vDist));
+        vec3 water=mix(pale,turquoise,smoothstep(0.3,3.0,vDist));
+        water=mix(water,cobalt,smoothstep(2.5,24.0,vDist));
         // As a WebGL2 fallback, reflection includes a simple analytic sky tint,
         // not a falsely claimed SSR or world-space environment probe.
         vec3 reflected=reflect(-v,n);
@@ -160,7 +160,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         vec2 distortion=nDetail.xz*(.001+1.0/eyeDist)*distortionScale;
         vec3 mirrorSample=texture2D(mirrorSampler,mirrorCoord.xy/mirrorCoord.w+distortion).rgb;
         vec3 reflection=mix(sky,mirrorSample,uReflect);
-        float reflectMix=mix(clamp(f*.66+.09,0.0,.67),clamp(f*.9+.05,0.0,.86),uReflect);
+        float reflectMix=mix(clamp(f*.66+.09,0.0,.67),clamp(f*.78+.05,0.0,.74),uReflect);
         water=mix(water,reflection,reflectMix);
         float sunRef=max(0.0,dot(reflect(-normalize(uSunDirection),n),v));
         // Glitter path toward the sun: a tight HDR core plus a broad warm sheen (both feed bloom).
@@ -178,7 +178,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         vec2 cp=vWorld.xz*2.1;
         float cA=noise(cp+vec2(uTime*.21,uTime*.13)),cB=noise(cp*1.3-vec2(uTime*.17,uTime*.23)+4.7);
         float caustic=pow(clamp(1.0-abs(cA-cB)*5.5,0.0,1.0),5.0);
-        water+=vec3(.50,.68,.58)*caustic*(1.0-smoothstep(1.5,10.0,vDist))*.30;
+        water+=vec3(.46,.62,.54)*caustic*(1.0-smoothstep(1.5,10.0,vDist))*.18;
         float shoreline=(1.0-smoothstep(.0,2.65,vDist))*(1.0-smoothstep(34.0,48.0,abs(vWorld.z)));
         float moving=sin(vWorld.z*.85+uTime*1.8+noise(vWorld.xz*.5)*5.0);
         float foam=shoreline*smoothstep(.45,.76,
@@ -199,7 +199,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
             shoal=max(shoal,1.0-smoothstep(.0,2.2,edge));
           }
         }
-        water=mix(water,vec3(.50,.88,.82),shoal*.28);
+        water=mix(water,vec3(.42,.70,.66),shoal*.16);
         water=mix(water,vec3(.86,.93,.88),clamp(spotFoam*.72,0.0,.7));
         // Deep water goes dark at night, caustics and foam included; the sun and moon glitter stay bright.
         water=water*(.12+.88*uDayLight)+glitter;
