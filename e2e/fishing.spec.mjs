@@ -4,7 +4,10 @@ const POSE = "./?visualShot=shot-03-first-pier&x=27&z=8&yaw=-1.5708&pitch=-.12&f
 
 async function ready(page) {
   await page.waitForFunction(() => ["ready", "unsupported", "failed"].includes(window.__pixelGame?.read().status), null, { timeout: 30000 });
-  return (await page.evaluate(() => window.__pixelGame.read().status)) !== "unsupported";
+  const state = await page.evaluate(() => window.__pixelGame.read().status);
+  if (state === "unsupported") return false;
+  expect(state).toBe("ready"); // A failed WebGL initialization must never silently pass.
+  return true;
 }
 
 test("lure fishing from the pier: hold to charge, release to cast, then the lure is retrieved", async ({ page }) => {
@@ -19,7 +22,9 @@ test("lure fishing from the pier: hold to charge, release to cast, then the lure
   await expect(page.locator("#fish-meter")).toBeVisible();
   await expect(button).toHaveText("放開拋竿！");
   await page.keyboard.up("f");
-  await expect(button).toHaveText("按住收線 (F)", { timeout: 20000 });
+  // Casting intentionally hides the button until the lure lands; SwiftShader advances the
+  // simulation in far fewer frames than a real GPU, so allow for that state transition.
+  await expect(button).toHaveText("按住收線 (F)", { timeout: 40000 });
   await expect(page.locator("#fish-distance")).toContainText("路亞距離");
   const distance = async () => Number.parseFloat((await page.locator("#fish-distance").textContent()).match(/([\d.]+) 公尺/)[1]);
   const before = await distance();

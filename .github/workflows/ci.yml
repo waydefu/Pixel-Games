@@ -14,8 +14,12 @@ concurrency:
 
 jobs:
   validate:
-    name: Build, typecheck, unit and browser tests
+    name: Verify (${{ matrix.browser }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [desktop-chromium, mobile-chromium]
     timeout-minutes: 18
     steps:
       - name: Checkout pinned v7.0.1 (Node 24)
@@ -41,20 +45,33 @@ jobs:
           done
           exit 1
       - name: Browser smoke test (desktop and mobile viewport)
-        run: npm run test:e2e
+        run: npm run test:e2e -- --project=${{ matrix.browser }}
       # Expensive PNG capture is opt-in for future PRs; G2 gets an initial
       # source-backed visual baseline without charging every tiny code change.
       - name: Capture G2 visual audit PNG and metrics (opt-in)
-        if: ${{ github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        if: ${{ matrix.browser == 'desktop-chromium' && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
         run: npm run visual:audit
         env:
           # G4 must actually render its HDR/DoF path in the captured screenshots.
           VISUAL_AUDIT_QUALITY: ${{ github.head_ref == 'feat/g4-cinematic-post-and-visual-overhaul-20261105' && 'high' || 'balanced' }}
       - name: Upload G2 visual audit evidence
-        if: ${{ always() && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        if: ${{ always() && matrix.browser == 'desktop-chromium' && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
         with:
           name: visual-audit-${{ github.run_id }}
           path: visual-audit-output/
           retention-days: 7
           if-no-files-found: warn
+
+  # Keep the branch protection's existing required check name, while allowing both
+  # browser suites to run in parallel. The gate fails unless *all* matrix jobs pass.
+  required:
+    name: Build, typecheck, unit and browser tests
+    needs: validate
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require desktop and mobile verification
+        env:
+          MATRIX_RESULT: ${{ needs.validate.result }}
+        run: test "$MATRIX_RESULT" = "success"
