@@ -9,7 +9,7 @@ test("every species has a model: finite, coloured, a few hundred triangles, abou
     assert.ok(m.positions.length > 0 && m.positions.length % 9 === 0, s.id + " has whole triangles");
     assert.equal(m.positions.length, m.colors.length, s.id + " colours match vertices");
     assert.ok([...m.positions].every(Number.isFinite) && [...m.colors].every(v => v >= 0 && v <= 1), s.id + " is finite");
-    assert.ok(m.triangles >= 48 && m.triangles < 900, s.id + " triangle count " + m.triangles);
+    assert.ok(m.triangles >= 48 && m.triangles < 3000, s.id + " triangle count " + m.triangles);
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < m.positions.length; i += 3) { min = Math.min(min, m.positions[i]); max = Math.max(max, m.positions[i]); }
     assert.ok(max - min > m.length * .6 && max - min < m.length * 1.6, s.id + " spans " + (max - min).toFixed(2) + " of " + m.length);

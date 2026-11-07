@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createFishing, isOpenWater, SPECIES, CAST_RANGE, MAX_LINE, SWEET_ZONE } from "./fishing-logic.js";
 import { createRope } from "./rope.js";
 import { buildCatchModel } from "./fish-model.js";
+import { createRodModel } from "./rod-model.js";
 import { mulberry32 } from "./wander.js";
 import type { CameraMode } from "./camera.js";
 
@@ -27,68 +28,20 @@ export function createFishingView(opts:{
   const fishSeed=Number.parseInt(new URLSearchParams(window.location.search).get("fishSeed")??"",10);
   const logic=createFishing({rng:mulberry32(Number.isFinite(fishSeed)?fishSeed:Date.now()&0xffff)});
   const effects=mulberry32(99);
+  // Audit only: ?rodView=1 lays the rod across the screen with the reel's handle side toward the camera.
+  const rodViewParam=new URLSearchParams(window.location.search).get("rodView"),rodView=rodViewParam==="1"||rodViewParam==="2";
+  const viewMap=new THREE.Matrix4().makeBasis(new THREE.Vector3(0,0,1),new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0));
   const dir=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),origin={x:0,z:0};
   const right=new THREE.Vector3(),forward=new THREE.Vector3(),tip=new THREE.Vector3(),zAxis=new THREE.Vector3();
   const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),matrix=new THREE.Matrix4(),quat=new THREE.Quaternion(),scaleV=new THREE.Vector3();
 
-  // ============ the rod: a tapered cane built from 9 instanced segments that bend, with guides, cork grip and reel ============
-  const SEGMENTS=10,ROD_LENGTH=3.4,segLength=ROD_LENGTH/SEGMENTS;   // a 7-8 ft spinning rod, drawn long enough to read in first person
-  const rod=new THREE.Group();rod.visible=false;rod.userData.dynamic=true;scene.add(rod);
-  const caneMaterial=scope.track(new THREE.MeshStandardMaterial({roughness:.55,emissive:"#2a1a0c",emissiveIntensity:.55}));
-  const segmentGeometry=scope.track(new THREE.CylinderGeometry(.5,.5,1,8));
-  const segments=new THREE.InstancedMesh(segmentGeometry,caneMaterial,SEGMENTS);
-  const caneColor=[new THREE.Color("#6e4526"),new THREE.Color("#5f3b20"),new THREE.Color("#6e4526")];
-  for(let i=0;i<SEGMENTS;i++)segments.setColorAt(i,i===2||i===5||i===8?new THREE.Color("#5a2f22"):caneColor[i%3]);  // thread wraps
-  segments.frustumCulled=false;rod.add(segments);
-  const metal=scope.track(new THREE.MeshStandardMaterial({color:"#cfd3d6",roughness:.35,metalness:.8,emissive:"#222629",emissiveIntensity:.5}));
-  const guideGeometry=scope.track(new THREE.TorusGeometry(.022,.0035,6,12));
-  const GUIDE_AT=[1,2,3,4,5,7,9];
-  const guides=new THREE.InstancedMesh(guideGeometry,metal,GUIDE_AT.length);guides.frustumCulled=false;rod.add(guides);
-  const cork=scope.track(new THREE.MeshStandardMaterial({color:"#c89a62",roughness:.9,emissive:"#5a3d1c",emissiveIntensity:.6}));
-  const dark=scope.track(new THREE.MeshStandardMaterial({color:"#2a2624",roughness:.7,emissive:"#161312",emissiveIntensity:.6}));
-  const grip=new THREE.Mesh(scope.track(new THREE.CylinderGeometry(.023,.021,.3,10)),cork);grip.position.y=-.1;
-  const butt=new THREE.Mesh(scope.track(new THREE.CylinderGeometry(.022,.026,.04,10)),dark);butt.position.y=-.27;
-  const reelSeat=new THREE.Mesh(scope.track(new THREE.BoxGeometry(.03,.07,.04)),metal);reelSeat.position.set(0,.03,-.045);
-  const spool=new THREE.Mesh(scope.track(new THREE.CylinderGeometry(.03,.03,.034,14)),dark);spool.rotation.z=Math.PI/2;spool.position.set(0,.03,-.075);
-  const crank=new THREE.Group();
-  const arm=new THREE.Mesh(scope.track(new THREE.BoxGeometry(.006,.006,.07)),metal);arm.position.z=.035;
-  const knob=new THREE.Mesh(scope.track(new THREE.SphereGeometry(.012,8,6)),cork);knob.position.z=.07;
-  crank.add(arm,knob);crank.position.set(.024,.03,-.075);
-  rod.add(grip,butt,reelSeat,spool,crank);
-  for(const m of [grip,butt,reelSeat,spool,arm,knob]){m.castShadow=false;m.receiveShadow=false;}
-
-  // chain state of the last frame: tip position in rod space
-  const rodTipLocal=new THREE.Vector3(),chain=new THREE.Matrix4(),link=new THREE.Matrix4(),bendRot=new THREE.Matrix4();
-  function buildRod(bend:number,bendSign:number){
-    chain.identity();
-    let guide=0;
-    for(let i=0;i<SEGMENTS;i++){
-      const radius=.0135*Math.pow(1-i/SEGMENTS,1.2)+.0028;
-      link.makeTranslation(0,segLength/2,0);
-      matrix.multiplyMatrices(chain,link);
-      matrix.decompose(tmp,quat,scaleV);
-      scaleV.set(radius*2,segLength*1.02,radius*2);
-      matrix.compose(tmp,quat,scaleV);
-      segments.setMatrixAt(i,matrix);
-      // the bend grows toward the tip: a cane is stiff at the butt
-      const step=bend*bendSign*(.35+1.3*(i/(SEGMENTS-1)))/SEGMENTS;
-      link.makeTranslation(0,segLength/2,0);chain.multiply(link);
-      if(GUIDE_AT.includes(i)){
-        matrix.copy(chain);
-        matrix.decompose(tmp,quat,scaleV);
-        // a ring hanging under the shaft, plane across it
-        tmp2.set(0,0,-.03*bendSign).applyQuaternion(quat);
-        tmp.add(tmp2);
-        quat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2));
-        matrix.compose(tmp,quat,new THREE.Vector3(1,1,1));
-        guides.setMatrixAt(guide++,matrix);
-      }
-      bendRot.makeRotationX(step);chain.multiply(bendRot);
-    }
-    rodTipLocal.setFromMatrixPosition(chain);
-    segments.instanceMatrix.needsUpdate=true;guides.instanceMatrix.needsUpdate=true;
-    if(segments.instanceColor)segments.instanceColor.needsUpdate=true;
-  }
+  // ============ the rod: a spinning combo modelled in rod-model.ts (bending carbon blank, guides, EVA grip, reel) ============
+  const rodModel=createRodModel(scope);
+  const rod=rodModel.group;scene.add(rod);
+  const ROD_LENGTH=rodModel.ROD_LENGTH;void ROD_LENGTH;
+  const rodTipLocal=rodModel.tipLocal;
+  const buildRod=rodModel.build;
+  let crankAngle=0;
 
   // ============ the bobber, the line, splash ring, droplets ============
   // The lure: a painted minnow plug with a diving lip and treble hooks, drawn about twice life size so it reads.
@@ -300,7 +253,7 @@ export function createFishingView(opts:{
       phase==="fighting"?"張力保持在綠色區：太緊放線、太鬆收線":phase==="casting"||phase==="landed"||phase==="lost"?"":idleHint);
 
     // ---------- the rod ----------
-    const showRod=mode==="first"&&(active||nearWater()||body!=="hidden");
+    const showRod=mode==="first"&&(rodView||active||nearWater()||body!=="hidden");
     rod.visible=showRod;
     const since=now-castStart;
     // pitch of the rod about the angler's right axis: rests raised, cocks back while charging, whips forward, settles
@@ -315,10 +268,14 @@ export function createFishingView(opts:{
     else if(phase==="landed")pitch=.95-smooth(0,1.2,now-landedAt)*.35;
     else if(active)pitch=.36+Math.sin(now*1.3)*.012;
     const bobbing=active?Math.sin(now*1.7)*.008:Math.sin(now*.8)*.004;
-    rod.position.set(camera.position.x+right.x*.3+forward.x*.4,camera.position.y-.34+bobbing,camera.position.z+right.z*.3+forward.z*.4);
+    rod.position.set(camera.position.x+right.x*.27+forward.x*.52,camera.position.y-.27+bobbing,camera.position.z+right.z*.27+forward.z*.52);
     rod.quaternion.copy(camera.quaternion);
     rod.rotateX(-Math.PI/2+pitch);   // the shaft points forward, `pitch` radians above the horizon
     rod.rotateZ(-.3);
+    if(rodView){
+      rod.position.set(camera.position.x+forward.x*(rodViewParam==="2"?.34:.62)-right.x*(rodViewParam==="2"?.02:.18),camera.position.y-.03,camera.position.z+forward.z*(rodViewParam==="2"?.34:.62)-right.z*(rodViewParam==="2"?.02:.18));
+      rod.quaternion.copy(camera.quaternion).multiply(new THREE.Quaternion().setFromRotationMatrix(viewMap));
+    }
     rod.updateMatrixWorld(true);
     zAxis.set(0,0,1).transformDirection(rod.matrixWorld);
     const bendSign=zAxis.y<0?1:-1;
@@ -447,7 +404,8 @@ export function createFishingView(opts:{
   function spoolSpin(phase:string,holding:boolean){
     // the reel's crank turns while the line comes in (hold) and spins free as the line goes out
     const turning=(holding&&(phase==="lure"||phase==="fighting"))?.5:(phase==="fighting"?-.25:phase==="casting"?.6:0);
-    crank.rotation.x=(crank.rotation.x+turning)%(Math.PI*2);
+    crankAngle=(crankAngle+turning)%(Math.PI*2);
+    rodModel.spin(crankAngle);
   }
   return {update,logic,tally:()=>tally,species:SPECIES.length,maxLine:MAX_LINE};
 }
