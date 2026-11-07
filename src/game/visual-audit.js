@@ -12,8 +12,8 @@ export const VISUAL_SHOTS=Object.freeze([
   supported("shot-06-mobile-portrait","quarter",9,4.2,0,0,"mobile"),
   supported("shot-07-dusk","quarter",9,4.2,0,0,"desktop",18.9),
   supported("shot-08-night-moon","first",24,8,-1.5708,.42,"desktop",21.2),
-  supported("shot-09-sunrise-sea","first",24,8,-1.5708,.06,"desktop",6.3),
-  supported("shot-10-sunset-village","first",14.5,8,1.5708,.04,"desktop",17.8),
+  supported("shot-09-sunrise-mountain","first",14.5,8,1.5708,.10,"desktop",6.3),
+  supported("shot-10-sunset-sea","first",24,8,-1.5708,.06,"desktop",17.8),
 ]);
 export function getVisualShot(id){
   return VISUAL_SHOTS.find(shot=>shot.id===id&&shot.status==="supported")??null;

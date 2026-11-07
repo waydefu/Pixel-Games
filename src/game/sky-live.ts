@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { skyAt, HOUR_START } from "./time-of-day.js";
+let storedPhase=.5;
 
 /**
  * Live sky state shared by every renderer module. Shaders hold references to these exact Vector3/Color
@@ -12,17 +13,22 @@ export const liveSky={
   zenith:color(),mid:color(),horizon:color(),fog:color(),sunColor:color(),
   hemiSky:color(),hemiGround:color(),moonColor:color(),cloudLit:color(),cloudShade:color(),
   // scalar uniforms are {value} objects so shaders can share them directly
-  night:{value:0},dayLight:{value:1},lampGlowU:{value:0},starAlpha:{value:0},moonStrength:{value:0},
+  windDir:{value:new THREE.Vector2(1,0)},windStrength:{value:1},
+  weatherDark:{value:0},weatherFlash:{value:0},weatherFog:{value:0},weatherRain:{value:0},
+  night:{value:0},dayLight:{value:1},twilight:{value:0},moonPhase:{value:.5},skyHour:{value:12},lampGlowU:{value:0},starAlpha:{value:0},moonStrength:{value:0},
   sunIntensity:0,hemiIntensity:1,moonIntensity:0,exposure:1,sunRays:1,lampGlow:0,hour:HOUR_START,elevation:30,
 };
 const set=(c:THREE.Color,v:number[])=>c.setRGB(v[0],v[1],v[2]);
-export function applyHour(hour:number){
-  const s=skyAt(hour);
+export function applyHour(hour:number,phase=storedPhase){
+  storedPhase=phase;
+  const s=skyAt(hour,phase);
+  liveSky.moonPhase.value=phase;liveSky.skyHour.value=s.hour;
   liveSky.sunDir.set(s.sunDir.x,s.sunDir.y,s.sunDir.z);
   liveSky.moonDir.set(s.moonDir.x,s.moonDir.y,s.moonDir.z);
   set(liveSky.zenith,s.zenith);set(liveSky.mid,s.mid);set(liveSky.horizon,s.horizon);set(liveSky.fog,s.fog);
   set(liveSky.sunColor,s.sunColor);set(liveSky.hemiSky,s.hemiSky);set(liveSky.hemiGround,s.hemiGround);
   set(liveSky.moonColor,s.moonColor);set(liveSky.cloudLit,s.cloudLit);set(liveSky.cloudShade,s.cloudShade);
+  liveSky.twilight.value=s.twilight;
   liveSky.night.value=s.night;liveSky.dayLight.value=s.dayLight;liveSky.starAlpha.value=s.starAlpha;
   liveSky.moonStrength.value=.25+.75*s.night;
   liveSky.lampGlowU.value=s.lampGlow;
@@ -32,3 +38,6 @@ export function applyHour(hour:number){
   return s;
 }
 applyHour(HOUR_START);
+
+/** The moon's phase (0 new, .5 full): applied with the next applyHour. */
+export function setMoonPhase(phase:number){storedPhase=((phase%1)+1)%1;}

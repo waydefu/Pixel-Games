@@ -30,12 +30,12 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   // Regress the verified old shader bug: a .11 ray clamp with an active
   // cloud horizon band formed tall rectangular cloud curtains in G4 snapshots.
   assert.match(sky,/max\(\.035,ray\.y\)/);
-  assert.match(sky,/smoothstep\(\.075,\.205,ray\.y\)/);
+  assert.match(sky,/smoothstep\(\.04,\.17,ray\.y\)/);
   assert.doesNotMatch(sky,/max\(\.11,ray\.y\)/);
   assert.match(sky,/uCloudDetailLevel>0\.5/);
   assert.match(sky,/uCloudDetailLevel>1\.5/);
   assert.match(sky,/quality==="high"\?2:quality==="balanced"\?1:0/);
-  assert.match(world,/fjord\.setSkyQuality\(quality\)/);
+  assert.match(world,/fjord\.setSkyQuality\(heavy\)/);
   assert.match(world,/cloudField\.setStrength\(\(quality/); // preset strength, scaled by daylight
   assert.match(cloud,/uCloudMap:\{value:texture\}/);
   assert.match(cloud,/uCloudWind\.value\.set/);
@@ -59,4 +59,19 @@ test("Beer-Lambert optical density retains monotone bounded opacity",()=>{
   assert.equal(opacity(0),0);
   assert.ok(opacity(2)>opacity(1));
   assert.ok(opacity(8)>.99);
+});
+
+test("clouds are volumetric (height-field normals, a march toward the sun), have no straight streak layer, and dim the direct sun", async () => {
+  const fs = await import("node:fs");
+  const fjord = fs.readFileSync(new URL("../src/game/fjord.ts", import.meta.url), "utf8");
+  assert.match(fjord, /marchSteps/);
+  assert.match(fjord, /vec3 bump=normalize/);
+  assert.doesNotMatch(fjord, /float streak=/);
+  assert.match(fs.readFileSync(new URL("../src/game/cloud-field.ts", import.meta.url), "utf8"), /function sunOcclusion/);
+  assert.match(fs.readFileSync(new URL("../src/game/world.ts", import.meta.url), "utf8"), /environment\.setSunTransmit\(transmit\)/);
+  assert.match(fs.readFileSync(new URL("../src/game/environment.ts", import.meta.url), "utf8"), /liveSky\.sunIntensity\*sunTransmit/);
+  // the moon's dark side is sky, not a black disc; stars come in three magnitude classes
+  assert.match(fjord, /dark side is sky/);
+  assert.match(fjord, /for\(int k=0;k<3;k\+\+\)/);
+  assert.doesNotMatch(fjord, /diffraction|cross\*/);
 });

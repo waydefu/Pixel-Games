@@ -14,6 +14,9 @@ import { createLife } from "./life.js";
 import { batchStaticScene } from "./batch.js";
 import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
+import { createWind, gustAt } from "./wind.js";
+import { createWeather } from "./weather.js";
+import { createWeatherView } from "./weather-view.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
 
@@ -101,7 +104,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   }
   function faceCamera(camera:THREE.Camera){
     life.face(camera);
-    camera.getWorldPosition(cameraPosition);
+    camera.getWorldPosition(cameraPosition);lastCamera.copy(cameraPosition);
     camera.getWorldDirection(viewDir);
     screenUp.set(viewDir.x,0,viewDir.z);
     if(screenUp.lengthSq()>1e-6){screenUp.normalize();screenRight.set(-screenUp.z,0,screenUp.x);}
@@ -110,16 +113,41 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   /** Move the whole world to an hour of the day (sun, moon, haze, lights, lit windows). */
   function setHour(hour:number){
     applyHour(hour);
-    (scene.fog as THREE.FogExp2).color.copy(liveSky.fog);
-    (scene.background as THREE.Color).copy(liveSky.fog);
+    const dim=1-.5*weather.state.dark,flashFog=weather.state.flash*.5;
+    (scene.fog as THREE.FogExp2).color.copy(liveSky.fog).multiplyScalar(dim).addScalar(flashFog*.3);
+    (scene.background as THREE.Color).copy(liveSky.fog).multiplyScalar(dim);
     const lamp=.12+.88*liveSky.lampGlow;
     kit.emissives.forEach((m,i)=>{m.emissiveIntensity=emissiveBase[i]*lamp;});
     spriteMaterial.emissiveIntensity=.30+.32*liveSky.dayLight.value;
     cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
     environment.applySky({x:player.x,z:player.z});
   }
+  const wind=createWind();
+  // Weather: a state machine (or ?weather=storm to fix it) that the sky, light, sea, wind, rain and sound all follow.
+  const weatherParam=new URLSearchParams(window.location.search).get("weather");
+  const weather=createWeather({lock:weatherParam&&weatherParam!=="auto"?weatherParam:null});
+  const weatherView=createWeatherView(scene,scope);
+  let lastCamera=new THREE.Vector3(0,2,0);
+  let transmit=1;
   function update(time:number){
-    cloudField.update(time);
+    weather.update(time);
+    const W=weather.state;
+    liveSky.weatherDark.value=W.dark;liveSky.weatherFlash.value=W.flash;liveSky.weatherFog.value=W.fog;liveSky.weatherRain.value=W.rain;
+    wind.setClimate(W.wind);
+    cloudField.setBias((W.cover-.8)*.30);fjord.setCloudAmount(.55+.75*W.cover);
+    (scene.fog as THREE.FogExp2).density=FOG_DENSITY*(1+W.fog*3.2+W.rain*.8);
+    environment.hemiScale(1-.3*W.dark+W.flash*2.2);
+    environment.setSeaWeather(1+.9*W.storm+.35*W.rain,W.dark*(.6+.4*W.storm));
+    wind.update(time);
+    cloudField.uniforms.uPlayerPos.value.set(player.x,0,player.z);
+    // sky drift moves faster than the ground drift (see wind.js): the clouds use the aloft drift, the grass and trees the same wind's gust fronts
+    liveSky.windDir.value.set(wind.state.dx,wind.state.dz);liveSky.windStrength.value=wind.state.strength;
+    cloudField.setWind(wind.state.aloftDriftX,wind.state.aloftDriftZ,wind.state.strength);
+    // A cloud between the sun and the traveller takes most of the direct light (and the shadows soften with it).
+    const occ=cloudField.sunOcclusion(player.x,player.z,liveSky.sunDir)*liveSky.dayLight.value;
+    transmit+=((1-.78*occ)*(1-.85*W.dark)-transmit)*.04;
+    environment.setSunTransmit(transmit);
+    weatherView.update({dt:.016,time,cam:lastCamera,wind:{x:wind.state.dx,z:wind.state.dz},windStrength:wind.state.strength,rain:W.rain,flash:W.flash,dark:W.dark,bolt:weather.bolt,light:liveSky.dayLight.value});
     lights.update(player,liveSky.lampGlow,time);
     life.update(time);
     fixtures.animate(time,liveSky.lampGlow);
@@ -135,19 +163,25 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced",softwareGpu=false){
     environment.sunlight.castShadow=enabled;
-    cloudField.setStrength((quality==="basic"?.16:quality==="high"?.30:.24)*liveSky.dayLight.value);
-    fjord.setSkyQuality(quality);
-    const density=quality==="basic"?.36:quality==="balanced"?.70:1;
+    // A software rasteriser (CI, headless) takes seconds per frame: the High tier's volumetric clouds, 14000 raindrops and
+    // dense grass would only make it unusable, so there they run at the Balanced level. `?mirror=1` keeps the full High.
+    const heavy:"basic"|"balanced"|"high"=softwareGpu&&quality==="high"?"balanced":quality;
+    cloudField.setStrength((quality==="basic"?.2:quality==="high"?.42:.34)*liveSky.dayLight.value);
+    fjord.setSkyQuality(heavy);
+    weatherView.setQuality(heavy);
+    const density=heavy==="basic"?.36:heavy==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier
-    cloudStrength=quality==="basic"?.16:quality==="high"?.30:.24;
+    cloudStrength=quality==="basic"?.2:quality==="high"?.42:.34;
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,scope,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
     movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,
+    weather,setWeather:(name:string|null)=>weather.setLock(name),takeThunder:(dt:number)=>weather.takeThunder(dt),
+    gulls:()=>life.gullPositions(),gustAt:(x:number,z:number)=>gustAt(x,z,wind.state.aloftDriftX,wind.state.aloftDriftZ),
     boats:environment.boats,boatsMovable:environment.boatsMovable,seaBlockers:environment.seaBlockers,setBoatFoam:environment.setBoatFoam,
   });
 }

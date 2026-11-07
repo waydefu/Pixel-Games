@@ -185,9 +185,9 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   const grassMaterial=k.solid("#8ba777");
   addVegetationWind(grassMaterial,cloudField,.13);
   const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
-  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,1600));
+  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,9000));
   let count=0;
-  for(let i=0;i<3100&&count<1600;i++){
+  for(let i=0;i<22000&&count<9000;i++){
     const x=-38+noise(i*3.03)*48,z=-34+noise(i*4.19)*68;
     if(Math.abs(z)<4.1&&x>-32||isReserved(x,z))continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
@@ -238,15 +238,18 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     applySky(player);
   }
   /** Sun, moon and sky light from the live sky; the shadow camera follows the player. */
+  /** 0..1 how much of the direct sun reaches the ground (a cloud overhead takes most of it). */
+  let sunTransmit=1,hemiScale=1;
+  function setSunTransmit(v:number){sunTransmit=THREE.MathUtils.clamp(v,0,1);}
   function applySky(player?:{x:number;z:number}){
     const px=player?.x??0,pz=player?.z??0;
     // Keep a minimum elevation for the shadow camera so dawn/dusk shadows stay stable instead of infinite.
     const lift=Math.max(.16,liveSky.sunDir.y);
     sunlight.position.set(px+liveSky.sunDir.x*34,lift*34,pz+liveSky.sunDir.z*34);
     sunlight.color.copy(liveSky.sunColor);
-    sunlight.intensity=liveSky.sunIntensity;
-    sunlight.visible=liveSky.sunIntensity>.01;
-    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity;
+    sunlight.intensity=liveSky.sunIntensity*sunTransmit;
+    sunlight.visible=liveSky.sunIntensity*sunTransmit>.01;
+    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity*hemiScale;
     moonlight.position.set(px+liveSky.moonDir.x*34,Math.max(.25,liveSky.moonDir.y)*34,pz+liveSky.moonDir.z*34);
     moonlight.color.copy(liveSky.moonColor);moonlight.intensity=liveSky.moonIntensity;
     moonlight.visible=liveSky.moonIntensity>.01;
@@ -254,10 +257,10 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   function setFoliageDensity(factor:number){
     const amount=THREE.MathUtils.clamp(factor,0,1);
     shrubs.count=Math.round(shrubCount*amount);
-    grass.count=Math.round(count*amount);
+    grass.count=Math.round(count*Math.pow(amount,2.2));   // Basic ~1k blades, Balanced ~4k, High 9k
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,moonlight,update,applySky,setFoliageDensity,setSeaReflection:ocean.setReflection,sea:ocean.material,
+  return {sunlight,moonlight,update,applySky,setSunTransmit,setSeaWeather:ocean.setWeather,hemiScale:(v:number)=>{hemiScale=v;},setFoliageDensity,setSeaReflection:ocean.setReflection,sea:ocean.material,
     boats:boats.boats,boatsMovable:boats.movable,seaBlockers:foamSpots,setBoatFoam:ocean.setBoats};
 }

@@ -46,7 +46,7 @@ test("sky and terrain share one moving cloud map and sun-projected shadows",()=>
   assert.match(field,/uCloudWind\.value\.set/);
   assert.match(field,/1\.0-uCloudStrength\*cloudOcclusion/);
   assert.match(world,/const cloudField=createCloudField\(scope\)/);
-  assert.match(world,/cloudField\.update\(time\)/);
+  assert.match(world,/cloudField\.setWind\(wind\.state\.aloftDriftX/);
   assert.match(world,/forest\.setDensity\(density\)/);
   assert.match(world,/environment\.setFoliageDensity\(density\)/);
   assert.match(fjord,/texture2D\(uCloudMap,cloudUV\)/);
@@ -58,7 +58,7 @@ test("near-coast plants include branch silhouettes and instanced shrubs/grass",(
   const s=read("environment.ts");
   assert.match(s,/name="coastal-understory-shrubs"/);
   assert.match(s,/new THREE\.InstancedMesh\(shrubGeo,shrubMat,280\)/);
-  assert.match(s,/new THREE\.InstancedMesh\(grassGeom,grassMaterial,1600\)/);
+  assert.match(s,/new THREE\.InstancedMesh\(grassGeom,grassMaterial,9000\)/);
   assert.match(s,/getTreeKit\(k,cloudField\)/);   // town trees: procedural branches + leaf cards
   assert.match(s,/treeKit\.plant\(/);
 });
