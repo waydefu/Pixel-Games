@@ -34,8 +34,20 @@
         <option value="perspective" selected>微縮透視（景深）</option>
         <option value="orthographic">經典正交</option>
       </select>
-      <label for="time-of-day">時間 <span id="time-label" aria-live="off">09:30 白天</span></label>
-      <input id="time-of-day" type="range" min="0" max="24" step="0.05" value="9.5" aria-label="一天中的時間">
+      <div class="time-heading">時間 <span id="time-label" aria-live="off">09:30 白天</span></div>
+      <div class="time-picker" role="group" aria-label="調整時間">
+        <div class="time-column">
+          <button type="button" data-time-unit="hour" data-time-step="1" aria-label="增加一小時">▲</button>
+          <div id="time-hour" class="time-value" role="spinbutton" tabindex="0" aria-label="小時" aria-valuemin="0" aria-valuemax="23" aria-valuenow="9">09</div>
+          <button type="button" data-time-unit="hour" data-time-step="-1" aria-label="減少一小時">▼</button>
+        </div>
+        <span class="time-separator" aria-hidden="true">:</span>
+        <div class="time-column">
+          <button type="button" data-time-unit="minute" data-time-step="1" aria-label="增加一分鐘">▲</button>
+          <div id="time-minute" class="time-value" role="spinbutton" tabindex="0" aria-label="分鐘" aria-valuemin="0" aria-valuemax="59" aria-valuenow="30">30</div>
+          <button type="button" data-time-unit="minute" data-time-step="-1" aria-label="減少一分鐘">▼</button>
+        </div>
+      </div>
       <label class="check"><input id="time-auto" type="checkbox" checked> 時間自動流逝（日出東方、日落西方，夜晚有月亮）</label>
       <label for="quality">渲染畫質</label>
       <select id="quality"><option value="basic">基本</option><option value="balanced" selected>平衡</option><option value="high">高</option></select>
