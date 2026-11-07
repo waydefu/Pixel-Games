@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("time wheels adjust the world and keep automatic time in sync", async ({ page }, testInfo) => {
+test("time wheels adjust the world and keep automatic time in sync", async ({ page }) => {
   await page.goto("./?hour=23.983333333333334");
   await page.waitForFunction(() => ["ready", "unsupported", "failed"].includes(window.__pixelGame?.read().status), null, { timeout: 45000 });
   await page.locator("#menu-toggle").click();
@@ -28,11 +28,15 @@ test("time wheels adjust the world and keep automatic time in sync", async ({ pa
   await cdp.detach();
   await expect(label).toContainText("23:03");
   await expect(minutes).toHaveAttribute("aria-valuenow", "3");
-  await page.locator("#settings").screenshot({ path: testInfo.outputPath("time-picker.png") });
   await auto.check();
   await expect(auto).toBeChecked();
   if ((await page.evaluate(() => window.__pixelGame.read().status)) === "ready") {
-    await expect.poll(async () => page.evaluate(() => window.__pixelGame.read().hour), { timeout: 20000 }).toBeGreaterThan(23.05);
-    await expect.poll(async () => label.textContent(), { timeout: 20000 }).not.toContain("23:03");
+    // A raw hour > 23.05 is already true at 23:03; require an actual minute boundary.
+    // The UI refreshes less often than world time, especially with SwiftShader.
+    await expect.poll(async () => page.evaluate(() => window.__pixelGame.read().hour), { timeout: 30000 }).toBeGreaterThan(23 + 4 / 60);
+    await expect(label).not.toContainText("23:03", { timeout: 30000 });
+    const hh = String(await hours.getAttribute("aria-valuenow")).padStart(2, "0");
+    const mm = String(await minutes.getAttribute("aria-valuenow")).padStart(2, "0");
+    await expect(label).toContainText(hh + ":" + mm);
   }
 });
