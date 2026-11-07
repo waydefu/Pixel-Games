@@ -131,7 +131,7 @@ projectionPicker.addEventListener("change",()=>{
 });
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,
+  scene:world.scene,scope:world.scope,player:world.player,isAboard:()=>boating.aboard,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
@@ -222,6 +222,7 @@ async function start(){
     renderer.shadowMap.type=THREE.PCFShadowMap; // r187 removed PCFSoftShadowMap
     const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value});
     pipelineInfo.hdr=pipeline.hdr;pipelineInfo.quality=quality.value;
+    if(new URLSearchParams(window.location.search).get("tone")==="aces")pipeline.setGrade({uAgx:0}); // audit: compare with the old tone mapper
     focusPipeline=(distance:number,active:boolean)=>pipeline.setFocus({distance,range:2.2,span:10,strength:active?1:0});
     const effects={
       setSize:(w:number,h:number)=>pipeline.setSize(w,h),

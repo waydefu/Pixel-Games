@@ -35,3 +35,9 @@
 | Ship's Longboat | Ship's Longboat by Polyfork, CC BY 4.0 | https://polyfork.dev/asset/ship-s-longboat-f159fd |
 
 授權紀錄以 `assets/manifest.json`（含 SHA256）為準；manifest 自填內容不是法律證明，使用前請再對照 Polyfork 當時的條款。
+
+## 程式碼來源（非素材）
+
+| 項目 | 來源與授權 | 用途 |
+|---|---|---|
+| AgX tone mapping 的對比多項式與色彩矩陣 | [Noniv/web-ocean](https://github.com/Noniv/web-ocean)，**MIT**（AgX 本身出自 Troy Sobotka）；Noniv 的 WGSL 轉為 GLSL | `src/rendering/hd2d-pipeline.js` 的合成通道（取代原本的 ACES 擬合；`?tone=aces` 可切回做 A/B）。同一倉庫的海水體色（混濁藍綠）只作美術參考，沒有複製其 FFT 海面程式 |

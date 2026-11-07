@@ -171,9 +171,11 @@ export function createBoating(opts:{
     // HUD
     const landing=findLanding(s,opts.colliders);
     if(request){request=false;leave();if(aboard<0){ui.hud.hidden=false;return false;}}
-    ui.hud.hidden=false;ui.button.hidden=false;
-    ui.button.textContent=landing?"下船 (E)":"靠岸才能下船";
-    ui.status.textContent=time<messageUntil?message:"划速 "+Math.abs(s.speed*1.94).toFixed(1)+" 節 · 按住 W 划槳";
+    // Few controls: the exit button appears only where you can actually step off; the hint only while drifting.
+    const text=time<messageUntil?message:Math.abs(s.speed)<.3?"按住 W 划槳，A／D 轉向":"";
+    ui.button.textContent="下船 (E)";ui.button.hidden=!landing;
+    ui.status.textContent=text;
+    ui.hud.hidden=!landing&&text==="";
     landingHint=landing?landing.kind:null;
     return true;
   }

@@ -64,8 +64,6 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       uniform mat4 textureMatrix;
       varying vec4 mirrorCoord;
       varying vec3 vWorld;
-      varying vec3 vNormal;
-      varying float vDist;
       #include <fog_pars_vertex>
       float shore(float z){return 13.3+sin(z*.13)*.65+sin(z*.37)*.22;}
       void main(){
@@ -78,14 +76,12 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         float p1=-w.x*.16+w.z*.34+uTime*.65;
         float p2=w.x*.91+w.z*.72+uTime*1.45;
         float h=(.18*sin(p0)+.12*sin(p1)+.028*sin(p2))*damp;
-        float dx=(.0522*cos(p0)-.0192*cos(p1)+.0255*cos(p2))*damp;
-        float dz=(.0144*cos(p0)+.0408*cos(p1)+.0202*cos(p2))*damp;
         vec3 changed=position;
         changed.z+=h;  // Plane rotated by -90°: local Z becomes world-up.
-        vNormal=normalize(vec3(-dx,1.0,-dz));
         vWorld=(modelMatrix*vec4(changed,1.0)).xyz;
-        mirrorCoord=textureMatrix*(modelMatrix*vec4(changed,1.0));
-        vDist=dist;
+        // The mirror lookup uses the FLAT plane: a coarse mesh (4 m cells) would otherwise warp the reflection in
+        // straight-edged patches. Normals and shore distance are evaluated per pixel in the fragment shader.
+        mirrorCoord=textureMatrix*(modelMatrix*vec4(position,1.0));
         vec4 mvPosition=modelViewMatrix*vec4(changed,1.0);
         gl_Position=projectionMatrix*mvPosition;
         #include <fog_vertex>
@@ -94,8 +90,6 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       precision highp float;
       uniform float uTime;
       varying vec3 vWorld;
-      varying vec3 vNormal;
-      varying float vDist;
       uniform vec3 uSunDirection;
       uniform vec3 uMoonDirection;
       uniform vec3 uSunColor;
@@ -130,15 +124,26 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),
           mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);
       }
+      float shore(float z){return 13.3+sin(z*.13)*.65+sin(z*.37)*.22;}
       void main(){
         vec3 v=normalize(cameraPosition-vWorld);
-        vec3 n=normalize(vNormal);
+        // Shore distance and the long-wave normal, per pixel (the same waves the vertex shader displaces).
+        float vDist=max(0.0,vWorld.x-shore(vWorld.z));
+        vDist=mix(60.0,vDist,1.0-smoothstep(32.0,52.0,abs(vWorld.z)));
+        float damp=.22+.78*smoothstep(0.0,9.0,vDist);
+        float p0=vWorld.x*.29+vWorld.z*.08+uTime*.85;
+        float p1=-vWorld.x*.16+vWorld.z*.34+uTime*.65;
+        float p2=vWorld.x*.91+vWorld.z*.72+uTime*1.45;
+        float dx=(.0522*cos(p0)-.0192*cos(p1)+.0255*cos(p2))*damp;
+        float dz=(.0144*cos(p0)+.0408*cos(p1)+.0202*cos(p2))*damp;
+        vec3 n=normalize(vec3(-dx,1.0,-dz));
         vec4 detailNoise=getNoise(vWorld.xz*size);
         vec3 nDetail=normalize(detailNoise.xzy*vec3(1.5,1.0,1.5));
         n=normalize(n+vec3(nDetail.x,0.0,nDetail.z)*uDetail);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         // Reference palette: pale aqua over sand at the shore -> vivid turquoise -> deep cobalt.
-        vec3 pale=vec3(.42,.60,.56),turquoise=vec3(.03,.30,.36),cobalt=vec3(.008,.11,.24);
+        // Water body after the web-ocean reference: a turbid blue-green (deep ~ .026,.128,.154), not cobalt.
+        vec3 pale=vec3(.40,.58,.52),turquoise=vec3(.04,.30,.33),cobalt=vec3(.018,.115,.15);
         // Narrow pale shallows; the deeper colours take over quickly so the bay reads as sea, not a lagoon.
         vec3 water=mix(pale,turquoise,smoothstep(0.3,3.0,vDist));
         water=mix(water,cobalt,smoothstep(2.5,24.0,vDist));
@@ -213,7 +218,8 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   // physically displace between its corners.
   const geo=k.scope.track(new THREE.PlaneGeometry(680,620,164,160));
   const water=new Water(geo,{
-    textureWidth:640,textureHeight:640,waterNormals,sunDirection:liveSky.sunDir,sunColor:0xffffff,waterColor:0x0b3a40,
+    textureWidth:960,textureHeight:512,   // wide, not square: a square target stretched over a phone's landscape screen made the reflection blocky
+    waterNormals,sunDirection:liveSky.sunDir,sunColor:0xffffff,waterColor:0x0b3a40,
     distortionScale:1.1,fog:true,alpha:1,side:THREE.DoubleSide,
   });
   const material=water.material as THREE.ShaderMaterial;

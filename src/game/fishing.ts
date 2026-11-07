@@ -21,7 +21,7 @@ const smooth=(a:number,b:number,v:number)=>{const t=Math.min(1,Math.max(0,(v-a)/
 
 export function createFishingView(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};
-  player:{x:number;z:number};getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
+  player:{x:number;z:number};isAboard?:()=>boolean;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
 }){
   const {scene,scope,player,ui}=opts;
   // ?fishSeed= makes the bites reproducible (used by the e2e test and for audits).
@@ -57,10 +57,19 @@ export function createFishingView(opts:{
     if(lureBody)lureBody.position.set(-lureModel.length*1.2,0,0);
   }
   setLureGeometry(0);
-  lureBody=new THREE.Mesh(lureGeometry,scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.45,side:THREE.DoubleSide,emissive:"#ffffff",emissiveIntensity:.22})));
-  lureBody.scale.setScalar(2.4);lureBody.position.set(-lureModel.length*1.2,0,0);   // eye of the lure at the group origin
+  lureBody=new THREE.Mesh(lureGeometry,scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.45,side:THREE.DoubleSide,emissive:"#ffffff",emissiveIntensity:.45})));
+  lureBody.scale.setScalar(2.8);lureBody.position.set(-lureModel.length*1.2,0,0);   // eye of the lure at the group origin
   const bobber=new THREE.Group();bobber.visible=false;bobber.userData.dynamic=true;
   bobber.add(lureBody);scene.add(bobber);
+
+  // A marker on the water at the lure: the sea reflects so much sky that a small lure disappears, so a fluorescent ring
+  // and dot (always drawn on top of the reflection, sized by distance) shows where it is.
+  const markerGroup=new THREE.Group();markerGroup.visible=false;markerGroup.userData.dynamic=true;markerGroup.renderOrder=20;
+  const markerRingMat=scope.track(new THREE.MeshBasicMaterial({color:"#ff7a2e",transparent:true,opacity:.95,depthWrite:false,side:THREE.DoubleSide}));
+  const markerDotMat=scope.track(new THREE.MeshBasicMaterial({color:"#fff3c6",transparent:true,opacity:.95,depthWrite:false,side:THREE.DoubleSide}));
+  const markerRing=new THREE.Mesh(scope.track(new THREE.RingGeometry(.5,1,24)),markerRingMat),markerDot=new THREE.Mesh(scope.track(new THREE.CircleGeometry(.3,16)),markerDotMat);
+  for(const m of [markerRing,markerDot]){m.rotation.x=-Math.PI/2;m.renderOrder=20;m.userData.dynamic=true;markerGroup.add(m);}
+  scene.add(markerGroup);
 
   const ROPE_POINTS=24;
   const rope=createRope({count:ROPE_POINTS});
@@ -142,11 +151,12 @@ export function createFishingView(opts:{
   // A message lasts `seconds` of wall time but is always shown for at least two rendered frames (a slow device can
   // take longer than that per frame) and is written to the HUD at once, even when the update returns early.
   const say=(text:string,now:number,seconds=3)=>{message=text;messageUntil=now+seconds;messageFrames=2;ui.status.textContent=text;};
-  const nearWater=()=>player.x>=10;
+  // Fishing is offered on the beach and the pier, or from a boat: nowhere else.
+  const nearWater=()=>(opts.isAboard?.()??false)||player.x>=11.8;
 
   // ---- input: one button, and HOLDING it matters ----
   // A tap shorter than one frame (slow devices) must still count: it is remembered until the next update has seen it.
-  let held=false,tap=false,pressedNotice=false;
+  let held=false,tap=false,pressedNotice=false,lastHold=false;
   const setHeld=(value:boolean)=>{if(value&&!held)tap=true;held=value;};
   window.addEventListener("keydown",event=>{
     if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
@@ -181,10 +191,10 @@ export function createFishingView(opts:{
   }
 
   // ---- the lure and the fish: where they are and what they do ----
-  type Body="hidden"|"held"|"flying"|"water"|"reeling";
+  type Body="hidden"|"held"|"flying"|"water"|"reeling"|"hang";
   let body:Body="hidden";
   const lurePos=new THREE.Vector3(),lureVel=new THREE.Vector3(),castDir=new THREE.Vector3(),landing=new THREE.Vector3();
-  let paidOut=1.5,ropeReady=false,castStart=0,last=performance.now()/1000,released=false,strikeSplashAt=0,leapAt=0,leapStart=-10,wakeAt=0;
+  let paidOut=1.5,ropeReady=false,castStart=0,last=performance.now()/1000,released=false,strikeSplashAt=0,leapAt=0,leapStart=-10,wakeAt=0,nibbleAt=0,strikeStart=0,strikeSide=1,fightSwing=.8;
   const RELEASE=.2,CAST=.8;
 
   function update(){
@@ -209,7 +219,11 @@ export function createFishingView(opts:{
       logic.cancel();
       if(body!=="hidden")body="reeling";
     }
+    // A press and release squeezed between two frames (slow devices) must still read as release-then-press: show the
+    // rules one frame of "released" before the press, or a quick tap while the reel was held would be missed.
+    if(tap&&lastHold)logic.update(.001,false);
     logic.update(dt,hold);
+    lastHold=hold;
     tap=false;
     const st=logic.state,phase=st.phase;
     camera.getWorldDirection(forward);
@@ -229,8 +243,8 @@ export function createFishingView(opts:{
         castStart=now;body="held";released=false;ropeReady=false;
       }
       if(phase==="lure")splash(landing.x,landing.z,1,now);
-      if(phase==="strike"){say("有魚上鉤！快提竿！",now,1.7);strikeSplashAt=now;}
-      if(phase==="fighting"){say("中魚了！張力保持在綠色區",now,2.4);splash(lurePos.x,lurePos.z,1,now);leapAt=now+1.5+effects()*2;}
+      if(phase==="strike"){say("有魚上鉤！快提竿！",now,1.7);strikeSplashAt=now;strikeStart=now;strikeSide=effects()<.5?-1:1;}
+      if(phase==="fighting"){say("中魚了！魚衝刺時放線，喘氣時收線",now,2.4);splash(lurePos.x,lurePos.z,1,now);leapAt=now+1.5+effects()*2;}
       if(phase==="lost"){say(st.reason,now,3.2);if(body!=="hidden")body="reeling";showCatch(null,null);}
       if(phase==="landed"&&st.result){
         const r=st.result;
@@ -249,8 +263,11 @@ export function createFishingView(opts:{
     // ---------- HUD ----------
     const text=label(phase);
     const active=logic.isActive();
-    ui.hud.hidden=!(nearWater()||active||tally.count>0)&&!message;
-    ui.button.hidden=text==="";
+    // Few controls: nothing at all away from the water; the lure switch only while no line is out.
+    ui.hud.hidden=!(nearWater()||active)&&!message;
+    ui.lure.hidden=!(phase==="idle"&&nearWater());
+    ui.count.hidden=!(tally.count>0&&(nearWater()||active));
+    ui.button.hidden=text===""||!(nearWater()||active);
     ui.button.textContent=text;
     ui.button.classList.toggle("urgent",phase==="strike");
     ui.button.classList.toggle("held",held&&phase!=="idle");
@@ -261,13 +278,12 @@ export function createFishingView(opts:{
     ui.tension.dataset.zone=st.tension>.9?"danger":st.tension>=SWEET_ZONE.low&&st.tension<=SWEET_ZONE.high?"good":"slack";
     ui.distance.textContent=phase==="charging"?"距離約 "+Math.round(CAST_RANGE.min+st.power*(CAST_RANGE.max-CAST_RANGE.min))+" 公尺"
       :phase==="lure"||phase==="strike"?"路亞距離 "+st.lureDistance.toFixed(1)+" 公尺"
-      :phase==="fighting"?"魚在 "+st.fishDistance.toFixed(1)+" 公尺・體力 "+Math.round(st.stamina*100)+"%":"";
-    const idleHint=nearWater()&&mode==="first"?"面向海面，按住 F 蓄力拋竿":"";
+      :phase==="fighting"?"魚在 "+st.fishDistance.toFixed(1)+" 公尺・體力 "+Math.round(st.stamina*100)+"%・第 "+Math.max(1,st.round)+"／"+st.rounds+" 回合":"";
     const showMessage=now<messageUntil||messageFrames>0;
     if(messageFrames>0)messageFrames--;
     ui.status.textContent=showMessage?message:(
-      phase==="lure"?"按住收線，慢慢把路亞拉回來":phase==="charging"?"放開就拋出去":phase==="strike"?"快提竿！":
-      phase==="fighting"?"張力保持在綠色區：太緊放線、太鬆收線":phase==="casting"||phase==="landed"||phase==="lost"?"":idleHint);
+      phase==="lure"?(st.nibble>.4?"魚在試探…":"按住收線，慢慢把路亞拉回來"):phase==="charging"?"放開就拋出去":phase==="strike"?"快提竿！":
+      phase==="fighting"?(st.fightMode==="run"?"魚在衝！放開放線":st.fightMode==="spent"?"魚沒力了，快收線！":"魚在喘氣，按住收線"):"");
 
     // ---------- the rod ----------
     const showRod=mode==="first"&&(rodView||active||nearWater()||body!=="hidden");
@@ -302,10 +318,20 @@ export function createFishingView(opts:{
     spoolSpin(phase,held);
 
     // ---------- lure / hooked fish ----------
+    // With the rod out and nothing cast, the lure hangs a hand's length below the tip like on a real rod.
+    if(body==="hidden"&&showRod&&phase==="idle")body="hang";
+    if(body==="hang"&&(!showRod||phase!=="idle"))body=phase==="idle"?"hidden":body;
     const wantBody=body!=="hidden";
-    bobber.visible=wantBody;lineMesh.visible=wantBody&&showRod;
+    bobber.visible=wantBody&&(showRod||body!=="hang");lineMesh.visible=wantBody&&showRod;
     let end=lurePos;
     if(wantBody){
+      if(body==="hang"){
+        // lure dangling from the tip, swinging a little with the rod
+        lurePos.copy(tip).add(tmp.set(Math.sin(now*1.6)*.02,-.42+Math.sin(now*2.3)*.01,Math.cos(now*1.3)*.02));lureVel.set(0,0,0);
+        paidOut=.5;
+        if(ropeReady===false)rope.reset([tip.x,tip.y,tip.z],[lurePos.x,lurePos.y,lurePos.z]);
+        ropeReady=true;
+      }
       if(body==="held"){
         lurePos.copy(tip).add(tmp.set(0,-.35,0));lureVel.set(0,0,0);
         if(since>=RELEASE&&!released){
@@ -330,12 +356,25 @@ export function createFishingView(opts:{
         const ux=(landing.x-origin.x)/flatLen,uz=(landing.z-origin.z)/flatLen;
         let along=phase==="fighting"?st.fishDistance:st.lureDistance,sway=Math.sin(now*2.2+along)*.25;
         let height=WATER_Y+.03+Math.sin(now*3.1)*.01;
-        if(phase==="strike"){height-=.1+Math.abs(Math.sin(now*15))*.08;sway+=Math.sin(now*23)*.18;
-          if(now-strikeSplashAt>.4){splash(lurePos.x,lurePos.z,.5,now);strikeSplashAt=now;}}
+        if(phase==="lure"&&st.nibble>.05){
+          // a fish is sniffing at it: short, jerky tugs that grow until the strike
+          const jerk=Math.pow(Math.max(0,Math.sin(now*(9+st.nibble*8))),3);
+          height-=jerk*.07*st.nibble;sway+=Math.sin(now*13)*.22*st.nibble;
+          if(jerk>.9&&now-nibbleAt>.45){splash(lurePos.x,lurePos.z,.22+.25*st.nibble,now);nibbleAt=now;}
+        }
+        if(phase==="strike"){
+          // the strike: the lure is yanked under and darts to one side, throwing a splash
+          const u=Math.min(1,(now-strikeStart)/.45);
+          height-=.12+.18*Math.sin(Math.min(1,u*1.4)*Math.PI);sway+=strikeSide*(.3+1.9*(1-Math.pow(1-u,2)));
+          if(now-strikeSplashAt>.35){splash(lurePos.x,lurePos.z,.55,now);strikeSplashAt=now;}}
         if(phase==="fighting"){
-          // the fish zigzags across the water and surges; tired fish roll on the surface, strong ones leap
-          sway=Math.sin(now*1.7+st.strength*3)*(.8+(1-st.stamina)*.6)+Math.sin(now*4.3)*.35*(st.burst+.2);
-          height=WATER_Y-.25+Math.max(0,(1-st.stamina)-.35)*.35;
+          // The fish runs: the lure is dragged across the surface in long sweeps, leaving a wake. It rests, then is pulled in.
+          const run=st.fightMode==="run",spent=st.fightMode==="spent";
+          const swing=run?1.9:spent?.35:.8;
+          fightSwing+=((swing)-fightSwing)*Math.min(1,dt*2.5);
+          sway=Math.sin(now*(run?2.3:1.2)+st.strength*3)*fightSwing+Math.sin(now*5.1)*.3*st.burst;
+          height=WATER_Y+(run?-.03:spent?.0:-.07)+Math.sin(now*6)*.015*(run?1:.3);
+          if(now-wakeAt>(run?.2:.5)){splash(lurePos.x,lurePos.z,run?.4:.15,now);wakeAt=now;}
         }
         lurePos.set(origin.x+ux*along-uz*sway,height,origin.z+uz*along+ux*sway);
         if(phase==="lure"&&held&&now-wakeAt>.28){splash(lurePos.x,lurePos.z,.18,now);wakeAt=now;}   // a lure being reeled ripples the surface
@@ -345,11 +384,26 @@ export function createFishingView(opts:{
       if(body==="reeling"){
         tmp.copy(tip).sub(lurePos);const d=tmp.length();
         const speed=Math.max(7,d*3.2);
-        if(d<.4){body="hidden";ropeReady=false;}
-        else{lurePos.addScaledVector(tmp.normalize(),Math.min(d,speed*dt));lurePos.y=Math.max(lurePos.y,WATER_Y+.05)+Math.min(1.4,d*.04);}
+        if(d<.55){body="hang";ropeReady=false;}
+        else{
+          // fly back to the rod tip along an arc: the height eases toward (tip + a hump that shrinks with the distance)
+          lurePos.addScaledVector(tmp.normalize(),Math.min(d,speed*dt));
+          const hump=Math.min(1.2,d*.05),goal=Math.max(WATER_Y+.1,tip.y-.4+hump);
+          lurePos.y+=(goal-lurePos.y)*Math.min(1,dt*7);
+        }
         paidOut=Math.max(.6,d*1.02);
       }
       bobber.position.copy(lurePos);
+      // the bright surface marker under the lure while it is in the water
+      const showMarker=body==="water"&&(phase==="lure"||phase==="strike"||phase==="fighting");
+      markerGroup.visible=showMarker;
+      if(showMarker){
+        markerGroup.position.set(lurePos.x,WATER_Y+.045,lurePos.z);
+        const d=camera.position.distanceTo(lurePos);
+        markerGroup.scale.setScalar(Math.min(1.4,Math.max(.25,d*.07))*(1+.1*Math.sin(now*5)));
+        markerRingMat.opacity=phase==="strike"?.4+.6*Math.abs(Math.sin(now*14)):.9;
+        markerRingMat.color.set(phase==="strike"?"#ff3d2e":phase==="fighting"?"#ffb02e":"#ff7a2e");
+      }
       // the lure points toward the angler (its nose first when it is reeled in) and wobbles
       tmp.set(origin.x-lurePos.x,0,origin.z-lurePos.z);
       const yaw=body==="held"||body==="flying"?Math.atan2(forward.x,forward.z)-Math.PI/2:Math.atan2(-tmp.z,tmp.x)+Math.PI;

@@ -11,7 +11,9 @@ import * as THREE from "three";
  *                                vignette, grain, sRGB encode) -> canvas
  *
  * Original implementation of well-known techniques (dual Kawase bloom, Vogel-disc
- * DoF gather, Narkowicz ACES fit). No third-party shader code is copied.
+ * DoF gather, Narkowicz ACES fit). The default tone mapper is AgX (see agxMap below): its polynomial contrast curve and
+ * matrices are ported from Noniv/web-ocean (MIT, https://github.com/Noniv/web-ocean), after Troy Sobotka's AgX; the
+ * rest of the shader is original.
  */
 
 export const TIER_FEATURES = Object.freeze({
@@ -172,6 +174,9 @@ uniform float uUseBloom;
 uniform float uUseDof;
 uniform float uBloomStrength;
 uniform float uExposure;
+uniform float uAgx;
+uniform float uAgxSat;
+uniform float uAgxPower;
 uniform float uSaturation;
 uniform float uContrast;
 uniform float uVignette;
@@ -181,6 +186,26 @@ uniform vec3 uShadowTint;
 uniform vec3 uHighlightTint;
 vec3 acesFit(vec3 x){
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+// AgX: a filmic view transform that rolls saturated highlights toward white instead of clipping hues (ported, MIT).
+vec3 agxContrast(vec3 x){
+  vec3 x2 = x * x; vec3 x4 = x2 * x2;
+  return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+vec3 agxMap(vec3 v, float sat, float power){
+  mat3 m = mat3(0.842479062253094, 0.0423282422610123, 0.0423756549057051,
+                0.0784335999999992, 0.878468636469772, 0.0784336,
+                0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+  mat3 mi = mat3(1.19687900512017, -0.0528968517574562, -0.0529716355144438,
+                 -0.0980208811401368, 1.15190312990417, -0.0980434501171241,
+                 -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+  float minEv = -12.47393, maxEv = 4.026069;
+  vec3 x = m * max(v, vec3(1e-10));
+  x = clamp(log2(x), vec3(minEv), vec3(maxEv));
+  x = agxContrast((x - minEv) / (maxEv - minEv));
+  float l = dot(x, vec3(0.2126, 0.7152, 0.0722));                 // the "look": saturation and power about the luma
+  x = l + sat * (pow(max(x, vec3(0.0)), vec3(power)) - l);
+  return pow(max(mi * x, vec3(0.0)), vec3(2.2));                   // back to display-linear; srgbEncode follows
 }
 vec3 srgbEncode(vec3 c){
   vec3 lo = c * 12.92;
@@ -201,7 +226,10 @@ void main(){
   if (uUseBloom > 0.5) col += texture2D(tBloom, vUv).rgb * uBloomStrength;
   if (uUseRays > 0.5) col += texture2D(tRays, vUv).rgb * uRayStrength * vec3(1.0, 0.84, 0.62);
   col *= uExposure;
-  vec3 mapped = acesFit(col);
+  // very bright glints and the sun go toward white, like a sensor (and keep the sea from turning neon)
+  float peak = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  vec3 hdr = mix(col, vec3(peak), smoothstep(0.7, 6.0, peak) * 0.5);
+  vec3 mapped = mix(acesFit(col), agxMap(hdr, uAgxSat, uAgxPower), uAgx);
   // Split toning in display space: cool shadows, warm highlights (pixel-art style).
   float luma = dot(mapped, vec3(0.2126, 0.7152, 0.0722));
   vec3 tint = mix(uShadowTint, uHighlightTint, smoothstep(0.12, 0.85, luma));
@@ -263,7 +291,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
     composite: fullscreenMaterial(COMPOSITE_FRAG, {
       tScene: { value: null }, tBloom: { value: null }, tDof: { value: null }, tRays: { value: null },
       uUseBloom: { value: 0 }, uUseDof: { value: 0 }, uUseRays: { value: 0 }, uRayStrength: { value: 0.34 }, uBloomStrength: { value: 0.42 },
-      uExposure: { value: 1.0 }, uSaturation: { value: 1.05 }, uContrast: { value: 1.03 },
+      uExposure: { value: 1.0 }, uAgx: { value: 1.0 }, uAgxSat: { value: 1.3 }, uAgxPower: { value: 1.18 }, uSaturation: { value: 1.05 }, uContrast: { value: 1.03 },
       uVignette: { value: 0.26 }, uGrain: { value: 0.018 }, uTime: { value: 0 },
       uShadowTint: { value: new THREE.Vector3(0.945, 0.985, 1.05) },
       uHighlightTint: { value: new THREE.Vector3(1.05, 1.005, 0.93) },

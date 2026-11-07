@@ -292,8 +292,8 @@ export function buildVillage(k:StageKit,assets?:VillageAssets|null,night?:Night)
   if(night){
     // Lantern posts on the grass edge of the promenade (street z = +-3.2), arms reaching over the cobbles.
     for(const [x,z] of [[-22,-3.9],[-12,3.9],[-4,-3.9],[4,3.9],[10,-3.9]] as const)night.fixtures.lanternPost(x,z,z<0?1:-1);
-    // Open torches mark the fishing pier and its end.
-    for(const [x,z] of [[14.5,5.5],[14.5,10.5],[22,5.5],[22,10.5],[28.6,8]] as const)night.fixtures.torchPost(x,z);
+    // Open torches mark the fishing pier. None stands on the pier's centreline: an angler at its end looks straight out to sea.
+    for(const [x,z] of [[14.5,5.5],[14.5,10.5],[22,5.5],[22,10.5],[28.6,5.5],[28.6,10.5]] as const)night.fixtures.torchPost(x,z);
   }
   return {houses,chimneys};
 }
