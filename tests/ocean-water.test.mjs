@@ -37,3 +37,13 @@ test("software rasterisers skip the mirror pass unless ?mirror=1 forces it",()=>
   assert.match(main,/swiftshader\|llvmpipe/);
   assert.match(main,/get\("mirror"\)!=="1"/);
 });
+
+test("the composite pass tone-maps with AgX (ported from web-ocean, credited) and keeps ACES for A/B", () => {
+  const pipeline = readFileSync(new URL("../src/rendering/hd2d-pipeline.js", import.meta.url), "utf8");
+  assert.match(pipeline, /vec3 agxMap\(/);
+  assert.match(pipeline, /uAgx:\s*\{ value: 1\.0 \}/);
+  assert.match(pipeline, /acesFit\(col\)/);
+  assert.match(pipeline, /Noniv\/web-ocean/);
+  assert.match(readFileSync(new URL("../docs/ASSET-CREDITS.md", import.meta.url), "utf8"), /Noniv\/web-ocean/);
+  assert.match(readFileSync(new URL("../src/game/main.ts", import.meta.url), "utf8"), /get\("tone"\)==="aces"/);
+});

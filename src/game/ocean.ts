@@ -138,7 +138,8 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         n=normalize(n+vec3(nDetail.x,0.0,nDetail.z)*uDetail);
         float f=.025+.975*pow(1.0-max(0.0,dot(n,v)),5.0);
         // Reference palette: pale aqua over sand at the shore -> vivid turquoise -> deep cobalt.
-        vec3 pale=vec3(.42,.60,.56),turquoise=vec3(.03,.30,.36),cobalt=vec3(.008,.11,.24);
+        // Water body after the web-ocean reference: a turbid blue-green (deep ~ .026,.128,.154), not cobalt.
+        vec3 pale=vec3(.40,.58,.52),turquoise=vec3(.04,.30,.33),cobalt=vec3(.018,.115,.15);
         // Narrow pale shallows; the deeper colours take over quickly so the bay reads as sea, not a lagoon.
         vec3 water=mix(pale,turquoise,smoothstep(0.3,3.0,vDist));
         water=mix(water,cobalt,smoothstep(2.5,24.0,vDist));
