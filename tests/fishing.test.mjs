@@ -18,7 +18,7 @@ function play(f, policy, seconds = 120) {
   return phases;
 }
 
-/** A competent angler: charge for ~0.4 s, cast, reel steadily, set the hook at once, then reel only while the tension is green. */
+/** A competent angler: charge for ~0.4 s, cast, reel steadily, set the hook at once, then let line out in each run and reel in each rest. */
 function competent() {
   let charged = 0, tapped = false;
   return (s) => {
@@ -28,7 +28,7 @@ function competent() {
       case "casting": return false;
       case "lure": return true;
       case "strike": tapped = !tapped; return tapped;
-      case "fighting": return s.tension < SWEET_ZONE.high - .04;
+      case "fighting": return s.fightMode !== "run";           // ease off while the fish runs, reel when it rests
       default: return false;
     }
   };
@@ -75,7 +75,7 @@ test("a patient angler lands fish: reel in the green, ease off in the red", () =
     play(f, competent(), 200);
     if (f.state.phase === "landed") { landed++; assert.ok(f.state.result && f.state.result.name); kinds.add(f.state.result.id); }
   }
-  assert.ok(landed >= 28, "a competent angler lands most of the fish, got " + landed + "/40");
+  assert.equal(landed, 40, "a competent angler lands every fish, got " + landed + "/40");
   assert.ok(kinds.size >= 3, "different species turn up: " + [...kinds].join());
 });
 
@@ -136,4 +136,89 @@ test("HUD messages survive slow frames: written at once and kept for at least tw
   const src = read("src/game/fishing.ts");
   assert.match(src, /messageFrames=2;ui\.status\.textContent=text/);
   assert.match(src, /now<messageUntil\|\|messageFrames>0/);
+});
+
+
+test("every species can be landed, and a fight is two or three rounds of about ten seconds", () => {
+  const landedKinds = new Set(), fights = [];
+  let maxRound = 0, minRounds = 9;
+  for (let seed = 1; seed <= 150; seed++) {
+    const f = createFishing({ rng: mulberry32(seed) });
+    // a slow human: reacts 0.6 s late to each change between run and rest
+    let tapped = false, last = null, since = 0, want = false, start = null;
+    for (let i = 0; i < 60 * 120 && !f.isFinished(); i++) {
+      const s = f.state;
+      let hold;
+      switch (s.phase) {
+        case "idle": hold = true; break;
+        case "charging": hold = s.power < .45; break;
+        case "casting": hold = false; break;
+        case "lure": hold = true; break;
+        case "strike": tapped = !tapped; hold = tapped; break;
+        case "fighting":
+          if (start === null) start = f.now();
+          if (s.fightMode !== last) { last = s.fightMode; since = f.now(); }
+          if (f.now() - since > .6) want = s.fightMode !== "run";
+          hold = want; maxRound = Math.max(maxRound, s.round); break;
+        default: hold = false;
+      }
+      f.update(DT, hold);
+    }
+    assert.equal(f.state.phase, "landed", "seed " + seed + " ended " + f.state.phase + " " + f.state.reason);
+    landedKinds.add(f.state.result.id);
+    fights.push(f.now() - start);
+    minRounds = Math.min(minRounds, f.state.rounds);
+  }
+  for (const s of SPECIES) assert.ok(landedKinds.has(s.id), s.name + " is catchable");
+  assert.ok(maxRound >= 2 && maxRound <= 3, "two or three runs, got " + maxRound);
+  fights.sort((a, b) => a - b);
+  assert.ok(fights[75] > 6 && fights[75] < 14, "median fight " + fights[75].toFixed(1) + " s");
+  assert.ok(fights[148] < 25, "even the longest fight is under 25 s: " + fights[148].toFixed(1));
+});
+
+test("the tension gauge is steerable: it moves slowly and never jumps", () => {
+  const f = createFishing({ rng: mulberry32(4) });
+  let tapped = false, prev = null, maxStep = 0, maxRate = 0;
+  for (let i = 0; i < 60 * 90 && !f.isFinished(); i++) {
+    const s = f.state;
+    let hold = s.phase === "idle" || s.phase === "lure" || (s.phase === "charging" && s.power < .45);
+    if (s.phase === "strike") { tapped = !tapped; hold = tapped; }
+    if (s.phase === "fighting") hold = s.fightMode !== "run";
+    f.update(DT, hold);
+    if (s.phase === "fighting") { if (prev !== null) { maxStep = Math.max(maxStep, Math.abs(s.tension - prev)); } prev = s.tension; }
+  }
+  maxRate = maxStep / DT;
+  assert.ok(maxRate < 1.2, "the gauge never moves faster than 1.2 per second, got " + maxRate.toFixed(2));
+});
+
+test("a fish nibbles before it strikes (the lure twitches in the view)", () => {
+  const f = createFishing({ rng: mulberry32(11) });
+  let sawNibble = false, tapped = false;
+  for (let i = 0; i < 60 * 40 && f.state.phase !== "strike"; i++) {
+    const s = f.state;
+    f.update(DT, s.phase === "idle" || s.phase === "lure" || (s.phase === "charging" && s.power < .45));
+    if (s.phase === "lure" && s.nibble > .3) sawNibble = true;
+  }
+  assert.ok(sawNibble, "nibble rises before the strike");
+  void tapped;
+});
+
+
+test("the view: the idle lure hangs from the tip, the reel-in arc does not run away, a marker shows the lure, and the HUD is minimal", () => {
+  const src = read("src/game/fishing.ts");
+  assert.match(src, /body="hang"/);                                  // idle: a lure dangling from the tip, not a line to the sky
+  assert.match(src, /lurePos\.y\+=\(goal-lurePos\.y\)\*Math\.min\(1,dt\*7\)/);   // eased, not accumulated every frame
+  assert.doesNotMatch(src, /lurePos\.y=Math\.max\(lurePos\.y,WATER_Y\+\.05\)\+Math\.min\(1\.4,d\*\.04\)/);
+  assert.match(src, /markerGroup/);
+  assert.match(src, /st\.nibble>\.05/);                              // bite twitches
+  assert.match(src, /strikeSide/);                                    // the strike darts sideways
+  assert.match(src, /st\.fightMode==="run"/);                        // runs drag the lure across the water
+  assert.match(src, /ui\.lure\.hidden=!\(phase==="idle"&&nearWater\(\)\)/);   // no lure switch once a line is out
+  assert.match(src, /isAboard\?\.\(\)/);                            // fishing is offered from a boat too
+  assert.doesNotMatch(src, /面向海面，按住 F 蓄力拋竿/);               // the redundant idle hint is gone
+});
+
+test("a tap squeezed between two frames still sets the hook while the reel is held", () => {
+  const src = read("src/game/fishing.ts");
+  assert.match(src, /if\(tap&&lastHold\)logic\.update\(\.001,false\)/);
 });

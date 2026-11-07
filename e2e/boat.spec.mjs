@@ -37,7 +37,7 @@ test("board the rowboat, row away from the beach, and step back ashore", async (
 test("you cannot get out in the middle of the sea", async ({ page }) => {
   await page.goto("./?visualShot=shot-03-first-pier&boat=0&bx=70&bz=-12&bh=0.5&fishSeed=4");
   if (!(await ready(page))) return;
-  await expect(page.locator("#boat-button")).toHaveText("靠岸才能下船");
+  await expect(page.locator("#boat-button")).toBeHidden();   // the exit button only shows where you can step off
   await page.keyboard.press("e");
   await expect(page.locator("#boat-status")).toContainText("靠近碼頭或岸邊才能下船", { timeout: 15000 });
   expect(await page.evaluate(() => window.__pixelGame.read().boat !== null)).toBe(true);

@@ -131,7 +131,7 @@ projectionPicker.addEventListener("change",()=>{
 });
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,
+  scene:world.scene,scope:world.scope,player:world.player,isAboard:()=>boating.aboard,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
