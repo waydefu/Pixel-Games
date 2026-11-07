@@ -239,3 +239,10 @@ test("no torch stands on the centreline of the pier: an angler at its end looks 
   assert.doesNotMatch(src, /\[28\.6,8\]/);
   assert.match(src, /\[28\.6,5\.5\],\[28\.6,10\.5\]/);
 });
+
+test("the rod is only out while fishing: drawn on a cast, kept briefly, then lowered; never carried while walking or rowing", () => {
+  const src = read("src/game/fishing.ts");
+  assert.match(src, /now-lastActiveAt<2\.2/);
+  assert.match(src, /stow\*\.95/);
+  assert.doesNotMatch(src, /const showRod=mode==="first"&&\(rodView\|\|active\|\|nearWater\(\)/);
+});

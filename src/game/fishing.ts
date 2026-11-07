@@ -195,7 +195,7 @@ export function createFishingView(opts:{
   type Body="hidden"|"held"|"flying"|"water"|"reeling"|"hang";
   let body:Body="hidden";
   const lurePos=new THREE.Vector3(),lureVel=new THREE.Vector3(),castDir=new THREE.Vector3(),landing=new THREE.Vector3();
-  let paidOut=1.5,ropeReady=false,castStart=0,last=performance.now()/1000,released=false,strikeSplashAt=0,leapAt=0,leapStart=-10,wakeAt=0,nibbleAt=0,strikeStart=0,strikeSide=1,fightSwing=.8;
+  let rodOut=0,lastActiveAt=-10,paidOut=1.5,ropeReady=false,castStart=0,last=performance.now()/1000,released=false,strikeSplashAt=0,leapAt=0,leapStart=-10,wakeAt=0,nibbleAt=0,strikeStart=0,strikeSide=1,fightSwing=.8;
   const RELEASE=.2,CAST=.8;
 
   function update(){
@@ -288,7 +288,12 @@ export function createFishingView(opts:{
       phase==="fighting"?(st.fightMode==="run"?"魚在衝！放開放線":st.fightMode==="spent"?"魚沒力了，快收線！":"魚在喘氣，按住收線"):"");
 
     // ---------- the rod ----------
-    const showRod=mode==="first"&&(rodView||active||nearWater()||body!=="hidden");
+    // The rod is only out while fishing: drawn when you start a cast, kept a moment after the line is in, then lowered
+    // out of sight. Walking and rowing never carry it.
+    if(active||body==="flying"||body==="water"||body==="reeling")lastActiveAt=now;
+    const wantRod=mode==="first"&&(rodView||now-lastActiveAt<2.2);
+    rodOut+=((wantRod?1:0)-rodOut)*Math.min(1,dt*7);
+    const showRod=mode==="first"&&rodOut>.02;
     rod.visible=showRod;
     const since=now-castStart;
     // pitch of the rod about the angler's right axis: rests raised, cocks back while charging, whips forward, settles
@@ -303,7 +308,8 @@ export function createFishingView(opts:{
     else if(phase==="landed")pitch=.95-smooth(0,1.2,now-landedAt)*.35;
     else if(active)pitch=.36+Math.sin(now*1.3)*.012;
     const bobbing=active?Math.sin(now*1.7)*.008:Math.sin(now*.8)*.004;
-    rod.position.set(camera.position.x+right.x*.27+forward.x*.52,camera.position.y-.27+bobbing,camera.position.z+right.z*.27+forward.z*.52);
+    const stow=1-smooth(0,1,rodOut);                              // 0 = in the hands, 1 = lowered out of view
+    rod.position.set(camera.position.x+right.x*.27+forward.x*.52,camera.position.y-.27+bobbing-stow*.95,camera.position.z+right.z*.27+forward.z*.52);
     rod.quaternion.copy(camera.quaternion);
     rod.rotateX(-Math.PI/2+pitch);   // the shaft points forward, `pitch` radians above the horizon
     rod.rotateZ(-.3);
