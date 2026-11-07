@@ -55,3 +55,13 @@ test("wind wiring: world drives the clouds from the shared wind; grass, trees an
   assert.match(read("src/game/life.ts"), /uWindDir/);
   assert.match(read("src/game/cloud-field.ts"), /function setWind/);
 });
+
+test("the traveller pushes grass aside, and High has far more blades than Basic", () => {
+  const veg = read("src/game/vegetation-wind.ts"), env = read("src/game/environment.ts");
+  assert.match(veg, /uPlayerPos/); assert.match(veg, /push\*\.55\*windTip/);
+  assert.match(read("src/game/world.ts"), /uPlayerPos\.value\.set\(player\.x,0,player\.z\)/);
+  assert.match(env, /grassMaterial,9000\)/); assert.match(env, /Math\.pow\(amount,2\.2\)/);
+  // density mapping: Basic .36, Balanced .7, High 1  ->  ~1k, ~4k, 9k blades
+  const blades = f => Math.round(9000 * Math.pow(f, 2.2));
+  assert.ok(blades(1) === 9000 && blades(0.7) > 3500 && blades(0.7) < 4600 && blades(0.36) < 1200);
+});

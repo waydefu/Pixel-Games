@@ -185,9 +185,9 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   const grassMaterial=k.solid("#8ba777");
   addVegetationWind(grassMaterial,cloudField,.13);
   const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
-  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,1600));
+  const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,9000));
   let count=0;
-  for(let i=0;i<3100&&count<1600;i++){
+  for(let i=0;i<22000&&count<9000;i++){
     const x=-38+noise(i*3.03)*48,z=-34+noise(i*4.19)*68;
     if(Math.abs(z)<4.1&&x>-32||isReserved(x,z))continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
@@ -257,7 +257,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   function setFoliageDensity(factor:number){
     const amount=THREE.MathUtils.clamp(factor,0,1);
     shrubs.count=Math.round(shrubCount*amount);
-    grass.count=Math.round(count*amount);
+    grass.count=Math.round(count*Math.pow(amount,2.2));   // Basic ~1k blades, Balanced ~4k, High 9k
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }

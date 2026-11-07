@@ -139,6 +139,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     environment.hemiScale(1-.3*W.dark+W.flash*2.2);
     environment.setSeaWeather(1+.9*W.storm+.35*W.rain,W.dark*(.6+.4*W.storm));
     wind.update(time);
+    cloudField.uniforms.uPlayerPos.value.set(player.x,0,player.z);
     // sky drift moves faster than the ground drift (see wind.js): the clouds use the aloft drift, the grass and trees the same wind's gust fronts
     liveSky.windDir.value.set(wind.state.dx,wind.state.dz);liveSky.windStrength.value=wind.state.strength;
     cloudField.setWind(wind.state.aloftDriftX,wind.state.aloftDriftZ,wind.state.strength);

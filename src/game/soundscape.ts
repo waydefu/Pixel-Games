@@ -11,7 +11,7 @@ import { soundscapeMix, groundSurface, stepInterval } from "./audio-mix.js";
 export type SoundState={
   time:number;                              // seconds, monotonic (any clock)
   x:number;z:number;                        // the traveller
-  night:number;windStrength:number;gust:number;
+  night:number;windStrength:number;gust:number;rain?:number;storm?:number;
   aboard:boolean;speed:number;sprint:boolean;
   gulls?:{x:number;y:number;z:number;flying:boolean}[];
   hour:number;
@@ -75,6 +75,12 @@ export function createSoundscape(ctx:BaseAudioContext,opts:{quality?:"basic"|"ba
   leafSrc.connect(leafHp);leafHp.connect(leafBp);leafBp.connect(leafGain);leafGain.connect(ambientBus);sources.push(leafSrc);
   const lapSrc=loop(brownBuf),lapBp=filter("bandpass",260,1.4),lapGain=gain(0);
   lapSrc.connect(lapBp);lapBp.connect(lapGain);lapGain.connect(ambientBus);sources.push(lapSrc);
+
+  // ---- rain: a broad hiss with drops on top (the heavier, the more low-mid body) ----
+  const rainSrc=loop(pinkBuf),rainHp=filter("highpass",900),rainLp=filter("lowpass",7500),rainGain=gain(0);
+  rainSrc.connect(rainHp);rainHp.connect(rainLp);rainLp.connect(rainGain);rainGain.connect(ambientBus);sources.push(rainSrc);
+  const dropSrc=loop(brownBuf),dropBp=filter("bandpass",600,.7),dropGain=gain(0);
+  dropSrc.connect(dropBp);dropBp.connect(dropGain);dropGain.connect(ambientBus);sources.push(dropSrc);
 
   // ---- crickets: two detuned, pulsed tones ----
   const crickets=quality==="basic"?null:(()=>{
@@ -156,6 +162,16 @@ export function createSoundscape(ctx:BaseAudioContext,opts:{quality?:"basic"|"ba
       burst({buf:pinkBuf,type:"lowpass",f0:2600,f1:600,dur:.3+.2*s,peak:.2+.35*s,attack:.02,at});
       tone({type:"sawtooth",f0:150,f1:210,dur:.22,peak:.04+.05*s,at:at+.04});                        // the oarlock creaks
     },
+    /** Thunder: a sharp crack when it is near, then a long rumble that rolls and fades. */
+    thunder(loud:number,at=when0()){
+      const l=Math.min(1,Math.max(.1,loud)),p=pan(rand(-.6,.6)),src=ctx.createBufferSource();src.buffer=brownBuf;
+      const lp=filter("lowpass",110+260*l,.8),g=gain(0),dur=2.4+3.2*l;
+      g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(.9*l,at+.15+.2*(1-l));
+      for(let i=0;i<5;i++)g.gain.linearRampToValueAtTime((.35+.5*Math.random())*l*(1-i/6),at+.3+i*dur/6);
+      g.gain.exponentialRampToValueAtTime(.0001,at+dur);
+      src.connect(lp);lp.connect(g);g.connect(p);p.connect(sfxBus);src.start(at,Math.random()*2);src.stop(at+dur+.1);
+      if(l>.5)burst({buf:pinkBuf,type:"lowpass",f0:2500,f1:300,dur:.35,peak:.5*l,attack:.004,at});
+    },
     strike(at=when0()){api.splash(.8,undefined,at);},
     /** A church bell: inharmonic partials with long, separate decays (hum, prime, minor tierce, quint, nominal ...). */
     bell(strokes=3,at=when0()){
@@ -192,6 +208,8 @@ export function createSoundscape(ctx:BaseAudioContext,opts:{quality?:"basic"|"ba
     leafGain.gain.setTargetAtTime(m.foliage*(.1+.12*s.gust)*(quality==="basic"?0:1),when,.4);
     lapTimer-=dt;if(lapTimer<=0){lapTimer=rand(.35,1.1);lapGain.gain.setTargetAtTime(m.lap*rand(.04,.2),when,.12);lapBp.frequency.setTargetAtTime(rand(180,380),when,.2);}
     if(crickets)crickets.g.gain.setTargetAtTime(m.crickets*.025,when,1.2);
+    rainGain.gain.setTargetAtTime(m.rain*.34,when,.8);rainLp.frequency.setTargetAtTime(5500+3000*(s.storm??0),when,1);
+    dropGain.gain.setTargetAtTime(m.rain*m.rain*.3,when,.8);
     // listener
     if(s.listener){const L=s.listener;
       if(listener.positionX){listener.positionX.value=L.x;listener.positionY.value=L.y;listener.positionZ.value=L.z;
@@ -222,6 +240,6 @@ export function createSoundscape(ctx:BaseAudioContext,opts:{quality?:"basic"|"ba
   function dispose(){for(const n of sources){try{n.stop();}catch{/* ignore */}}out.disconnect();}
   /** Where a verified-licence recording could replace a synthesised layer later. */
   const LAYERS=["wind","surf","foliage","lap","crickets","gull","step","splash","bell"] as const;
-  return {update,api,setSettings,settings,dispose,LAYERS,out,nodes:{windGain,surfGain,leafGain,lapGain,howlGain,crestGain,master}};
+  return {update,api,setSettings,settings,dispose,LAYERS,out,nodes:{rainGain,windGain,surfGain,leafGain,lapGain,howlGain,crestGain,master}};
 }
 export type Soundscape=ReturnType<typeof createSoundscape>;

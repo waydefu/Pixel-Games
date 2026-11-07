@@ -49,6 +49,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     uCloudSun:{value:liveSky.sunDir},
     uCloudStrength:{value:.30},
     uWindStrength:{value:1},
+    uPlayerPos:{value:new THREE.Vector3(0,-99,0)},   // grass and shrubs bend away from the traveller
     uCloudBias:{value:0},          // weather: positive = more cloud (thresholds shift down)
   };
 

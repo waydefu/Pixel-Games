@@ -320,7 +320,8 @@ async function start(){
       if(sound){
         const cam=rig.camera,fwd=new THREE.Vector3();cam.getWorldDirection(fwd);
         const moved=Math.hypot(world.player.x-lastSoundX,world.player.z-lastSoundZ);lastSoundX=world.player.x;lastSoundZ=world.player.z;
-        sound.update({time:elapsed,x:world.player.x,z:world.player.z,night:liveSky.night.value,windStrength:liveSky.windStrength.value,gust:world.gustAt(world.player.x,world.player.z),
+        for(const clap of world.takeThunder(dt))sound.api.thunder(clap.loud);
+        sound.update({rain:world.weather.state.rain,storm:world.weather.state.storm,time:elapsed,x:world.player.x,z:world.player.z,night:liveSky.night.value,windStrength:liveSky.windStrength.value,gust:world.gustAt(world.player.x,world.player.z),
           aboard:boating.aboard,speed:dt>0?moved/dt:0,sprint:input.read().sprint,gulls:world.gulls(),hour,
           listener:{x:cam.position.x,y:cam.position.y,z:cam.position.z,fx:fwd.x,fy:fwd.y,fz:fwd.z}});
       }

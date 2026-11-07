@@ -268,6 +268,12 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform float uWeatherDark;
       uniform float uWeatherFlash;
       uniform vec3 uSunColor;
+      float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+      float n3(vec3 p){
+        vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+        return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
+                   mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);
+      }
       void main(){
         vec3 ray=normalize(vRay);
         vec3 sunDir=normalize(uSunDirection);
@@ -322,6 +328,56 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float lambert=clamp(dot(bump,normalize(vec3(sunDir.x,max(sunDir.y,.15)+.25,sunDir.z)))*.5+.55,0.0,1.0);
         float sideLight=clamp(lambert*.55+shadowed*.45,0.0,1.0);
         float thick=smoothstep(.52,.88,low);
+        // ---- HIGH: real volumetric clouds. A ray marched through a slab 1.7-4.3 km up: the shared coverage map shapes the
+        // cloud field (so ground shadows and sun occlusion stay consistent), a height profile gives flat bases and billowing
+        // tops, 3D noise erodes the edges, and each sample is lit by marching toward the sun (Beer-Lambert). Clouds have depth,
+        // parallax and real volume; they thicken, rise into towers and darken with the weather. ----
+        if(uCloudDetailLevel>1.5&&ray.y>.03&&uNightC<.97){
+          const float BASE=1700.0,TOP=4300.0;
+          float t0=(BASE-cameraPosition.y)/ray.y,t1=min((TOP-cameraPosition.y)/ray.y,t0+16000.0);
+          float stepLen=(t1-t0)/28.0;
+          float jitter=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
+          float T=1.0,lightSum=0.0,weight=0.0,densSum=0.0;
+          vec3 sd=normalize(vec3(sunDir.x,max(sunDir.y,.12),sunDir.z));
+          for(int i=0;i<28;i++){
+            if(T<.03)break;
+            vec3 p=cameraPosition+ray*(t0+(float(i)+jitter)*stepLen);
+            float hgt=clamp((p.y-BASE)/(TOP-BASE),0.0,1.0);
+            vec2 cuv=p.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan;
+            float cover=texture2D(uCloudMap,cuv).r;
+            float shape=smoothstep(.40-uCloudBias,.64-uCloudBias,cover);
+            float topH=.30+.70*smoothstep(.45,.85,cover);
+            float prof=smoothstep(.0,.10,hgt)*(1.0-smoothstep(topH*.55,topH,hgt));
+            float dens=shape*prof;
+            if(dens>.01){
+              vec3 q=p*.0017+vec3(uCloudWind.x*.9,0.0,uCloudWind.y*.9)*.5;
+              float detail=.62*n3(q)+.38*n3(q*2.9+vec3(3.1));
+              dens=clamp(dens-(1.0-detail)*.72*(1.0-.45*prof),0.0,1.0);
+            }
+            if(dens>.012){
+              // light: march toward the sun through the coverage field
+              float tauL=0.0;
+              for(int k=1;k<=3;k++){
+                vec3 pl=p+sd*(float(k)*420.0);
+                float hl=clamp((pl.y-BASE)/(TOP-BASE),0.0,1.0);
+                float cl=texture2D(uCloudMap,pl.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan).r;
+                tauL+=smoothstep(.40-uCloudBias,.64-uCloudBias,cl)*smoothstep(.0,.1,hl)*(1.0-smoothstep(.55,.9,hl));
+              }
+              float lightHere=exp(-tauL*1.6)*(.42+.58*hgt)+.10*hgt;
+              float sig=dens*stepLen*.00115*uCloudAmount;
+              float a=1.0-exp(-sig);
+              lightSum+=T*a*lightHere;densSum+=T*a*dens;weight+=T*a;
+              T*=1.0-a;
+            }
+          }
+          float cov=1.0-T;
+          amount=clamp(cov,0.0,.97);
+          if(weight>.001){
+            float lit=lightSum/weight,dv=densSum/weight;
+            shadowed=clamp(lit,0.0,1.0);sideLight=clamp(lit*.9+.08,0.0,1.0);
+            low=mix(.50,.86,clamp(dv*1.3,0.0,1.0));thick=smoothstep(.52,.88,low);
+          }
+        }
         float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
           (1.0-smoothstep(.63,.78,low));
         vec3 cloud=mix(underside,lit,clamp(.10+.62*sideLight+.22*sun,0.0,1.0));
