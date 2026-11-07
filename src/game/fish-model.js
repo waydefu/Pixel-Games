@@ -233,6 +233,124 @@ export function buildLure() {
   return finish(out, L * 1.12);
 }
 
+/** The tackle box: the lures the player can switch between. Every model has its line-tie nose toward +x. */
+export const LURES = Object.freeze([
+  Object.freeze({ id: "minnow", name: "米諾硬餌" }),
+  Object.freeze({ id: "spoon", name: "亮片湯匙" }),
+  Object.freeze({ id: "frog", name: "雷蛙" }),
+  Object.freeze({ id: "jig", name: "鉛頭鉤軟蟲" }),
+]);
+export function buildLureKind(id) {
+  switch (id) {
+    case "spoon": return buildSpoon();
+    case "frog": return buildFrog();
+    case "jig": return buildJig();
+    default: return buildLure();
+  }
+}
+
+/** A tube lofted along a path with a radius at each point (ribs, tails, legs). */
+function pushLoft(out, path, radii, colorAt, sides = 8) {
+  const rings = path.map((p, k) => {
+    const q = path[Math.min(path.length - 1, k + 1)], o = path[Math.max(0, k - 1)];
+    const t = [q[0] - o[0], q[1] - o[1], q[2] - o[2]], len = Math.hypot(...t) || 1, tn = t.map(v => v / len);
+    const ref = Math.abs(tn[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
+    const u = [tn[1] * ref[2] - tn[2] * ref[1], tn[2] * ref[0] - tn[0] * ref[2], tn[0] * ref[1] - tn[1] * ref[0]], ul = Math.hypot(...u) || 1;
+    const U = u.map(v => v / ul), V = [tn[1] * U[2] - tn[2] * U[1], tn[2] * U[0] - tn[0] * U[2], tn[0] * U[1] - tn[1] * U[0]];
+    const r = Array.isArray(radii[k]) ? radii[k] : [radii[k], radii[k]];
+    return Array.from({ length: sides }, (_, i) => { const a = i / sides * Math.PI * 2; return [0, 1, 2].map(c => p[c] + U[c] * Math.cos(a) * r[0] + V[c] * Math.sin(a) * r[1]); });
+  });
+  for (let k = 0; k < rings.length - 1; k++) for (let i = 0; i < sides; i++) {
+    pushQuad(out, rings[k][i], rings[k][(i + 1) % sides], rings[k + 1][(i + 1) % sides], rings[k + 1][i], colorAt(k, i));
+  }
+  const cap = (ring, c) => { const m = [0, 1, 2].map(k => ring.reduce((a, p) => a + p[k], 0) / ring.length); for (let i = 0; i < ring.length; i++) pushTri(out, m, ring[i], ring[(i + 1) % ring.length], c); };
+  cap(rings[0], colorAt(0, 0)); cap(rings[rings.length - 1], colorAt(rings.length - 2, 0));
+}
+const STEEL = [.82, .84, .86];
+/** A single or double hook: shank, bend and a barbed point, in the x/y plane at height y0 behind x0. */
+function pushHook(out, x0, y0, z0, scale = 1) {
+  pushTube(out, [[x0, y0, z0], [x0 - .006 * scale, y0 - .014 * scale, z0], [x0 - .004 * scale, y0 - .026 * scale, z0], [x0 + .006 * scale, y0 - .03 * scale, z0], [x0 + .013 * scale, y0 - .022 * scale, z0], [x0 + .012 * scale, y0 - .012 * scale, z0]], .0009 * scale, STEEL);
+  pushTri(out, [x0 + .012 * scale, y0 - .012 * scale, z0 + .0012], [x0 + .012 * scale, y0 - .012 * scale, z0 - .0012], [x0 + .009 * scale, y0 - .016 * scale, z0], STEEL);   // the barb
+}
+function pushRing(out, c, r, color, tube = .0009) {
+  const pts = []; for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI * 2; pts.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r, c[2]]); }
+  pushTube(out, pts, tube, color);
+}
+
+/** A casting spoon: a cupped, hammered silver-and-brass blade with a nose hole, a split ring and a red-tufted single hook. */
+function buildSpoon() {
+  const out = { positions: [], colors: [] }, L = .07, halfW = .0155, U = 12, V = 5;
+  const silver = [.86, .88, .9], brass = [.86, .66, .26];
+  const pt = (iu, iv) => {
+    const u = iu / U, w = halfW * Math.pow(Math.sin(Math.PI * (.1 + .8 * u)), .7) * (1.05 - .45 * u), z = iv / V * w;
+    return [L * u, .006 * (1 - (iv / V) ** 2) * Math.sin(Math.PI * (.05 + .9 * u)) + .005 * Math.sin(Math.PI * u) - .004, z];
+  };
+  for (let iu = 0; iu < U; iu++) for (let iv = -V; iv < V; iv++) {
+    const hammer = hash(iu * 3 + 1, iv + 9) > .7 ? .93 : 1, c = shade(Math.abs(iv) < 2 ? silver : mix(silver, brass, .55), hammer);
+    pushQuad(out, pt(iu, iv), pt(iu + 1, iv), pt(iu + 1, iv + 1), pt(iu, iv + 1), iu % 2 ? shade(c, .94) : c);
+  }
+  pushRing(out, [L * .96, -.004, 0], .0034, STEEL, .0008);                                   // the line hole's eyelet
+  pushRing(out, [-.002, -.004, 0], .0042, STEEL, .0009);                                     // split ring at the tail
+  pushHook(out, -.002, -.008, 0, 1.15);
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; pushTri(out, [-.002, -.03, 0], [-.012 + Math.cos(a) * .003, -.046, Math.sin(a) * .005], [-.004 + Math.cos(a) * .004, -.048, Math.sin(a) * .006], [.8, .1, .08]); }
+  return finish(out, L);
+}
+
+/** A hollow-body frog: green back with dark spots, yellow belly, bulging eyes, folded legs and a soft skirt. */
+function buildFrog() {
+  const out = { positions: [], colors: [] }, L = .07, green = [.31, .55, .22], dark = [.1, .22, .1], yellow = [.9, .83, .38];
+  const prof = [[0, .004, .01], [.18, .014, .021], [.55, .019, .024], [.85, .014, .018], [1, .004, .007]];
+  const SIDES = 14, ST = 9;
+  const at = f => { const x = f * (prof.length - 1), i = Math.min(prof.length - 2, Math.floor(x)), u = x - i; return [prof[i][0] + (prof[i + 1][0] - prof[i][0]) * u, prof[i][1] + (prof[i + 1][1] - prof[i][1]) * u, prof[i][2] + (prof[i + 1][2] - prof[i][2]) * u]; };
+  const ringAt = (k, j) => { const [t, h, w] = at(k / (ST - 1)), a = j / SIDES * Math.PI * 2; return [t * L, Math.sin(a) * h * (Math.sin(a) < 0 ? .7 : 1), Math.cos(a) * w]; };
+  for (let k = 0; k < ST - 1; k++) for (let j = 0; j < SIDES; j++) {
+    const up = Math.sin((j + .5) / SIDES * Math.PI * 2), spot = up > .1 && hash(k * 5, j) > .78;
+    pushQuad(out, ringAt(k, j), ringAt(k, j + 1), ringAt(k + 1, j + 1), ringAt(k + 1, j), spot ? dark : up < -.15 ? yellow : mix(yellow, green, smooth(-.15, .5, up)));
+  }
+  for (const side of [1, -1]) {
+    // bulging eyes on the top of the head
+    const e = [L * .86, .02, side * .012];
+    pushDisc(out, e, [1, 0, 0], [0, 0, 1], .0058, shade(green, .8), 10);
+    pushDisc(out, [e[0], e[1] + .0012, e[2]], [1, 0, 0], [0, 0, 1], .0045, [.92, .86, .3], 10);
+    pushDisc(out, [e[0], e[1] + .0022, e[2]], [1, 0, 0], [0, 0, 1], .0024, [.02, .02, .02], 8);
+    // folded back legs: thigh, shank and a webbed foot
+    const leg = [[L * .3, .004, side * .026], [L * .12, .006, side * .04], [-.006, .002, side * .034], [-.016, .001, side * .024]];
+    pushLoft(out, leg, [.0045, .0036, .0026, .002], (k) => (k % 2 ? shade(green, .9) : green), 6);
+    pushTri(out, leg[3], [-.03, .001, side * .016], [-.03, .001, side * .034], mix(yellow, green, .4));
+  }
+  // soft skirt: a bundle of thin strands trailing behind
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9 - .5) * 1.7, strand = [[.004, 0, Math.sin(a) * .008], [-.014, -.002 + Math.cos(a) * .001, Math.sin(a) * .016], [-.034, -.004, Math.sin(a) * .026]];
+    pushLoft(out, strand, [.0016, .0012, .0006], () => (k % 2 ? yellow : [.55, .75, .3]), 4);
+  }
+  // the weedless double hook folded flat on the back
+  for (const side of [1, -1]) pushTube(out, [[L * .55, .03, side * .004], [L * .3, .03, side * .012], [L * .16, .019, side * .014]], .0009, STEEL);
+  pushRing(out, [L * 1.02, .002, 0], .003, STEEL, .0008);
+  return finish(out, L * 1.04);
+}
+
+/** A jig head with a curled soft-plastic grub: round red head with an eye, ribbed chartreuse body, paddle tail. */
+function buildJig() {
+  const out = { positions: [], colors: [] }, L = .075, red = [.82, .2, .14], lime = [.7, .88, .22];
+  const sides = 14, head = (la, lo) => [L * .86 + Math.cos(la) * .0095, Math.sin(la) * Math.cos(lo) * .0095, Math.sin(la) * Math.sin(lo) * .0095];
+  for (let i = 0; i < 8; i++) for (let j = 0; j < sides; j++) {
+    const la0 = i / 8 * Math.PI, la1 = (i + 1) / 8 * Math.PI, lo0 = j / sides * Math.PI * 2, lo1 = (j + 1) / sides * Math.PI * 2;
+    pushQuad(out, head(la0, lo0), head(la0, lo1), head(la1, lo1), head(la1, lo0), shade(red, .85 + .25 * Math.cos(la0)));
+  }
+  for (const side of [1, -1]) { const e = [L * .86 + .0045, .003, side * .0082]; pushDisc(out, e, [1, 0, 0], [0, 1, 0], .0034, [.96, .96, .94], 10); pushDisc(out, [e[0] + .0004, e[1], e[2] + side * .0004], [1, 0, 0], [0, 1, 0], .0019, [.02, .02, .02], 8); }
+  // the hook eye and shank rising from the head, the bend lying along the grub
+  pushRing(out, [L * .86 - .004, .0112, 0], .0034, STEEL, .0008);
+  pushTube(out, [[L * .86, .0085, 0], [L * .5, .008, 0], [L * .22, .0075, 0], [L * .1, .002, 0], [L * .13, -.005, 0], [L * .17, -.002, 0]], .0009, STEEL);
+  // the grub: a ribbed curl from the head back and up to a paddle tail
+  const path = [], radii = [];
+  for (let k = 0; k <= 12; k++) { const u = k / 12; path.push([L * .78 - u * L * .78, .0005 + .014 * u * u, 0]); radii.push((.0085 * (1 - .78 * u)) * (k % 2 ? 1.14 : .95)); }
+  pushLoft(out, path, radii, k => (k % 2 ? shade(lime, .88) : lime), 10);
+  const tip = path[path.length - 1];
+  pushTri(out, tip, [tip[0] - .016, tip[1] + .006, .009], [tip[0] - .016, tip[1] + .006, -.009], shade(lime, 1.05));
+  pushTri(out, tip, [tip[0] - .016, tip[1] + .006, -.009], [tip[0] - .016, tip[1] + .006, .009], shade(lime, .95));
+  return finish(out, L);
+}
+
 function box(out, cx, cy, cz, sx, sy, sz, color) {
   const x0 = cx - sx / 2, x1 = cx + sx / 2, y0 = cy - sy / 2, y1 = cy + sy / 2, z0 = cz - sz / 2, z1 = cz + sz / 2;
   const v = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];

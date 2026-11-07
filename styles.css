@@ -57,3 +57,5 @@
 .boat-hud{position:absolute;left:14px;bottom:calc(max(env(safe-area-inset-bottom),0px) + 190px);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none;max-width:min(60vw,320px)}
 .boat-hud .fish-status{text-align:left}
 @media(pointer:fine){.boat-hud{bottom:calc(max(env(safe-area-inset-bottom),0px) + 92px)}}
+
+.fish-lure{pointer-events:auto;padding:6px 12px;border-radius:10px;border:1px solid rgba(243,236,216,.4);background:rgba(10,20,26,.6);color:#f3ecd8;font:600 13px/1.2 inherit;cursor:pointer;touch-action:manipulation}

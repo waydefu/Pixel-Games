@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createFishing, isOpenWater, SPECIES, CAST_RANGE, MAX_LINE, SWEET_ZONE } from "./fishing-logic.js";
 import { createRope } from "./rope.js";
-import { buildCatchModel } from "./fish-model.js";
+import { buildCatchModel, buildLureKind, LURES } from "./fish-model.js";
 import { createRodModel } from "./rod-model.js";
 import { mulberry32 } from "./wander.js";
 import type { CameraMode } from "./camera.js";
@@ -15,7 +15,7 @@ import type { CameraMode } from "./camera.js";
  */
 const WATER_Y=-.38;
 const GRAVITY=-9.8;
-type Ui={hud:HTMLElement;status:HTMLElement;button:HTMLButtonElement;count:HTMLElement;meter:HTMLElement;power:HTMLElement;tension:HTMLElement;distance:HTMLElement};
+type Ui={lure:HTMLButtonElement;hud:HTMLElement;status:HTMLElement;button:HTMLButtonElement;count:HTMLElement;meter:HTMLElement;power:HTMLElement;tension:HTMLElement;distance:HTMLElement};
 type Camera={position:THREE.Vector3;getWorldDirection:(v:THREE.Vector3)=>THREE.Vector3;quaternion:THREE.Quaternion};
 const smooth=(a:number,b:number,v:number)=>{const t=Math.min(1,Math.max(0,(v-a)/(b-a)));return t*t*(3-2*t);};
 
@@ -44,13 +44,20 @@ export function createFishingView(opts:{
   let crankAngle=0;
 
   // ============ the bobber, the line, splash ring, droplets ============
-  // The lure: a painted minnow plug with a diving lip and treble hooks, drawn about twice life size so it reads.
-  const lureModel=buildCatchModel("lure");
+  // The lure: switchable from the tackle box (R). Drawn about twice life size so it reads from a few metres.
   const lureGeometry=scope.track(new THREE.BufferGeometry());
-  lureGeometry.setAttribute("position",new THREE.BufferAttribute(lureModel.positions.slice(),3));
-  lureGeometry.setAttribute("color",new THREE.BufferAttribute(lureModel.colors,3));
-  lureGeometry.computeVertexNormals();
-  const lureBody=new THREE.Mesh(lureGeometry,scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.45,side:THREE.DoubleSide,emissive:"#ffffff",emissiveIntensity:.22})));
+  let lureKind=0,lureModel=buildLureKind(LURES[0].id),lureBody:THREE.Mesh|null=null;
+  function setLureGeometry(index:number){
+    lureKind=((index%LURES.length)+LURES.length)%LURES.length;
+    lureModel=buildLureKind(LURES[lureKind].id);
+    lureGeometry.setAttribute("position",new THREE.BufferAttribute(lureModel.positions.slice(),3));
+    lureGeometry.setAttribute("color",new THREE.BufferAttribute(lureModel.colors,3));
+    lureGeometry.computeVertexNormals();
+    lureGeometry.computeBoundingSphere();lureGeometry.computeBoundingBox();
+    if(lureBody)lureBody.position.set(-lureModel.length*1.2,0,0);
+  }
+  setLureGeometry(0);
+  lureBody=new THREE.Mesh(lureGeometry,scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.45,side:THREE.DoubleSide,emissive:"#ffffff",emissiveIntensity:.22})));
   lureBody.scale.setScalar(2.4);lureBody.position.set(-lureModel.length*1.2,0,0);   // eye of the lure at the group origin
   const bobber=new THREE.Group();bobber.visible=false;bobber.userData.dynamic=true;
   bobber.add(lureBody);scene.add(bobber);
@@ -144,7 +151,17 @@ export function createFishingView(opts:{
   window.addEventListener("keydown",event=>{
     if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
     if(event.key.toLowerCase()==="f"){event.preventDefault();if(!event.repeat)setHeld(true);}
+    if(event.key.toLowerCase()==="r"&&!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey)cycleLure();
   });
+  // the tackle box: only between casts
+  function cycleLure(){
+    if(logic.isActive())return;
+    setLureGeometry(lureKind+1);
+    ui.lure.textContent="餌："+LURES[lureKind].name+"（R 換餌）";
+    say("換上 "+LURES[lureKind].name,performance.now()/1000,1.6);
+  }
+  ui.lure.textContent="餌："+LURES[lureKind].name+"（R 換餌）";
+  ui.lure.addEventListener("click",cycleLure);
   window.addEventListener("keyup",event=>{if(event.key.toLowerCase()==="f")setHeld(false);});
   window.addEventListener("blur",()=>setHeld(false));
   ui.button.addEventListener("pointerdown",event=>{event.preventDefault();ui.button.setPointerCapture(event.pointerId);setHeld(true);});

@@ -41,3 +41,36 @@ test("each species looks different: colours and shapes are distinct", () => {
   assert.ok(buildCrab().triangles > 100 && buildBoot().triangles >= 50);
   assert.throws(() => buildFish("dragon"), RangeError);
 });
+
+import { LURES, buildLureKind } from "../src/game/fish-model.js";
+import fs from "node:fs";
+
+test("the tackle box has four distinct finite lures with the line-tie nose toward +x", () => {
+  assert.deepEqual(LURES.map(l => l.id), ["minnow", "spoon", "frog", "jig"]);
+  const sigs = new Set();
+  for (const l of LURES) {
+    const m = buildLureKind(l.id);
+    assert.ok(m.positions.length > 0 && m.positions.length % 9 === 0 && m.positions.length === m.colors.length, l.id);
+    assert.ok([...m.positions].every(Number.isFinite) && [...m.colors].every(v => v >= 0 && v <= 1), l.id);
+    assert.ok(m.length > .05 && m.length < .14, l.id + " is lure sized: " + m.length);
+    let maxX = -Infinity; for (let i = 0; i < m.positions.length; i += 3) maxX = Math.max(maxX, m.positions[i]);
+    assert.ok(maxX > m.length * .85, l.id + " nose at +x");
+    sigs.add(m.triangles);
+  }
+  assert.equal(sigs.size, LURES.length);
+});
+
+test("fish carry rayed fins, gills and eyes with a pupil and a catch-light", () => {
+  const src = fs.readFileSync(new URL("../src/game/fish-model.js", import.meta.url), "utf8");
+  assert.match(src, /pushFin\(/);
+  assert.match(src, /catch-light/);
+  assert.match(src, /gill cover/);
+  for (const k of ["mackerel", "cod", "flounder", "salmon", "herring"]) assert.ok(buildFish(k).triangles > 450, k + " is detailed");
+});
+
+test("the rod is a modelled spinning combo and the HUD can switch lures", () => {
+  const rod = fs.readFileSync(new URL("../src/game/rod-model.ts", import.meta.url), "utf8");
+  for (const part of ["bail", "line roller", "T-knob", "reel seat", "EVA", "thread wraps"]) assert.ok(rod.includes(part), part);
+  assert.match(fs.readFileSync(new URL("../src/game/fishing.ts", import.meta.url), "utf8"), /createRodModel\(scope\)/);
+  assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"), /id="fish-lure"/);
+});
