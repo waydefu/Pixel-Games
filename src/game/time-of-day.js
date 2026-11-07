@@ -42,10 +42,16 @@ const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a
 const KEYS = [
   { e: -18, zenith: [0.003, 0.006, 0.022], mid: [0.006, 0.012, 0.045], horizon: [0.012, 0.022, 0.065], fog: [0.012, 0.020, 0.050],
     sun: [0, 0, 0], sunI: 0, hemiSky: [0.10, 0.14, 0.30], hemiGround: [0.04, 0.05, 0.09], hemiI: 0.30, exposure: 1.30 },
-  { e: -6, zenith: [0.008, 0.018, 0.11], mid: [0.12, 0.075, 0.27], horizon: [0.52, 0.20, 0.30], fog: [0.24, 0.16, 0.26],
-    sun: [1.0, 0.45, 0.25], sunI: 0.0, hemiSky: [0.36, 0.42, 0.66], hemiGround: [0.16, 0.14, 0.20], hemiI: 0.95, exposure: 1.34 },
+  { e: -8, zenith: [0.006, 0.015, 0.10], mid: [0.05, 0.07, 0.26], horizon: [0.24, 0.12, 0.30], fog: [0.12, 0.12, 0.26],
+    sun: [1.0, 0.40, 0.25], sunI: 0.0, hemiSky: [0.30, 0.36, 0.62], hemiGround: [0.12, 0.11, 0.18], hemiI: 0.80, exposure: 1.34 },
+  { e: -5, zenith: [0.006, 0.022, 0.16], mid: [0.08, 0.09, 0.34], horizon: [0.36, 0.16, 0.34], fog: [0.18, 0.14, 0.28],
+    sun: [1.0, 0.42, 0.24], sunI: 0.0, hemiSky: [0.36, 0.42, 0.66], hemiGround: [0.16, 0.14, 0.20], hemiI: 0.95, exposure: 1.34 },
+  { e: -2.5, zenith: [0.012, 0.045, 0.24], mid: [0.26, 0.13, 0.36], horizon: [1.0, 0.34, 0.16], fog: [0.66, 0.34, 0.32],
+    sun: [1.0, 0.46, 0.22], sunI: 0.6, hemiSky: [0.58, 0.46, 0.52], hemiGround: [0.26, 0.19, 0.18], hemiI: 0.84, exposure: 1.18 },
   { e: 0, zenith: [0.016, 0.060, 0.30], mid: [0.27, 0.15, 0.38], horizon: [1.0, 0.40, 0.14], fog: [0.66, 0.38, 0.32],
     sun: [1.0, 0.50, 0.22], sunI: 2.0, hemiSky: [0.62, 0.52, 0.52], hemiGround: [0.30, 0.22, 0.18], hemiI: 0.78, exposure: 1.08 },
+  { e: 3, zenith: [0.022, 0.085, 0.37], mid: [0.20, 0.20, 0.48], horizon: [1.0, 0.52, 0.20], fog: [0.66, 0.46, 0.38],
+    sun: [1.0, 0.62, 0.30], sunI: 2.9, hemiSky: [0.66, 0.58, 0.58], hemiGround: [0.33, 0.25, 0.20], hemiI: 0.88, exposure: 1.05 },
   { e: 7, zenith: [0.028, 0.110, 0.44], mid: [0.20, 0.27, 0.56], horizon: [0.95, 0.58, 0.34], fog: [0.60, 0.60, 0.64],
     sun: [1.0, 0.74, 0.44], sunI: 3.3, hemiSky: [0.72, 0.78, 0.86], hemiGround: [0.36, 0.30, 0.24], hemiI: 1.0, exposure: 1.02 },
   { e: 22, zenith: [0.035, 0.130, 0.47], mid: [0.130, 0.33, 0.68], horizon: [0.66, 0.76, 0.88], fog: [0.62, 0.72, 0.84],
@@ -95,6 +101,10 @@ export function skyAt(hour, phase = 0.5) {
     sunRays: smooth(-3, 6, elevation),
     // 0..1 around sunrise and sunset (sun between about -9 and +8 degrees): the belt of Venus, fiery clouds, light shafts.
     twilight: smooth(-9, -2, elevation) * (1 - smooth(1, 9, elevation)),
+    // the three photographer's hours as 0..1 bumps (see describeHour)
+    goldenHour: smooth(0, 2, elevation) * (1 - smooth(5, 8, elevation)),
+    magicHour: smooth(-5, -3, elevation) * (1 - smooth(1, 3, elevation)),
+    blueHour: smooth(-10, -7, elevation) * (1 - smooth(-5, -3, elevation)),
     // Cloud lighting: lit tops take the sun colour, undersides the sky; both fade to moonlit blue-grey at night.
     cloudLit: mix3([0.10, 0.12, 0.22], k.sun.map(v => v * 1.55), dayLight),
     cloudShade: mix3([0.04, 0.05, 0.10], mix3(k.zenith, k.horizon, 0.5).map(v => v * 1.7 + 0.04), dayLight),
@@ -105,7 +115,9 @@ export function skyAt(hour, phase = 0.5) {
 export function describeHour(hour) {
   const h = wrapHour(hour), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
   const e = sunElevationDeg(h);
-  const phase = e < -12 ? "夜晚" : e < 0 ? (h < 12 ? "黎明" : "黃昏") : e < 10 ? (h < 12 ? "日出" : "日落") : "白天";
+  // Photographer's hours by the sun's height: golden 6..2 deg, magic 2..-3 deg (the sky burns red to violet),
+  // blue -3..-8 deg (the warm light retreats to the lowest horizon, the sky turns deep blue).
+  const phase = e < -12 ? "夜晚" : e < -8 ? (h < 12 ? "黎明" : "黃昏") : e < -3 ? "藍調時刻" : e < 2 ? "魔幻時刻" : e < 6 ? "黃金時刻" : "白天";
   return { text: String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0"), phase };
 }
 export const HOUR_OF_FULL_CYCLE = TAU;

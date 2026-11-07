@@ -331,13 +331,14 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float afterSet=smoothstep(.0,-.10,sy);
         float glowMask=max(pow(max(toward,0.0),1.2)*(1.0-.6*smoothstep(.0,.75,ray.y)),afterSet*highLit*(.55+.45*max(toward,0.0)));
         vec3 fieryBase=mix(vec3(1.0,.55,.18),vec3(1.0,.16,.04),smoothstep(.13,-.02,sy));
-        fieryBase=mix(fieryBase,vec3(.80,.14,.38),smoothstep(-.06,-.16,sy));
+        fieryBase=mix(fieryBase,vec3(.80,.14,.38),smoothstep(-.03,-.09,sy));
+        fieryBase=mix(fieryBase,vec3(.38,.24,.80),smoothstep(-.09,-.16,sy));   // blue hour: violet-blue
         vec3 fiery=fieryBase*1.7;
         float thin=1.0-smoothstep(.47,.74,low);                                 // thin cloud edges
         float back=pow(sun,3.0);
         cloud=mix(cloud,mix(vec3(.10,.03,.14),fiery,.40+.60*sideLight),clamp(tw*(.55+.75*glowMask),0.0,1.0));
         cloud*=mix(1.0,.38,back*tw*(1.0-thin));
-        cloud*=mix(1.0,.42,afterSet*(1.0-highLit));                              // low clouds are in shadow once the sun is down                                  // backlit bodies go dark
+        cloud*=mix(1.0,.42,smoothstep(-.10,-.17,sy)*(1.0-highLit));                              // low clouds are in shadow once the sun is down                                  // backlit bodies go dark
         cloud+=fiery*thin*pow(sun,5.0)*tw*2.4+uSunColor*thin*pow(sun,2.0)*tw*.6;  // rims burn
         cloud=mix(cloud,vec3(.80,.38,.48)*(.55+.6*sideLight),away*tw*.35*(1.0-smoothstep(.0,.8,ray.y)));
         cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
