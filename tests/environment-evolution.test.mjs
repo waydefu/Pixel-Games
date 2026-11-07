@@ -46,7 +46,7 @@ test("sky and terrain share one moving cloud map and sun-projected shadows",()=>
   assert.match(field,/uCloudWind\.value\.set/);
   assert.match(field,/1\.0-uCloudStrength\*cloudOcclusion/);
   assert.match(world,/const cloudField=createCloudField\(scope\)/);
-  assert.match(world,/cloudField\.update\(time\)/);
+  assert.match(world,/cloudField\.setWind\(wind\.state\.aloftDriftX/);
   assert.match(world,/forest\.setDensity\(density\)/);
   assert.match(world,/environment\.setFoliageDensity\(density\)/);
   assert.match(fjord,/texture2D\(uCloudMap,cloudUV\)/);

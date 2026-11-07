@@ -44,8 +44,9 @@ function build(k:StageKit,clouds:CloudField){
     const amplitude=species==="pine"?.07:.11;
     material.onBeforeCompile=shader=>{
       shader.uniforms.uCloudWind=clouds.uniforms.uCloudWind;
+      shader.uniforms.uWindStrength=clouds.uniforms.uWindStrength;
       shader.vertexShader=shader.vertexShader
-        .replace("#include <common>","#include <common>\nuniform vec2 uCloudWind;")
+        .replace("#include <common>","#include <common>\nuniform vec2 uCloudWind;uniform float uWindStrength;\nfloat wHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat wNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(wHash(i),wHash(i+vec2(1.0,0.0)),f.x),mix(wHash(i+vec2(0.0,1.0)),wHash(i+vec2(1.0,1.0)),f.x),f.y);}\n// gust fronts: patches of stronger wind carried downwind by the shared drift (same maths as wind.js gustAt)\nfloat windGustMask(vec2 p){return smoothstep(.35,.8,wNoise(p*.045-uCloudWind*1.6));}")
         .replace("#include <begin_vertex>",`#include <begin_vertex>
   // Sway grows with height; each tree is phased by its own world position. Leaves also flutter.
   vec2 windOrigin=modelMatrix[3].xz;
@@ -53,14 +54,14 @@ function build(k:StageKit,clouds:CloudField){
     windOrigin=(modelMatrix*vec4(instanceMatrix[3].xyz,1.0)).xz;
   #endif
   float windPhase=windOrigin.x*.095+windOrigin.y*.077+uCloudWind.x*1.5+uCloudWind.y*.57;
-  float windGust=.68*sin(windPhase)+.32*sin(windPhase*1.91+1.7);
+  float windGust=(.68*sin(windPhase)+.32*sin(windPhase*1.91+1.7))*(.55+1.1*windGustMask(windOrigin))*uWindStrength;
   float windTip=smoothstep(.4,5.5,position.y);
   transformed.x+=windGust*${amplitude.toFixed(3)}*windTip;
   transformed.z+=cos(windPhase*.71)*${(amplitude*.55).toFixed(3)}*windTip;
   float flutter=sin(uCloudWind.x*9.0+position.x*7.0+position.z*5.0+position.y*3.0);
   transformed+=vec3(flutter,flutter*.6,-flutter)*.022*windTip;`);
     };
-    material.customProgramCacheKey=()=>"tree-leaves-"+species;
+    material.customProgramCacheKey=()=>"tree-leaves-v2-"+species;
     leafMaterials.set(species,material);
     return material;
   }
@@ -108,7 +109,7 @@ function build(k:StageKit,clouds:CloudField){
       mesh.userData.dynamic=true;mesh.frustumCulled=false; // instance bounds are not tracked; sets are small
       k.scene.add(mesh);
     }
-    trunkMesh.name="tree-trunks-"+species;leafMesh.name="tree-leaves-"+species;
+    trunkMesh.name="tree-trunks-"+species;leafMesh.name="tree-leaves-v2-"+species;
     return {trunk:trunkMesh,leaves:leafMesh,height,crownRadius};
   }
   return {plant,variant,species:TREE_SPECIES};

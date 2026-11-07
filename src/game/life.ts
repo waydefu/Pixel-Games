@@ -104,20 +104,22 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
 
   // ---- chimney smoke: one instanced draw call, billboards, drift/fade computed in the vertex shader ----
   const PUFFS=18;
-  const smokeUniforms={uTime:{value:0},uLight:liveSky.dayLight};
+  const smokeUniforms={uTime:{value:0},uLight:liveSky.dayLight,uWindDir:liveSky.windDir,uWindStrength:liveSky.windStrength};
   const smokeMaterial=scope.track(new THREE.ShaderMaterial({
     uniforms:smokeUniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,
     vertexShader:`
       attribute vec3 aBase;
       attribute float aSeed;
       uniform float uTime;
+      uniform vec2 uWindDir;
+      uniform float uWindStrength;
       varying float vAlpha;
       varying float vSeed;
       varying vec2 vUv;
       void main(){
         float t=fract(uTime*.13+aSeed);
         vSeed=aSeed;vUv=uv;
-        vec3 drift=vec3(1.6+aSeed*.8,2.6,.3)*t*2.8+vec3(sin(aSeed*40.0+t*5.0)*.35*t,0.0,cos(aSeed*30.0+t*4.0)*.3*t);
+        vec3 drift=vec3(uWindDir.x*(1.6+aSeed*.8)*uWindStrength,2.6,uWindDir.y*(1.6+aSeed*.8)*uWindStrength)*t*2.8+vec3(sin(aSeed*40.0+t*5.0)*.35*t,0.0,cos(aSeed*30.0+t*4.0)*.3*t);
         vec4 view=viewMatrix*vec4(aBase+drift,1.0);
         float size=mix(.35,1.5,t);
         view.xy+=position.xy*size;

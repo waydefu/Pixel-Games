@@ -48,6 +48,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     uCloudHeight:{value:CLOUD_HEIGHT},
     uCloudSun:{value:liveSky.sunDir},
     uCloudStrength:{value:.30},
+    uWindStrength:{value:1},
   };
 
   function applyToMaterial(material:THREE.MeshStandardMaterial){
@@ -70,8 +71,10 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     material.needsUpdate=true;
     return material;
   }
-  function update(time:number){
-    uniforms.uCloudWind.value.set(time*.28,time*.16);
+  /** The shared wind drives the clouds: `drift` is the accumulated sky drift, `strength` the wind strength (1 = a light breeze). */
+  function setWind(driftX:number,driftZ:number,strength:number){
+    uniforms.uCloudWind.value.set(driftX,driftZ);
+    uniforms.uWindStrength.value=strength;
   }
   const sample=(u:number,v:number)=>{
     // bilinear read of the same tiling map the shaders use
@@ -89,6 +92,6 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
   function setStrength(value:number){
     uniforms.uCloudStrength.value=THREE.MathUtils.clamp(value,0,.5);
   }
-  return {texture,uniforms,applyToMaterial,update,setStrength,sunOcclusion};
+  return {texture,uniforms,applyToMaterial,setWind,setStrength,sunOcclusion};
 }
 export type CloudField=ReturnType<typeof createCloudField>;

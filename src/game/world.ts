@@ -14,6 +14,7 @@ import { createLife } from "./life.js";
 import { batchStaticScene } from "./batch.js";
 import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
+import { createWind } from "./wind.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
 
@@ -118,9 +119,13 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
     environment.applySky({x:player.x,z:player.z});
   }
+  const wind=createWind();
   let transmit=1;
   function update(time:number){
-    cloudField.update(time);
+    wind.update(time);
+    // sky drift moves faster than the ground drift (see wind.js): the clouds use the aloft drift, the grass and trees the same wind's gust fronts
+    liveSky.windDir.value.set(wind.state.dx,wind.state.dz);liveSky.windStrength.value=wind.state.strength;
+    cloudField.setWind(wind.state.aloftDriftX,wind.state.aloftDriftZ,wind.state.strength);
     // A cloud between the sun and the traveller takes most of the direct light (and the shadows soften with it).
     const occ=cloudField.sunOcclusion(player.x,player.z,liveSky.sunDir)*liveSky.dayLight.value;
     transmit+=((1-.78*occ)-transmit)*.04;
