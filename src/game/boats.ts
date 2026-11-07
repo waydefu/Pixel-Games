@@ -17,6 +17,12 @@ export function buildFishingBoats(k:StageKit,assets?:VillageAssets|null){
       const scale=length/Math.max(model.x,model.z);
       const {group}=assets.kit.instantiateGroup(k,assets.material,name,{x:location.x,z:location.z,y:-.2,rotY:Math.PI/2+(i?.12:-.1),scale,name:"kit-boat-"+name});
       group.userData.baseY=-.2;group.userData.phase=i*1.7;
+      // Heading about y must come first, then pitch and roll in the hull's own frame.
+      group.rotation.order="YXZ";
+      group.userData.length=length;group.userData.beam=Math.min(model.x,model.z)*scale;
+      // The rowboat model carries its own pair of oars lying across the thwarts (hull first, then both oars);
+      // the player's animated oars replace them while the boat is rowed.
+      if(name==="rowboat")group.userData.ownOars=group.children.slice(1);
       boats.push(group);
     });
     function updateKit(time:number){
@@ -27,7 +33,7 @@ export function buildFishingBoats(k:StageKit,assets?:VillageAssets|null){
         boat.rotation.x=.018*Math.cos(time*.63+p);      // pitch
       }
     }
-    return {boats,update:updateKit};
+    return {boats,update:updateKit,movable:true};
   }
   const timber=k.pattern("planks",18,2,1);
   const seam=k.solid("#533e35"),rope=k.solid("#d2ba8a"),canvas=k.pattern("canvas",9),deck=k.pattern("planks",10);
@@ -93,5 +99,5 @@ export function buildFishingBoats(k:StageKit,assets?:VillageAssets|null){
   function update(time:number){
     for(let i=0;i<boats.length;i++)boats[i].position.y=.06*Math.sin(time*.9+i*1.7);
   }
-  return {boats,update};
+  return {boats,update,movable:false};
 }

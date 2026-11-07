@@ -27,6 +27,7 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
   let mode:CameraMode="quarter";
   let yaw=-Math.PI/2,pitch=-.08;
   let vistaYaw=-1.18,vistaPitch=-.18;
+  let eyeLift=0; // negative while sitting in a boat
   const target=new THREE.Vector3(player.x,1.25,player.z);
   const dest=new THREE.Vector3();
   const vistaPosition=new THREE.Vector3(-36,30,32);
@@ -87,7 +88,7 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
       return camera;
     }
     if(mode==="first"){
-      perspective.position.set(player.x,1.68+groundHeight(player.x,player.z),player.z);
+      perspective.position.set(player.x,1.68+eyeLift+groundHeight(player.x,player.z),player.z);
       perspective.rotation.set(pitch,yaw,0,"YXZ");
     }else{
       perspective.position.copy(vistaPosition);
@@ -95,8 +96,13 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
     }
     return perspective;
   }
+  /** Rotate the first-person view with a vehicle (radians, positive = counter-clockwise from above). */
+  function turn(delta:number){if(Number.isFinite(delta))yaw+=delta;}
+  function setEyeLift(v:number){eyeLift=Number.isFinite(v)?v:0;}
+  /** Face the view along a world direction (cos h, sin h) on the x/z plane. */
+  function faceHeading(h:number){if(Number.isFinite(h))yaw=-h-Math.PI/2;}
   tick(0);
-  return {setMode,cycle,look,setAuditAngles,movement,resize,tick,
+  return {setMode,cycle,look,setAuditAngles,movement,resize,tick,turn,setEyeLift,faceHeading,
     get mode(){return mode;},
     get focusPoint(){return target;},
     get camera(){return mode==="quarter"?quarterCamera():perspective;},

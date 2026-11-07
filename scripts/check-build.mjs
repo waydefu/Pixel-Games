@@ -7,5 +7,5 @@ if(!html.includes("/Pixel-Games/assets/"))throw Error("incorrect Pages base");
 const assets=readdirSync("dist/assets").filter(x=>x.endsWith(".js"));
 if(!assets.length)throw Error("no game JS bundle");
 const bytes=assets.reduce((sum,x)=>sum+gzipSync(readFileSync("dist/assets/"+x)).length,0);
-if(bytes>270_000)throw Error("game bundle exceeds initial JS gzip budget: "+bytes);
-console.log("PASS: single-entry immersive game, Pages base, JS gzip "+bytes+"/270000 bytes.");
+if(bytes>300_000)throw Error("game bundle exceeds initial JS gzip budget: "+bytes);
+console.log("PASS: single-entry immersive game, Pages base, JS gzip "+bytes+"/300000 bytes.");

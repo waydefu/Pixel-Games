@@ -101,8 +101,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       void main(){
         vec3 ray=normalize(vRay);
         float h=clamp(ray.y,0.0,1.0);
-        vec3 col=mix(uHorizon,uMid,smoothstep(0.0,.30,h));
-        col=mix(col,uZenith,smoothstep(.22,.95,h));
+        // Rayleigh-like: a pale hazy horizon that deepens slowly toward a darker zenith (as in the three.js Sky example).
+        vec3 col=mix(uHorizon,uMid,smoothstep(0.0,.40,pow(h,.8)));
+        col=mix(col,uZenith,smoothstep(.28,1.0,pow(h,.85)));
         // Sun: warm haze tinted by the sun colour, corona and an HDR disc that feeds bloom and god rays.
         float s=max(0.0,dot(ray,normalize(uSunDirection)));
         float sunUp=smoothstep(-.12,.10,uSunDirection.y);
