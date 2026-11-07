@@ -28,7 +28,8 @@ export function gustAt(x, z, travelX, travelZ) {
   return smooth(0.35, 0.8, vnoise(x * 0.045 - travelX * 1.6, z * 0.045 - travelZ * 1.6));
 }
 
-export function createWind({ climate = 1 } = {}) {
+export function createWind({ climate: initialClimate = 1 } = {}) {
+  let climate = initialClimate;
   const state = { angle: 0, speed: 3, dx: 1, dz: 0, strength: 1, driftX: 0, driftZ: 0, aloftDriftX: 0, aloftDriftZ: 0, time: 0 };
   let last = null;
   /** Advance to time t (seconds). The drift accumulates, so a change of wind never makes the clouds jump. */
@@ -45,6 +46,8 @@ export function createWind({ climate = 1 } = {}) {
     state.aloftDriftX += ax * b.speed * 0.16 * dt; state.aloftDriftZ += az * b.speed * 0.16 * dt;
     return state;
   }
+  /** Weather changes the climate wind (1 = a light sea breeze, 2 = a storm): the drift keeps accumulating, nothing jumps. */
+  function setClimate(c) { climate = Math.min(2.6, Math.max(0.3, c)); }
   /** The wind vector (m/s) at a point and height: base plus the gust passing over that spot. */
   function windAt(x, z, h = 0) {
     const g = gustAt(x, z, state.driftX, state.driftZ);
@@ -52,5 +55,5 @@ export function createWind({ climate = 1 } = {}) {
     const s = state.speed * lift * (0.75 + 0.9 * g);
     return { x: state.dx * s, z: state.dz * s, speed: s, gust: g };
   }
-  return { state, update, windAt };
+  return { state, update, windAt, setClimate };
 }

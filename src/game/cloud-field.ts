@@ -49,6 +49,7 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     uCloudSun:{value:liveSky.sunDir},
     uCloudStrength:{value:.30},
     uWindStrength:{value:1},
+    uCloudBias:{value:0},          // weather: positive = more cloud (thresholds shift down)
   };
 
   function applyToMaterial(material:THREE.MeshStandardMaterial){
@@ -62,12 +63,12 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
       shader.vertexShader=shader.vertexShader.replace("#include <worldpos_vertex>",
         "#include <worldpos_vertex>\nvCloudWorld=(modelMatrix*vec4(transformed,1.0)).xyz;");
       shader.fragmentShader=shader.fragmentShader.replace("#include <common>",
-        "#include <common>\nvarying vec3 vCloudWorld;\nuniform sampler2D uCloudMap;\nuniform vec2 uCloudWind;\nuniform float uCloudSpan;\nuniform float uCloudHeight;\nuniform vec3 uCloudSun;\nuniform float uCloudStrength;");
+        "#include <common>\nvarying vec3 vCloudWorld;\nuniform float uCloudBias;\nuniform sampler2D uCloudMap;\nuniform vec2 uCloudWind;\nuniform float uCloudSpan;\nuniform float uCloudHeight;\nuniform vec3 uCloudSun;\nuniform float uCloudStrength;");
       shader.fragmentShader=shader.fragmentShader.replace("#include <color_fragment>",
-        "#include <color_fragment>\nvec2 cloudGroundUV=(vCloudWorld.xz+uCloudSun.xz/max(.16,uCloudSun.y)*(uCloudHeight-vCloudWorld.y)+uCloudWind)/uCloudSpan;\nfloat cloudCover=texture2D(uCloudMap,cloudGroundUV).r;\nfloat cloudOcclusion=smoothstep(.39,.57,cloudCover);\ndiffuseColor.rgb*=1.0-uCloudStrength*cloudOcclusion;");
+        "#include <color_fragment>\nvec2 cloudGroundUV=(vCloudWorld.xz+uCloudSun.xz/max(.16,uCloudSun.y)*(uCloudHeight-vCloudWorld.y)+uCloudWind)/uCloudSpan;\nfloat cloudCover=texture2D(uCloudMap,cloudGroundUV).r;\nfloat cloudOcclusion=smoothstep(.39-uCloudBias,.57-uCloudBias,cloudCover);\ndiffuseColor.rgb*=1.0-uCloudStrength*cloudOcclusion;");
     };
     const previousKey=material.customProgramCacheKey.bind(material);
-    material.customProgramCacheKey=()=>previousKey()+"|coastal-cloud-field-v1";
+    material.customProgramCacheKey=()=>previousKey()+"|coastal-cloud-field-v2";
     material.needsUpdate=true;
     return material;
   }
@@ -87,11 +88,12 @@ export function createCloudField(scope:{track:<T extends{dispose:()=>void}>(item
     if(sun.y<=.02)return 0;
     const k=CLOUD_HEIGHT/Math.max(.16,sun.y),w=uniforms.uCloudWind.value;
     const cover=sample((x+sun.x*k+w.x)/SPAN,(z+sun.z*k+w.y)/SPAN);
-    return THREE.MathUtils.smoothstep(cover,.39,.57);
+    const b=uniforms.uCloudBias.value;return THREE.MathUtils.smoothstep(cover,.39-b,.57-b);
   }
+  function setBias(v:number){uniforms.uCloudBias.value=v;}
   function setStrength(value:number){
     uniforms.uCloudStrength.value=THREE.MathUtils.clamp(value,0,.5);
   }
-  return {texture,uniforms,applyToMaterial,setWind,setStrength,sunOcclusion};
+  return {texture,uniforms,applyToMaterial,setWind,setStrength,setBias,sunOcclusion};
 }
 export type CloudField=ReturnType<typeof createCloudField>;

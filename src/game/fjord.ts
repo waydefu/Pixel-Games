@@ -75,7 +75,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uSunDirection:{value:liveSky.sunDir},
     uHorizon:{value:liveSky.horizon},
     uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},
-    uTwilight:liveSky.twilight,uNightC:liveSky.night,uSunColor:{value:liveSky.sunColor},
+    uTwilight:liveSky.twilight,uNightC:liveSky.night,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,uSunColor:{value:liveSky.sunColor},
   };
   // Art-directed sky: a clear tropical day (reference: saturated blue overhead fading to pale aqua at the
   // horizon, crisp white cumulus). A physical Preetham sky reads pale and hazy and cannot be steered, so the
@@ -86,7 +86,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uHorizon:{value:liveSky.horizon},
       uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},uSunColor:{value:liveSky.sunColor},
       uNight:liveSky.night,uMoonStrength:liveSky.moonStrength,uTwilight:liveSky.twilight,uStarAlpha:liveSky.starAlpha,
-      uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,
+      uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
     },
     vertexShader:String.raw`varying vec3 vRay;
       void main(){vRay=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -94,7 +94,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       varying vec3 vRay;
       uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;
       uniform vec3 uMoonDirection;uniform vec3 uSunColor;uniform float uNight;uniform float uMoonStrength;
-      uniform float uTwilight;uniform float uStarAlpha;uniform float uMoonPhase;uniform float uSkyHour;uniform float uTime;uniform float uSkyDetail;
+      uniform float uTwilight;uniform float uStarAlpha;uniform float uMoonPhase;uniform float uSkyHour;uniform float uTime;uniform float uSkyDetail;uniform float uWeatherDark;uniform float uWeatherFlash;
       float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
       float n3(vec3 p){
         vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
@@ -115,9 +115,12 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float wAnti=smoothstep(.15,1.0,away)*uTwilight;
         col=mix(col,vec3(.03,.045,.12),(1.0-smoothstep(.015,.075,yy))*wAnti*.8*step(0.0,ray.y));
         col=mix(col,vec3(.90,.36,.38)*.95,smoothstep(.03,.085,yy)*(1.0-smoothstep(.13,.36,yy))*wAnti*.62);
+        // weather: a heavy sky is darker and greyer, and a lightning flash lights it from within
+        col=mix(col,vec3(dot(col,vec3(.2126,.7152,.0722)))*.40,uWeatherDark*.92);
+        col+=vec3(.55,.62,.9)*uWeatherFlash*(.45+.55*n3(ray*3.0+vec3(uTime*.0)))*smoothstep(.0,.5,ray.y+.1);
         // Sun: warm haze tinted by the sun colour, corona and an HDR disc that feeds bloom and god rays.
         float s=max(0.0,dot(ray,normalize(uSunDirection)));
-        float sunUp=smoothstep(-.12,.10,uSunDirection.y);
+        float sunUp=smoothstep(-.12,.10,uSunDirection.y)*(1.0-.85*uWeatherDark);
         col=mix(col,uSunColor*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
         col=mix(col,uSunColor*vec3(20.0,17.0,13.0),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
@@ -261,6 +264,9 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform vec3 uCloudShade;
       uniform float uTwilight;
       uniform float uNightC;
+      uniform float uCloudBias;
+      uniform float uWeatherDark;
+      uniform float uWeatherFlash;
       uniform vec3 uSunColor;
       void main(){
         vec3 ray=normalize(vRay);
@@ -276,7 +282,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
         vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
         float low=texture2D(uCloudMap,cloudUV).r;
-        float cumulus=smoothstep(.47,.63,low);
+        float cumulus=smoothstep(.47-uCloudBias,.63-uCloudBias,low);
         float cirrus=smoothstep(.52,.71,
           texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
         // VIPER-style optical integration, adapted for the mobile WebGL2
@@ -285,10 +291,10 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         float stacked=0.0;
         if(uCloudDetailLevel>0.5){
           float middle=texture2D(uCloudMap,cloudUV+ray.xz*.018+vec2(.013,-.019)).r;
-          stacked+=smoothstep(.41,.59,middle)*.53;
+          stacked+=smoothstep(.41-uCloudBias,.59-uCloudBias,middle)*.53;
           if(uCloudDetailLevel>1.5){
             float top=texture2D(uCloudMap,cloudUV-ray.xz*.024+vec2(-.028,.011)).r;
-            stacked+=smoothstep(.43,.63,top)*.38;
+            stacked+=smoothstep(.43-uCloudBias,.63-uCloudBias,top)*.38;
           }
         }
         // Fade the sheet to physical aerial haze where rays graze the horizon.
@@ -341,6 +347,11 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         cloud*=mix(1.0,.42,smoothstep(-.10,-.17,sy)*(1.0-highLit));                              // low clouds are in shadow once the sun is down                                  // backlit bodies go dark
         cloud+=fiery*thin*pow(sun,5.0)*tw*2.4+uSunColor*thin*pow(sun,2.0)*tw*.6;  // rims burn
         cloud=mix(cloud,vec3(.80,.38,.48)*(.55+.6*sideLight),away*tw*.35*(1.0-smoothstep(.0,.8,ray.y)));
+        // heavy weather: slate-grey, darker bodies; lightning lights the cloud from inside
+        float lumC=dot(cloud,vec3(.2126,.7152,.0722));
+        cloud=mix(cloud,vec3(lumC)*vec3(.55,.60,.70),uWeatherDark*.95);
+        cloud*=1.0-.72*uWeatherDark*(.45+.55*thick);
+        cloud+=vec3(.7,.78,1.0)*uWeatherFlash*(.35+.65*smoothstep(.45,.9,low))*1.4;
         cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
         // Transparent cloud sheet rendered over the physical atmosphere;
         // shared cloudMap controls both visible cover and mountain cloud shade.
@@ -357,8 +368,10 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   function update(time:number){
     skyUniforms.uTime.value=time;
   }
+  /** Weather: cloud coverage multiplier (optical depth) and the threshold bias come from the cloud field. */
+  function setCloudAmount(v:number){skyUniforms.uCloudAmount.value=v;}
   function setSkyQuality(quality:"basic"|"balanced"|"high"){
     skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
   }
-  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality};
+  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount};
 }

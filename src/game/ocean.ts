@@ -50,7 +50,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   const spots=Array.from({length:FOAM_SPOTS},()=>new THREE.Vector4(0,0,0,0));
   const waterNormals=k.scope.track(makeWaterNormals());
   const uniforms={
-    uTime:{value:0},uReflect:{value:1},uDetail:{value:.28},
+    uTime:{value:0},uReflect:{value:1},uDetail:{value:.28},uWeather:{value:new THREE.Vector2(1,0)},   // x: wave scale, y: grey/storm tint
     uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},
     uSunColor:{value:liveSky.sunColor},uMoonColor:{value:liveSky.moonColor},
     uHorizon:{value:liveSky.fog},uSkyMid:{value:liveSky.mid},
@@ -61,6 +61,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
     vertexShader:String.raw`
       precision highp float;
       uniform float uTime;
+      uniform vec2 uWeather;
       uniform mat4 textureMatrix;
       varying vec4 mirrorCoord;
       varying vec3 vWorld;
@@ -75,7 +76,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         float p0=w.x*.29+w.z*.08+uTime*.85;
         float p1=-w.x*.16+w.z*.34+uTime*.65;
         float p2=w.x*.91+w.z*.72+uTime*1.45;
-        float h=(.18*sin(p0)+.12*sin(p1)+.028*sin(p2))*damp;
+        float h=(.18*sin(p0)+.12*sin(p1)+.028*sin(p2))*damp*uWeather.x;
         vec3 changed=position;
         changed.z+=h;  // Plane rotated by -90°: local Z becomes world-up.
         vWorld=(modelMatrix*vec4(changed,1.0)).xyz;
@@ -89,6 +90,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
     fragmentShader:`
       precision highp float;
       uniform float uTime;
+      uniform vec2 uWeather;
       varying vec3 vWorld;
       uniform vec3 uSunDirection;
       uniform vec3 uMoonDirection;
@@ -136,7 +138,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         float p2=vWorld.x*.91+vWorld.z*.72+uTime*1.45;
         float dx=(.0522*cos(p0)-.0192*cos(p1)+.0255*cos(p2))*damp;
         float dz=(.0144*cos(p0)+.0408*cos(p1)+.0202*cos(p2))*damp;
-        vec3 n=normalize(vec3(-dx,1.0,-dz));
+        vec3 n=normalize(vec3(-dx,1.0,-dz)*uWeather.x);
         vec4 detailNoise=getNoise(vWorld.xz*size);
         vec3 nDetail=normalize(detailNoise.xzy*vec3(1.5,1.0,1.5));
         n=normalize(n+vec3(nDetail.x,0.0,nDetail.z)*uDetail);
@@ -208,6 +210,8 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         water=mix(water,vec3(.86,.93,.88),clamp(spotFoam*.72,0.0,.7));
         // Deep water goes dark at night, caustics and foam included; the sun and moon glitter stay bright.
         water=water*(.12+.88*uDayLight)+glitter;
+        // a storm sea is slate-grey and streaked white
+        water=mix(water,vec3(dot(water,vec3(.2126,.7152,.0722)))*vec3(.8,.9,1.0),uWeather.y*.55);
         gl_FragColor=vec4(max(water,vec3(0.0)),1.0);
         #include <fog_fragment>
         #include <tonemapping_fragment>
@@ -259,6 +263,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
     outer.visible=true;
   };
   function setReflection(on:boolean){reflectionOn=on;}
+  function setWeather(waveScale:number,grey:number){uniforms.uWeather.value.set(waveScale,grey);}
   function update(time:number){uniforms.uTime.value=time;material.uniforms.time.value=time*.6;}
   /** Rocks and piles as [x,z,radius]; each boat adds two foam circles along its hull (see setBoats). */
   let fixedSpots:[number,number,number][]=[];
@@ -278,5 +283,5 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   }
   /** Foam rings follow the boats when they are rowed. */
   function setBoats(poses:{x:number;z:number;heading:number;length:number}[]){boatPoses=poses;writeSpots();}
-  return {material,mesh,update,setSpots,setBoats,setReflection};
+  return {material,mesh,update,setSpots,setBoats,setReflection,setWeather};
 }

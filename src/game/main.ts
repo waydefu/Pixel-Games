@@ -89,6 +89,9 @@ function setCameraMode(mode:CameraMode){
   if(host)host.setCamera(rig.camera);
   resize();
 }
+const weatherPicker=element<HTMLSelectElement>("#weather");
+{const initial=new URLSearchParams(window.location.search).get("weather");if(initial&&[...weatherPicker.options].some(o=>o.value===initial))weatherPicker.value=initial;}
+weatherPicker.addEventListener("change",()=>world.setWeather(weatherPicker.value==="auto"?null:weatherPicker.value));
 const input=createMovementInput(joystick,knob);
 const frameMetrics=createFrameMetrics();
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
@@ -98,7 +101,7 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,grade:pipelineInfo.quality})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,weather:world.weather.state.preset,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 const pipelineInfo={hdr:false,quality:"balanced"};
 let focusPipeline:(distance:number,active:boolean)=>void=()=>{};

@@ -14,6 +14,7 @@ export const liveSky={
   hemiSky:color(),hemiGround:color(),moonColor:color(),cloudLit:color(),cloudShade:color(),
   // scalar uniforms are {value} objects so shaders can share them directly
   windDir:{value:new THREE.Vector2(1,0)},windStrength:{value:1},
+  weatherDark:{value:0},weatherFlash:{value:0},weatherFog:{value:0},weatherRain:{value:0},
   night:{value:0},dayLight:{value:1},twilight:{value:0},moonPhase:{value:.5},skyHour:{value:12},lampGlowU:{value:0},starAlpha:{value:0},moonStrength:{value:0},
   sunIntensity:0,hemiIntensity:1,moonIntensity:0,exposure:1,sunRays:1,lampGlow:0,hour:HOUR_START,elevation:30,
 };

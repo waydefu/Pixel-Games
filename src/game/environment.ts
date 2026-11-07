@@ -239,7 +239,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   }
   /** Sun, moon and sky light from the live sky; the shadow camera follows the player. */
   /** 0..1 how much of the direct sun reaches the ground (a cloud overhead takes most of it). */
-  let sunTransmit=1;
+  let sunTransmit=1,hemiScale=1;
   function setSunTransmit(v:number){sunTransmit=THREE.MathUtils.clamp(v,0,1);}
   function applySky(player?:{x:number;z:number}){
     const px=player?.x??0,pz=player?.z??0;
@@ -249,7 +249,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     sunlight.color.copy(liveSky.sunColor);
     sunlight.intensity=liveSky.sunIntensity*sunTransmit;
     sunlight.visible=liveSky.sunIntensity*sunTransmit>.01;
-    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity;
+    sky.color.copy(liveSky.hemiSky);sky.groundColor.copy(liveSky.hemiGround);sky.intensity=liveSky.hemiIntensity*hemiScale;
     moonlight.position.set(px+liveSky.moonDir.x*34,Math.max(.25,liveSky.moonDir.y)*34,pz+liveSky.moonDir.z*34);
     moonlight.color.copy(liveSky.moonColor);moonlight.intensity=liveSky.moonIntensity;
     moonlight.visible=liveSky.moonIntensity>.01;
@@ -261,6 +261,6 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,moonlight,update,applySky,setSunTransmit,setFoliageDensity,setSeaReflection:ocean.setReflection,sea:ocean.material,
+  return {sunlight,moonlight,update,applySky,setSunTransmit,setSeaWeather:ocean.setWeather,hemiScale:(v:number)=>{hemiScale=v;},setFoliageDensity,setSeaReflection:ocean.setReflection,sea:ocean.material,
     boats:boats.boats,boatsMovable:boats.movable,seaBlockers:foamSpots,setBoatFoam:ocean.setBoats};
 }
