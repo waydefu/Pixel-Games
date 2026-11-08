@@ -35,7 +35,7 @@ jobs:
       - name: Static, asset, unit, TypeScript, Vite and bundle checks
         run: npm run validate
       - name: Keep the verified dist for the browser jobs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 (Node 24), SHA-pinned
         with:
           name: dist
           path: dist/
@@ -74,7 +74,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Fetch the verified dist
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0, SHA-pinned
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2 (Node 24), SHA-pinned
         with:
           name: dist
           path: dist
@@ -100,7 +100,7 @@ jobs:
           VISUAL_AUDIT_QUALITY: ${{ github.head_ref == 'feat/g4-cinematic-post-and-visual-overhaul-20261105' && 'high' || 'balanced' }}
       - name: Upload G2 visual audit evidence
         if: ${{ always() && matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 (Node 24), SHA-pinned
         with:
           name: visual-audit-${{ github.run_id }}
           path: visual-audit-output/
