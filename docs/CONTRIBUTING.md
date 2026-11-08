@@ -2,6 +2,17 @@
 
 本流程專為 **A/B 兩個獨立開發端，可能共用同一 GitHub 帳號，彼此不即時聊天**而設計。以 GitHub 作為唯一工作紀錄。目標是可預測的整合，而非增加會議或繁重文書。
 
+## 開發端身分對照（唯一指定來源）
+
+| 執行端 | 固定名稱 | 狀態 |
+| --- | --- | --- |
+| **A** | **Waydefu** | 已由 Owner 指定 |
+| **B** | **cooby19** | 已由 Owner 指定 |
+
+- 建立 Issue、PR 或交接記錄時，**Waydefu 一律填「執行端: A」**。cooby19 一律填「執行端: B」。
+- 執行端 A/B 是**專案工作角色**，不是 GitHub 登入帳號、權限或 CODEOWNERS 身分。若兩端共用帳號，也必須在 Issue/PR 自行標明執行端。
+- 本表只記錄 Owner 已確認的指派；A＝Waydefu、B＝cooby19。不可僅由提交者名稱或工具模型推斷執行端；異動時以新的 Owner 指定更新本表。
+
 ## 1. 開工與認領
 
 1. 先讀 [交接入口](HANDOFF.md)，核對最新 main SHA、[open Issues](https://github.com/waydefu/Pixel-Games/issues)、[open PRs](https://github.com/waydefu/Pixel-Games/pulls) 及 CI；不可用本地或對話記憶取代。
