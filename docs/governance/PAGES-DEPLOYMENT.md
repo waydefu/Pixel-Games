@@ -1,17 +1,9 @@
-# GitHub Pages 部署與回退（2026-11-05）
+# GitHub Pages｜部署與回退
 
-目前單一玩家入口：<https://waydefu.github.io/Pixel-Games/>。**不再有 `/lab/` 第二頁。** GitHub Pages Source 已由 Owner 設為 GitHub Actions，`.github/workflows/deploy-pages.yml` 在 `main` 更新或手動 dispatch 時執行。
+> 2026-11-08 依 `.github/workflows/deploy-pages.yml` 與 `verify.yml` 核對；是否已上線只能看 [Pages Actions](https://github.com/waydefu/Pixel-Games/actions/workflows/deploy-pages.yml)。
 
-```text
-main push / workflow_dispatch
-  → npm ci → npm run validate → Playwright Chromium E2E
-  → upload-pages-artifact (dist/) → deploy-pages
-```
+最新流程：`main` 更新 → 一次 `npm ci` + `npm run validate`（含治理檢查）→ 保存 `dist` → 5 個桌面／手機 Chromium E2E 分片 → 全部通過才部署 Pages。
 
-部署最小權限：build job `contents:read`；deploy job `pages:write` 和 `id-token:write`。Vite base 維持 `/Pixel-Games/`。
+唯一正式網址：https://waydefu.github.io/Pixel-Games/ 。PR 合併或 CI 綠不等於網站已更新；需確認部署 run 的 head SHA、實際網址與瀏覽器快取。
 
-操作：在 [Actions](https://github.com/waydefu/Pixel-Games/actions) → Deploy to GitHub Pages 確認最近一次 run 的驗證和部署兩個 job 均 SUCCESS。使用者若仍看到舊內容，先確認最新 commit、頁面 URL 與快取，不要直接改 Settings。
-
-回退：從 PR/Commit 建立 revert，走既有分支保護和 CI，合併後由 Actions 發布以前版本。不可把歷史研究文件直接當部署工作流程。更改 Pages Source 或 Ruleset 前需 Owner 批准。
-
-**CI mobile viewport 不是 Android Chrome／iOS Safari 真機。**
+回退一律用獨立 revert PR 通過必要 CI，合併後才重新發布。Pages Source／Secrets／Ruleset 的修改需要 Owner 當次授權。Playwright mobile viewport 不是 Android 或 iOS 真機測試。
