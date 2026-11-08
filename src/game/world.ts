@@ -181,11 +181,16 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier
     cloudStrength=Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48;
   }
+  /** Everything that draws into its own render target is drawn here, BEFORE the frame pipeline's scene pass (see cloud-shadow.ts). */
+  function prePass(renderer:THREE.WebGLRenderer,camera:THREE.Camera){
+    fjord.runShadowPass(renderer);
+    environment.mirrorPass(renderer,scene,camera);
+  }
   function dispose(){scope.dispose();}
   return Object.freeze({
     scene,scope,colliders:kit.colliders,player,avatar,shadow,
     scenery:fjord.peaks.length,
-    movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,
+    movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,prePass,
     weather,setWeather:(name:string|null)=>weather.setLock(name),takeThunder:(dt:number)=>weather.takeThunder(dt),
     gulls:()=>life.gullPositions(),gustAt:(x:number,z:number)=>gustAt(x,z,wind.state.aloftDriftX,wind.state.aloftDriftZ),
     boats:environment.boats,boatsMovable:environment.boatsMovable,seaBlockers:environment.seaBlockers,setBoatFoam:environment.setBoatFoam,

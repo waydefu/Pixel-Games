@@ -7,8 +7,10 @@ import { SHADOW_EXTENT, type CloudField } from "./cloud-field.js";
  * Ground materials read it (cloud-field.ts), so the shadow under you is the shadow of the cloud you see overhead.
  *
  * Budget: one full-screen pass into a square target of at most 256 px (128 on Balanced, 64 on Basic), at most once a frame,
- * and none at all on a software rasteriser or when no cloud is up. The pass runs from a hook object's onBeforeRender, the way
- * the sea's mirror does, because that is where the renderer is at hand.
+ * and none at all on a software rasteriser or when no cloud is up. `run(renderer)` is called by the frame pipeline BEFORE the scene
+ * pass: switching render targets in the middle of a multisampled scene pass loses what was already drawn on phone GPUs
+ * (WEBGL_multisampled_render_to_texture), which showed as every second frame going blank. The hook object's onBeforeRender
+ * stays as the fallback for a renderer without that pipeline.
  */
 export function createCloudShadow(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};cloudField:CloudField;
@@ -30,7 +32,7 @@ export function createCloudShadow(opts:{
   const probe=new Uint8Array(4);
   const hook=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(.01,.01)),scope.track(new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false})));
   hook.frustumCulled=false;hook.renderOrder=-1000;hook.userData.dynamic=true;hook.name="cloud-shadow-hook";
-  hook.onBeforeRender=renderer=>{
+  function run(renderer:THREE.WebGLRenderer){
     if(frame===lastFrame)return;                         // the scene is drawn several times a frame: the map once
     lastFrame=frame;
     let any=enabled;
@@ -47,11 +49,14 @@ export function createCloudShadow(opts:{
         .then(()=>{cloudField.setSunOcclusion(probe[0]/255);readPending=false;}).catch(()=>{readPending=false;});
     }
     if(!any)cloudField.setSunOcclusion(0);
-  };
+  }
+  hook.onBeforeRender=run;
   scene.add(hook);
   return {
     /** Call once per frame: lets the hook know a new frame has begun. */
     tick(){frame++;},
+    /** Draws the map for this frame (once); call it before the scene pass. */
+    run,
     /** The map's cost follows the quality tier; a software rasteriser has no cloud shadows at all. */
     setQuality(quality:"basic"|"balanced"|"high",on=true){
       enabled=on;

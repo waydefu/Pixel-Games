@@ -254,9 +254,9 @@ function fullscreenMaterial(fragmentShader, uniforms) {
 }
 
 /**
- * @param {{renderer:any, scene:any, camera:any, quality?:string}} options
+ * @param {{renderer:any, scene:any, camera:any, quality?:string, prePass?:((renderer:any, scene:any, camera:any)=>void)|null}} options
  */
-export function createHd2dPipeline({ renderer, scene, camera, quality = "balanced" }) {
+export function createHd2dPipeline({ renderer, scene, camera, quality = "balanced", prePass = null }) {
   if (!renderer || !scene || !camera) throw new TypeError("renderer, scene and camera are required");
   const extensions = renderer.extensions;
   const hdr = !!(extensions?.has("EXT_color_buffer_float") || extensions?.has("EXT_color_buffer_half_float"));
@@ -393,6 +393,10 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
     const previousTarget = renderer.getRenderTarget();
     try {
       cameraUniform.value.set(activeCamera.near, activeCamera.far, activeCamera.isOrthographicCamera ? 1 : 0);
+      // Passes that draw into their own targets (cloud-shadow map, the sea's mirror) run BEFORE the scene pass. Switching the
+      // render target in the middle of a multisampled pass loses what was drawn so far on phone GPUs that implement
+      // WEBGL_multisampled_render_to_texture (three.js notes the same limitation), which showed as blank frames.
+      if (prePass) { activeCamera.updateMatrixWorld(); prePass(renderer, scene, activeCamera); }
       renderer.setRenderTarget(sceneTarget);
       renderer.clear();
       renderer.render(scene, activeCamera);

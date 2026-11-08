@@ -57,7 +57,9 @@ vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
   float lump=0.28+smoothstep(0.35,0.80,vn(R15*q*0.9+31.7))*0.85;
   float base=fbmF(q,Q>=1?4:3,fw);
   float det=Q>=1?fbmF(q*4.6+17.0+vec2(ev*0.33,-ev*0.21),Q>=2?4:3,fw*4.6):0.5;
-  float field=(base*0.54+det*0.46-0.5)*2.2+0.5;
+  // High: a finer billow octave roughens the margin like a cauliflower (shape and place are the same on every tier)
+  float billow=Q>=2?(fbmF(q*11.0+5.0,3,fw*11.0)-0.5)*0.30:0.0;
+  float field=(base*0.54+det*0.46-0.5)*2.2+0.5+billow;
   float d=mix(field,lump,0.45);
   float edge=mix(0.84,0.52,cov);
   float den=smoothstep(edge-0.01,edge+0.07,d);
@@ -67,8 +69,15 @@ vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
     vec2 ql=q+ldir*0.16;
     float lumpL=0.28+smoothstep(0.35,0.80,vn(R15*ql*0.9+31.7))*0.85;
     float baseL=fbmF(ql,Q>=2?4:3,fw);
-    float dl=mix((baseL*0.54+det*0.46-0.5)*2.2+0.5,lumpL,0.45);
+    float dl=mix((baseL*0.54+det*0.46-0.5)*2.2+0.5+billow,lumpL,0.45);
     lit=clamp((d-dl)*5.5,-1.0,1.0);
+    if(Q>=2){
+      // High: a second, farther tap toward the sun, so the side away from it sinks deeper into shade (self-shadowing)
+      vec2 q2=q+ldir*0.40;
+      float lump2=0.28+smoothstep(0.35,0.80,vn(R15*q2*0.9+31.7))*0.85;
+      float d2=mix((fbmF(q2,4,fw)*0.54+det*0.46-0.5)*2.2+0.5+billow,lump2,0.45);
+      lit=clamp(mix(lit,(d-d2)*3.4,0.5)*1.25,-1.0,1.0);
+    }
   }
   return vec3(den,lit,smoothstep(edge,edge+0.38,d));
 }
@@ -91,6 +100,11 @@ vec3 granularForm(vec2 uv,float fw,float pack,float roll,float flockiness,vec2 l
     vec2 ql=q+ldir*0.35;
     float nl=vn(R15*ql)*0.72+vn(R60*ql*2.1+5.0)*0.28;
     lit=clamp((n-nl)*4.0+(fineN-0.47)*1.8,-1.0,1.0);
+    if(Q>=2){
+      vec2 q2=q+ldir*0.80;   // High: second tap, deeper shade on the lee side
+      float n2=vn(R15*q2)*0.72+vn(R60*q2*2.1+5.0)*0.28;
+      lit=clamp(mix(lit,(n-n2)*2.4+(fineN-0.47)*1.8,0.5)*1.2,-1.0,1.0);
+    }
   }
   return vec3(cell,lit,cell);
 }
