@@ -22,25 +22,25 @@
 
 Node.js >=24（CI 使用 26）：
 
-\`\`\`sh
+```sh
 npm ci
 npm run dev
 npm run validate       # repo / 治理資料 / 資產 / 單測 / TypeScript / 建置 / 預算
 npm run test:e2e       # Playwright desktop + mobile viewport，非真機
 npm run graphics:matrix
-\`\`\`
+```
 
-GitHub Pages 僅由 \`.github/workflows/deploy-pages.yml\` 在 main 更新時發布，與 CI 共用 \`verify.yml\` 的建置及五個 Chromium E2E 分片。合併成功後仍須確認 Pages Actions 成功與瀏覽器快取。
+GitHub Pages 僅由 `.github/workflows/deploy-pages.yml` 在 main 更新時發布，與 CI 共用 `verify.yml` 的建置及五個 Chromium E2E 分片。合併成功後仍須確認 Pages Actions 成功與瀏覽器快取。
 
 ## 目錄
 
-- \`index.html\`、\`styles.css\`：單一遊戲入口和 HUD。
-- \`src/game/main.ts\`：啟動、操作、UI、環境更新的整合點；更改前需檢查其他開啟中的 PR。
-- \`src/game/world.ts\`：場景組裝；其他 \`src/game/\` 模組處理相機、海洋、天空、天氣、釣魚、划船、音訊與美術。
-- \`src/rendering/\`：單一 HD-2D 後製及渲染生命週期。
-- \`tests/\`、\`e2e/\`、\`scripts/\`：回歸與建置檢查；\`.github/workflows/\`：CI/Pages。
-- \`docs/\`：現行規範與**保留原文**的研究／ADR／歷史紀錄。
-- \`.agents/skills/\`：按需載入的開發技能，不是遊戲執行端自動授權。
+- `index.html`、`styles.css`：單一遊戲入口和 HUD。
+- `src/game/main.ts`：啟動、操作、UI、環境更新的整合點；更改前需檢查其他開啟中的 PR。
+- `src/game/world.ts`：場景組裝；其他 `src/game/` 模組處理相機、海洋、天空、天氣、釣魚、划船、音訊與美術。
+- `src/rendering/`：單一 HD-2D 後製及渲染生命週期。
+- `tests/`、`e2e/`、`scripts/`：回歸與建置檢查；`.github/workflows/`：CI/Pages。
+- `docs/`：現行規範與**保留原文**的研究／ADR／歷史紀錄。
+- `.agents/skills/`：按需載入的開發技能，不是遊戲執行端自動授權。
 
 ## 操作與驗收
 

@@ -6,8 +6,8 @@
 
 1. 先讀 [交接入口](HANDOFF.md)，核對最新 main SHA、[open Issues](https://github.com/waydefu/Pixel-Games/issues)、[open PRs](https://github.com/waydefu/Pixel-Games/pulls) 及 CI；不可用本地或對話記憶取代。
 2. 一件獨立工作用 **一個 Issue**；記錄目的、驗收標準、影響模組、相依工作、優先級 P0/P1/P2、執行端 A 或 B。只有指定執行端修改該任務；需要切換時更新 Issue 紀錄。
-3. 修緊急故障可用唯一 \`HOTFIX-YYYYMMDD-代號\` 代替 Issue；hotfix 也要有 PR、驗收及可回退提交，不能當作免管理捷徑。
-4. 比對目前 open PR 的修改路徑；若涉及同一核心模組（\`main.ts\`、\`world.ts\`、render pipeline、CI、資料格式），先在 Issue/PR 寫出接合與驗證方式，必要時分為依序合併。
+3. 修緊急故障可用唯一 `HOTFIX-YYYYMMDD-代號` 代替 Issue；hotfix 也要有 PR、驗收及可回退提交，不能當作免管理捷徑。
+4. 比對目前 open PR 的修改路徑；若涉及同一核心模組（`main.ts`、`world.ts`、render pipeline、CI、資料格式），先在 Issue/PR 寫出接合與驗證方式，必要時分為依序合併。
 5. 從**最新 main** 建個人專用分支；不要在別人的 PR 分支寫入或直接改 main。
 
 ## 2. PR 契約
@@ -15,12 +15,12 @@
 每個新 PR 均需填：
 - **任務**：Issue #N 或唯一 HOTFIX-ID；同一任務不得被兩個 open PR 同時認領。
 - **執行端**：A 或 B；共用 GitHub 帳號也必須填。
-- **影響模組**：例如 \`render/sky\`、\`game/input\`、\`governance\`。
+- **影響模組**：例如 `render/sky`、`game/input`、`governance`。
 - **相依 PR**：無或 #N；未合併依賴需標 BLOCKED，避免半成品先併。
 - **交集處理**：若和其他 open PR 共同改核心檔案，具體列出整合方式、順序、回歸測試。未驗證不得填「已完成」。
 - **驗收／回退**：自動測試、人工畫面、真機、音訊實聽分層紀錄；各寫 PASS / FAIL / NOT RUN。
 
-\`scripts/check-pr-collaboration.mjs\` 會用 GitHub API 比對 open PR：**重複認領同一任務阻擋**；共用檔案預警；共用核心檔案而沒有整合說明則阻擋。對歷史 PR #35/#36 採相容模式，避免新制度無故把舊 PR 變紅。此工具不能辨認同一 GitHub 帳號背後到底是誰，也不能防止尚未開 PR 的私下重複開工，所以 **Issue 人工認領仍必要**。
+`scripts/check-pr-collaboration.mjs` 會用 GitHub API 比對 open PR：**重複認領同一任務阻擋**；共用檔案預警；共用核心檔案而沒有整合說明則阻擋。對歷史 PR #35/#36 採相容模式，避免新制度無故把舊 PR 變紅。此工具不能辨認同一 GitHub 帳號背後到底是誰，也不能防止尚未開 PR 的私下重複開工，所以 **Issue 人工認領仍必要**。
 
 ## 3. 合併條件與交接
 
@@ -32,6 +32,6 @@
 
 ## 4. 擴張與平台限制
 
-現有 \`Protect main\` 強制 PR、必要 CI、不得 force push，但審查批准數為 0，CODEOWNERS 未被強制。**本 PR 不擅改平台權限**。Owner 若要求雙人交叉審查，需要兩個不同的 GitHub 身分，並在 Ruleset 設定 1 位 reviewer／code-owner review；兩個 Agent 共用帳號無法真正形成 GitHub 的獨立審查。詳見 [主分支保護](governance/BRANCH-PROTECTION.md)。
+現有 `Protect main` 強制 PR、必要 CI、不得 force push，但審查批准數為 0，CODEOWNERS 未被強制。**本 PR 不擅改平台權限**。Owner 若要求雙人交叉審查，需要兩個不同的 GitHub 身分，並在 Ruleset 設定 1 位 reviewer／code-owner review；兩個 Agent 共用帳號無法真正形成 GitHub 的獨立審查。詳見 [主分支保護](governance/BRANCH-PROTECTION.md)。
 
 本流程優先監測檔案交集，**不禁止**不同任務在同一檔案並行；是否允許整合由改動的契約和回歸證據決定。
