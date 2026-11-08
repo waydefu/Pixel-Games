@@ -6,7 +6,7 @@
 
 - 必要檔案和 JS 語法、沒有已淘汰的首頁與原型目錄。
 - 物件與碰撞的單元測試（包含西側村莊、碼頭邊緣和生活道具）、asset hash / glTF companion、安全路徑、還原的共用 API contract tests。
-- TypeScript strict 與 Vite 單頁 build；JS gzip 上限 330 kB（初始 budget；2026-11-06 由 270 kB 上調到 285 kB、2026-11-07 再上調到 300 kB、再到 330 kB，原因：動態天氣、體積雲、音訊聲景、風場、路亞釣魚、精修魚竿與捲線器、程序化魚與假餌模型、官方 Water 海面、可划的船；main 為 261 kB，Owner 表示預算無妨）。
+- TypeScript strict 與 Vite 單頁 build；JS gzip 上限 330 kB（初始 budget；2026-11-06 由 270 kB 上調到 285 kB、2026-11-07 再上調到 300 kB、再到 330 kB，原因：動態天氣、十雲屬天空與雲影、音訊聲景、風場、路亞釣魚、精修魚竿與捲線器、程序化魚與假餌模型、官方 Water 海面、可划的船；main 為 261 kB，Owner 表示預算無妨）。
 - 角色 Billboard 不再投射生硬的矩形陰影；改用原創軟邊地面陰影。
 - 靜態物件依材質合批，來源幾何正確釋放；Draw Calls 必須從 Chrome 診斷量測，不能假設效果。
 - Playwright Chromium 桌面和手機 viewport，驗證網頁滿版、真 WebGL2 frame/draw calls（GPU 可用時）、鍵盤位移、畫質與 UI。**另外監控 console 中 WebGLProgram / Shader Error**；draw calls 正常不代表每個 Shader 都成功連結。
@@ -33,6 +33,7 @@
 - 目視比較：窗洞立面深度、山牆上窗、雲層是否可辨識、山麓是否減少不自然直壁、碼頭甲板是否不再被大型礁石遮住、海面是否不再出現規律亮條紋。
 - 量測：不同解析度 DPR，第一人稱水面特寫和斜角景觀兩個鏡頭各自量測 draw calls、frame p50/p95、真機 GPU time（若可用）；避免以桌面 SwiftShader 代替行動 GPU。
 - **不得假稱**已達 Bells of Evermere、已有 SSGI/SSR/FFT/體積雲或通過長時間實機溫控驗收。
+- **雲影圖預算**：雲影只有一張方形渲染目標（高 256 px、平衡 128、基本 64），每幀最多畫一次，軟體光柵（CI、無頭瀏覽器）完全不畫；天上看到的雲與地上的影讀同一組雲層。真機 GPU 時間**未測**。
 
 - `tests/coastline.test.mjs` 保護草岸/沙岸的自然頭岬收尖和座標有限性；東端海灣水道不得因地形更新再次變成斷開的綠色陸地細線。
 
