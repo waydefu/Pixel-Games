@@ -19,24 +19,12 @@ void main(){
   gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
 }`;
 
-export const CLOUD_FRAG=String.raw`precision highp float;
-varying vec3 vRay;
-uniform float uTime;
+export const CLOUD_COMMON=String.raw`uniform float uTime;
 uniform float uCloudAmount;
 uniform float uCloudDetailLevel;
 uniform vec2 uCloudWind;
 uniform sampler2D uNoise;
 uniform float uGen[10];
-uniform float uOnly;
-uniform vec3 uSunDirection;
-uniform vec3 uHorizon;
-uniform vec3 uZenith;
-uniform vec3 uMid;
-uniform vec3 uSunColor;
-uniform float uTwilight;
-uniform float uNightC;
-uniform float uWeatherDark;
-uniform float uWeatherFlash;
 
 const float NS=128.0;
 const mat2 R15=mat2(0.966,0.259,-0.259,0.966);
@@ -158,7 +146,52 @@ float filament(vec2 uv,float fw){
   return f*sparse;
 }
 
-// ---- light ----
+// ---- layers: where each genus sits ----
+// H = height of the plane it is drawn on, S = size of one noise cell on it (world units; the island is about 100 across, so a
+// cumulus lump is a few tens of units and its shadow is a patch you can walk in and out of). A cloud is a point on that plane,
+// so the sky and the ground shadows read the SAME world position: the shadow of the cloud overhead lands where it should.
+// Index = cloud-genera.js order: Ci Cs Cc As Ac Ns St Sc Cu Cb. ORDER is low (nearest) to high (farthest).
+const int ORDER[10]=int[10](6,8,9,7,5,3,4,1,2,0);
+const float LH[10]=float[10](1600.0,1400.0,1500.0,900.0,1000.0,600.0,96.0,280.0,210.0,210.0);
+const float LS[10]=float[10](500.0,640.0,83.0,500.0,111.0,400.0,80.0,70.0,70.0,70.0);
+const float LW[10]=float[10](0.4,0.5,0.4,0.7,0.6,0.8,1.0,0.9,1.0,1.0);      // wind: low layers move faster
+const float LALT[10]=float[10](1.0,0.9,0.95,0.45,0.55,0.3,0.05,0.15,0.1,0.1);   // 0 low .. 1 high: how long the sun lasts on it
+const float LRIM[10]=float[10](1.0,0.6,0.8,0.1,0.9,0.0,0.2,0.8,1.0,1.0);        // how strongly its margin burns toward the sun
+bool gNeedLit=true;
+
+// one genus at world plane point P: x lit-ness, y thickness; alpha (before the horizon fade) out
+vec2 evalLayer(int id,vec2 P,vec2 ldir,int Q,out float alpha){
+  vec2 uv=P/LS[id]+uCloudWind*(0.02*LW[id]);
+  float fw=length(fwidth(uv));
+  float g=uGen[id];
+  int QL=gNeedLit?Q:0;
+  alpha=0.0;
+  if(id==6){vec2 s=stratiform(uv,fw,0.55,0.25);alpha=clamp(s.x*0.95*smoothstep(0.0,0.2,g),0.0,0.97);return vec2(0.0,s.y);}
+  if(id==8){vec3 v=cumulusForm(uv,fw,clamp(g*1.2,0.0,1.0),ldir,gNeedLit?Q:min(Q,1));alpha=clamp(v.x*0.97*smoothstep(0.0,0.15,g),0.0,0.97);return v.yz;}
+  if(id==9){vec3 v=cumulusForm(uv*0.7,fw*0.7,1.0,ldir,gNeedLit?Q:min(Q,1));alpha=clamp(v.x*0.98*smoothstep(0.0,0.2,g),0.0,0.98);return vec2(v.y*0.5,max(v.z,0.85));}
+  if(id==7){vec3 v=granularForm(uv,fw,0.55+0.3*g,0.8,g,ldir,QL);alpha=clamp(v.x*0.92*smoothstep(0.0,0.2,g),0.0,0.97);return v.yz;}
+  if(id==5){vec2 s=stratiform(uv,fw,0.0,0.9);alpha=clamp(s.x*smoothstep(0.0,0.3,g),0.0,0.99);return vec2(0.0,0.6+0.4*s.y);}
+  if(id==3){vec2 s=stratiform(uv,fw,0.3,0.3);alpha=clamp(s.x*0.9*smoothstep(0.0,0.3,g),0.0,0.95);return vec2(0.0,0.5*s.y);}
+  if(id==4){vec3 v=flockForm(uv,fw,1.3,0.16,g,ldir,QL);alpha=clamp(v.x*0.85,0.0,0.9);return vec2(v.y,v.z*0.8);}
+  if(id==1){vec2 s=stratiform(uv,fw,0.65,0.0);alpha=clamp(s.x*g*0.8,0.0,0.45);return vec2(0.0,0.1*s.y);}
+  if(id==2){vec3 v=flockForm(uv,fw,2.4,0.12,g,ldir,QL);alpha=clamp(v.x*0.3,0.0,0.35);return vec2(v.y,0.1);}
+  float f=filament(uv,fw);alpha=clamp(f*0.4*smoothstep(0.0,0.3,g),0.0,0.45);return vec2(0.0,0.05);
+}
+`;
+
+export const CLOUD_FRAG="precision highp float;\nprecision highp sampler2D;\n"+String.raw`precision highp float;
+varying vec3 vRay;
+uniform float uOnly;
+uniform vec3 uSunDirection;
+uniform vec3 uHorizon;
+uniform vec3 uZenith;
+uniform vec3 uMid;
+uniform vec3 uSunColor;
+uniform float uTwilight;
+uniform float uNightC;
+uniform float uWeatherDark;
+uniform float uWeatherFlash;
+`+CLOUD_COMMON+String.raw`// ---- light ----
 vec3 gAmb,gDirect,gBounce;
 float gSunEl,gTw,gDay,gSun,gDiffuse;
 
@@ -207,72 +240,16 @@ void main(){
   int Q=uCloudDetailLevel>1.5?2:(uCloudDetailLevel>0.5?1:0);
   vec2 ldir=normalize(sunDir.xz+vec2(1e-4));
   vec2 plane=ray.xz/max(ray.y,0.035);              // where the ray meets a plane at unit height; scaled per layer
-  vec2 wind=uCloudWind*0.02;                       // the same shift on every plane: lower (smaller-scaled) layers move faster
   vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
 
-  // Layers run low -> high; each is composited over what lies behind it. uv scale = how many noise cells per unit of plane
-  // St
-  if(uGen[6]>0.01&&shown(6)){
-    vec2 uv=plane*1.2+wind;float fw=length(fwidth(uv));
-    vec2 s=stratiform(uv,fw,0.55,0.25);
-    float a=clamp(s.x*0.95*smoothstep(0.0,0.2,uGen[6])*mask,0.0,0.97);
-    if(a>0.002){col+=T*a*paintCloud(0.0,s.y,0.05,0.2);thickAcc+=T*a*s.y;T*=1.0-a;}
-  }
-  // Cu
-  if(uGen[8]>0.01&&shown(8)){
-    vec2 uv=plane*3.0+wind;float fw=length(fwidth(uv));
-    vec3 f=cumulusForm(uv,fw,clamp(uGen[8]*1.2,0.0,1.0),ldir,Q);
-    float a=clamp(f.x*0.97*smoothstep(0.0,0.15,uGen[8])*mask,0.0,0.97);
-    if(a>0.002){col+=T*a*paintCloud(f.y,f.z,0.1,1.0);thickAcc+=T*a*f.z;T*=1.0-a;}
-  }
-  // Sc
-  if(uGen[7]>0.01&&shown(7)){
-    vec2 uv=plane*4.0+wind*0.9;float fw=length(fwidth(uv));
-    vec3 f=granularForm(uv,fw,0.55+0.3*uGen[7],0.8,uGen[7],ldir,Q);
-    float a=clamp(f.x*0.92*smoothstep(0.0,0.2,uGen[7])*mask,0.0,0.97);
-    if(a>0.002){col+=T*a*paintCloud(f.y,f.z,0.15,0.8);thickAcc+=T*a*f.z;T*=1.0-a;}
-  }
-  // Ns
-  if(uGen[5]>0.01&&shown(5)){
-    vec2 uv=plane*1.5+wind*0.8;float fw=length(fwidth(uv));
-    vec2 s=stratiform(uv,fw,0.0,0.9);
-    float a=clamp(s.x*1.0*smoothstep(0.0,0.3,uGen[5])*mask,0.0,0.99);
-    if(a>0.002){col+=T*a*paintCloud(0.0,0.6+0.4*s.y,0.3,0.0);thickAcc+=T*a;T*=1.0-a;}
-  }
-  // As
-  if(uGen[3]>0.01&&shown(3)){
-    vec2 uv=plane*1.8+wind*0.7;float fw=length(fwidth(uv));
-    vec2 s=stratiform(uv,fw,0.3,0.3);
-    float a=clamp(s.x*0.9*smoothstep(0.0,0.3,uGen[3])*mask,0.0,0.95);
-    if(a>0.002){col+=T*a*paintCloud(0.0,0.5*s.y,0.45,0.1);thickAcc+=T*a*0.5;T*=1.0-a;}
-  }
-  // Ac
-  if(uGen[4]>0.01&&shown(4)){
-    vec2 uv=plane*9.0+wind*0.6;float fw=length(fwidth(uv));
-    vec3 f=flockForm(uv,fw,1.3,0.16,uGen[4],ldir,Q);
-    float a=clamp(f.x*0.85*mask,0.0,0.9);
-    if(a>0.002){col+=T*a*paintCloud(f.y,f.z*0.8,0.55,0.9);thickAcc+=T*a*f.z*0.6;T*=1.0-a;}
-  }
-  // Cs
-  if(uGen[1]>0.01&&shown(1)){
-    vec2 uv=plane*2.2+wind*0.5;float fw=length(fwidth(uv));
-    vec2 s=stratiform(uv,fw,0.65,0.0);
-    float a=clamp(s.x*uGen[1]*0.8*mask,0.0,0.45);
-    if(a>0.002){col+=T*a*paintCloud(0.0,0.1*s.y,0.9,0.6);T*=1.0-a;}
-  }
-  // Cc
-  if(uGen[2]>0.01&&shown(2)){
-    vec2 uv=plane*18.0+wind*0.4;float fw=length(fwidth(uv));
-    vec3 f=flockForm(uv,fw,2.4,0.12,uGen[2],ldir,Q);
-    float a=clamp(f.x*0.3*mask,0.0,0.35);
-    if(a>0.002){col+=T*a*paintCloud(f.y,0.1,0.95,0.8);T*=1.0-a;}
-  }
-  // Ci
-  if(uGen[0]>0.01&&shown(0)){
-    vec2 uv=plane*3.2+wind*0.4;float fw=length(fwidth(uv));
-    float f=filament(uv,fw);
-    float a=clamp(f*0.4*smoothstep(0.0,0.3,uGen[0])*mask,0.0,0.45);
-    if(a>0.002){col+=T*a*paintCloud(0.0,0.05,1.0,1.0);T*=1.0-a;}
+  // Layers run low -> high; each is composited over what lies behind it
+  for(int k=0;k<10;k++){
+    int id=ORDER[k];
+    if(uGen[id]<=0.01||!shown(id))continue;
+    float al;
+    vec2 lt=evalLayer(id,cameraPosition.xz+plane*LH[id],ldir,Q,al);
+    float a=clamp(al*mask,0.0,0.97);
+    if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[id],LRIM[id]);thickAcc+=T*a*lt.y;T*=1.0-a;}
   }
 
   float amount=clamp(1.0-T,0.0,0.97);
@@ -288,4 +265,30 @@ void main(){
   gl_FragColor=vec4(cloud,amount*uCloudAmount);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
+}`;
+
+// ---- ground shadows: the same layers, seen from the sun. One texel = a patch of ground; the result is 1 - transmittance ----
+export const CLOUD_SHADOW_VERT=String.raw`varying vec2 vUv;
+void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}`;
+export const CLOUD_SHADOW_FRAG="precision highp float;\nprecision highp sampler2D;\n"+String.raw`varying vec2 vUv;
+uniform vec2 uShadowCenter;
+uniform float uShadowSize;
+uniform vec3 uSunDirection;
+`+CLOUD_COMMON+String.raw`
+void main(){
+  gNeedLit=false;
+  vec3 s=normalize(uSunDirection);
+  vec2 ground=uShadowCenter+(vUv-0.5)*uShadowSize;
+  vec2 off=s.xz/max(s.y,0.08);            // each plane is met where the ray from the ground toward the sun reaches its height
+  int Q=uCloudDetailLevel>0.5?1:0;
+  float T=1.0;
+  for(int k=0;k<10;k++){
+    int id=ORDER[k];
+    if(uGen[id]<=0.01)continue;
+    float al;
+    evalLayer(id,ground+off*LH[id],vec2(0.0),Q,al);
+    // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
+    T*=1.0-clamp(al*al*1.1,0.0,0.97);
+  }
+  gl_FragColor=vec4(smoothstep(0.08,0.85,1.0-T),0.0,0.0,1.0);
 }`;

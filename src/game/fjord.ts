@@ -5,6 +5,7 @@ import { applyAerialPerspective } from "./aerial-perspective.js";
 import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
 import { CLOUD_VERT, CLOUD_FRAG } from "./cloud-shader.js";
+import { createCloudShadow } from "./cloud-shadow.js";
 import { GENERA } from "./cloud-genera.js";
 import { liveSky } from "./sky-live.js";
 import type { StageKit } from "./kit.js";
@@ -88,13 +89,13 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uHorizon:{value:liveSky.horizon},
       uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},uSunColor:{value:liveSky.sunColor},
       uNight:liveSky.night,uMoonStrength:liveSky.moonStrength,uTwilight:liveSky.twilight,uStarAlpha:liveSky.starAlpha,
-      uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
+      uHalo:{value:0},uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
     },
     vertexShader:String.raw`varying vec3 vRay;
       void main(){vRay=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader:String.raw`precision highp float;
       varying vec3 vRay;
-      uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;
+      uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;uniform float uHalo;
       uniform vec3 uMoonDirection;uniform vec3 uSunColor;uniform float uNight;uniform float uMoonStrength;
       uniform float uTwilight;uniform float uStarAlpha;uniform float uMoonPhase;uniform float uSkyHour;uniform float uTime;uniform float uSkyDetail;uniform float uWeatherDark;uniform float uWeatherFlash;
       float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -126,6 +127,14 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         col=mix(col,uSunColor*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
         col=mix(col,uSunColor*vec3(20.0,17.0,13.0),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        // 22-degree halo: sunlight bent by the ice crystals of a cirrostratus veil. A thin ring 21.7 degrees out, sharp and
+        // reddish on its inner edge, fading white outside (the inside stays unlit), only while such a veil is up
+        if(uHalo>.01){
+          float hd=acos(clamp(s,0.0,1.0))-0.379;
+          float ring=smoothstep(-.014,.006,hd)*exp(-max(hd,0.0)*22.0);
+          vec3 ringCol=mix(vec3(1.0,.62,.50),vec3(1.0,.96,.90),smoothstep(0.0,.035,hd));
+          col+=uSunColor*ringCol*ring*.5*uHalo*sunUp*smoothstep(-.02,.06,ray.y);
+        }
         // ---- night: the Milky Way (blue arms, dark dust lanes, a warm core), dense coloured stars ----
         if(uStarAlpha>.01){
           float ang=uSkyHour/24.0*6.2831853,ca=cos(ang),sa=sin(ang);
@@ -265,17 +274,25 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uniforms:cloudUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
     vertexShader:CLOUD_VERT,fragmentShader:CLOUD_FRAG,
   }));
+  // ground shadows: the same layers seen from the sun (cloud-shadow.ts)
+  const shadow=createCloudShadow({scene:k.scene,scope:k.scope,cloudField,gen:cloudUniforms.uGen,
+    uniforms:{uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
+      uNoise:cloudUniforms.uNoise,uGen:cloudUniforms.uGen,uSunDirection:skyUniforms.uSunDirection}});
   const cloudDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,36,20)),cloudShader);
   cloudDome.name="sky-moving-cloud-sheet";
   cloudDome.renderOrder=-999;
   k.scene.add(cloudDome);
   function update(time:number){
     skyUniforms.uTime.value=time;
+    shadow.tick();
   }
   /** The weather's mix of the ten genera (cloud-genera.js order). `?cloudMix=` overrides it for audits. */
   function setCloudMix(mix:number[]){
     const m=forcedMix??mix;
     for(let i=0;i<10;i++)cloudUniforms.uGen.value[i]=m[i]??0;
+    // a halo needs an ice veil (Cs) and a high enough sun; it shows once the veil is more than a trace
+    const veil=Math.min(1,Math.max(0,((m[1]??0)-.12)/.28));
+    skyMaterial.uniforms.uHalo.value=veil*veil*(3-2*veil);
   }
   /** Weather: cloud coverage multiplier (optical depth) and the threshold bias come from the cloud field. */
   function setCloudAmount(v:number){skyUniforms.uCloudAmount.value=v;}
@@ -283,5 +300,5 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
 
   }
-  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount,setCloudMix};
+  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount,setCloudMix,setShadowCenter:shadow.setCenter,setShadowQuality:shadow.setQuality};
 }
