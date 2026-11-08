@@ -1,0 +1,108 @@
+name: Verify (reusable)
+
+# One build-and-test pipeline shared by CI and the Pages deploy:
+#   build  : install, validate (static checks, unit tests, types, production build, bundle budget) ONCE, upload dist
+#   e2e    : the browser suites, sharded so five jobs run in parallel instead of two long serial ones
+# Callers: .github/workflows/ci.yml and .github/workflows/deploy-pages.yml (the latter with `pages: true`).
+on:
+  workflow_call:
+    inputs:
+      pages:
+        description: Also package dist as the GitHub Pages artifact (published by the caller only after every job passes)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, typecheck and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned v7.0.1 (Node 24)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node 26 LTS (pinned v7.1.0)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "26"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Static, asset, unit, TypeScript, Vite and bundle checks
+        run: npm run validate
+      - name: Keep the verified dist for the browser jobs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+      - name: Package the compiled Vite dist directory for Pages
+        if: ${{ inputs.pages }}
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: dist
+
+  e2e:
+    name: E2E ${{ matrix.project }} ${{ matrix.shard }}/${{ matrix.total }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: desktop-chromium, shard: 1, total: 3 }
+          - { project: desktop-chromium, shard: 2, total: 3 }
+          - { project: desktop-chromium, shard: 3, total: 3 }
+          - { project: mobile-chromium, shard: 1, total: 2 }
+          - { project: mobile-chromium, shard: 2, total: 2 }
+    steps:
+      - name: Checkout pinned v7.0.1 (Node 24)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node 26 LTS (pinned v7.1.0)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "26"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Fetch the verified dist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0, SHA-pinned
+        with:
+          name: dist
+          path: dist
+      - name: Install the headless Chromium shell with system dependencies
+        # Only the headless shell is needed (not full Chromium). The Ubuntu mirror is occasionally slow (21 MB of fonts took
+        # >2 min and hit an old 150 s cap twice in a row): allow 300 s per attempt and retry once. A real failure (missing
+        # package, no network) still fails the step.
+        run: |
+          for attempt in 1 2; do
+            if timeout --signal=TERM --kill-after=10s 300s npx playwright install --with-deps --only-shell chromium; then exit 0; fi
+            echo "Chromium install attempt $attempt failed" >&2
+          done
+          exit 1
+      - name: Browser tests (${{ matrix.project }}, shard ${{ matrix.shard }} of ${{ matrix.total }})
+        run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.total }}
+      # Expensive PNG capture is opt-in for future PRs; G2 gets an initial
+      # source-backed visual baseline without charging every tiny code change.
+      - name: Capture G2 visual audit PNG and metrics (opt-in)
+        if: ${{ matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        run: npm run visual:audit
+        env:
+          # G4 must actually render its HDR/DoF path in the captured screenshots.
+          VISUAL_AUDIT_QUALITY: ${{ github.head_ref == 'feat/g4-cinematic-post-and-visual-overhaul-20261105' && 'high' || 'balanced' }}
+      - name: Upload G2 visual audit evidence
+        if: ${{ always() && matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, SHA-pinned
+        with:
+          name: visual-audit-${{ github.run_id }}
+          path: visual-audit-output/
+          retention-days: 7
+          if-no-files-found: warn

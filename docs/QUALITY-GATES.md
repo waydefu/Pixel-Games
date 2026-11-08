@@ -2,6 +2,8 @@
 
 **Pipeline**：`npm run check` → `npm run assets` → `npm test` → `npm run typecheck` → `npm run build` → `npm run check:build` → `npm run test:e2e`，CI 成功才可提交合併審查。
 
+**CI 結構（2026-11-08 起）**：`.github/workflows/verify.yml` 是 CI 與 Pages 部署共用的可重用流程——`build` 只做一次安裝與 `npm run validate`（靜態檢查、單元測試、型別、建置、預算）並上傳 `dist`；`e2e` 以五個分片平行跑（桌機 3 片、手機 2 片，只裝無頭 Chromium），每片下載同一份已驗證的 `dist`。`ci.yml` 的 `required` 關卡名稱不變（`Build, typecheck, unit and browser tests`），任何分片失敗即失敗；`deploy-pages.yml` 也呼叫同一流程，全部通過才發布。覆蓋範圍沒有減少，只是從「兩個長的串行任務、每個都重跑單元測試」變成「建置一次、五個短任務平行」。
+
 ## 自動
 
 - 必要檔案和 JS 語法、沒有已淘汰的首頁與原型目錄。
