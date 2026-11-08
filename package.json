@@ -8,7 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "node scripts/check-repository.mjs",
+    "check": "node scripts/check-repository.mjs && npm run check:governance",
     "assets": "node scripts/check-assets.mjs",
     "test": "node --test",
     "typecheck": "tsc --noEmit",
@@ -19,7 +19,8 @@
     "test:e2e": "playwright test",
     "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build",
     "graphics:matrix": "node scripts/graphics-matrix.mjs",
-    "visual:audit": "npm run build && node scripts/run-visual-audit.mjs"
+    "visual:audit": "npm run build && node scripts/run-visual-audit.mjs",
+    "check:governance": "node scripts/check-governance.mjs"
   },
   "dependencies": {
     "three": "0.187.0"
