@@ -106,8 +106,10 @@
     {
       "id": "inventory",
       "name": "統一背包與物品管理",
-      "status": "in-progress",
-      "pr": [],
+      "status": "implemented",
+      "pr": [
+        58
+      ],
       "paths": [
         "src/game/inventory.js",
         "src/game/main.ts"
@@ -116,8 +118,10 @@
     {
       "id": "save-export",
       "name": "完整存檔／自動保存／匯入匯出",
-      "status": "in-progress",
-      "pr": [],
+      "status": "implemented",
+      "pr": [
+        58
+      ],
       "paths": [
         "src/game/save.js",
         "src/game/main.ts"
