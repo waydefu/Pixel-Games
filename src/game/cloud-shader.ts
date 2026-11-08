@@ -251,9 +251,9 @@ void main(){
   float toward=dot(rf,sf);
 
   // direct light is the sun's colour (the fiery walk at twilight); shadow is sky light: zenith blue and the violet band
-  vec3 fieryBase=mix(vec3(1.0,0.46,0.12),vec3(1.0,0.09,0.02),smoothstep(0.20,0.01,sy));
-  fieryBase=mix(fieryBase,vec3(0.80,0.14,0.38),smoothstep(-0.03,-0.09,sy));
-  fieryBase=mix(fieryBase,vec3(0.38,0.24,0.80),smoothstep(-0.09,-0.16,sy));
+  vec3 fieryBase=mix(vec3(1.0,0.46,0.12),vec3(1.0,0.09,0.02),(1.0-smoothstep(0.01,0.20,sy)));
+  fieryBase=mix(fieryBase,vec3(0.80,0.14,0.38),(1.0-smoothstep(-0.09,-0.03,sy)));
+  fieryBase=mix(fieryBase,vec3(0.38,0.24,0.80),(1.0-smoothstep(-0.16,-0.09,sy)));
   vec3 fiery=fieryBase*1.7;
   gDirect=mix(uSunColor*2.2,fiery*2.7,clamp(uTwilight*1.3,0.0,1.0));
   vec3 skyAmb=mix(uZenith,uMid,0.55)*0.72;
