@@ -256,7 +256,7 @@ function fullscreenMaterial(fragmentShader, uniforms) {
 /**
  * @param {{renderer:any, scene:any, camera:any, quality?:string, prePass?:((renderer:any, scene:any, camera:any)=>void)|null}} options
  */
-export function createHd2dPipeline({ renderer, scene, camera, quality = "balanced", prePass = null }) {
+export function createHd2dPipeline({ renderer, scene, camera, quality = "balanced", prePass = null, measure = (_name, run) => run() }) {
   if (!renderer || !scene || !camera) throw new TypeError("renderer, scene and camera are required");
   const extensions = renderer.extensions;
   const hdr = !!(extensions?.has("EXT_color_buffer_float") || extensions?.has("EXT_color_buffer_half_float"));
@@ -397,12 +397,14 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       // render target in the middle of a multisampled pass loses what was drawn so far on phone GPUs that implement
       // WEBGL_multisampled_render_to_texture (three.js notes the same limitation), which showed as blank frames.
       if (prePass) { activeCamera.updateMatrixWorld(); prePass(renderer, scene, activeCamera); }
-      renderer.setRenderTarget(sceneTarget);
-      renderer.clear();
-      renderer.render(scene, activeCamera);
+      measure('scene',()=>{
+        renderer.setRenderTarget(sceneTarget);
+        renderer.clear();
+        renderer.render(scene, activeCamera);
+      });
 
       let bloomTexture = null;
-      if (features.bloom && down.length) {
+      if (features.bloom && down.length) measure('bloom',()=>{
         const m = materials;
         m.prefilter.uniforms.tScene.value = sceneTarget.texture;
         m.prefilter.uniforms.uTexel.value.set(1 / size.width, 1 / size.height);
@@ -421,7 +423,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
           smaller = up[i];
         }
         bloomTexture = smaller.texture;
-      }
+      });
 
       let useRays = false;
       if (rayTarget && sun.set && down.length) {
@@ -433,7 +435,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
           m.uniforms.tSource.value = down[0].texture;
           m.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
           m.uniforms.uParams.value.set(0.92, 0.955, Math.min(32, features.godRays));
-          pass(m, rayTarget);
+          measure('rays',()=>pass(m, rayTarget));
           materials.composite.uniforms.uRayStrength.value = 0.34 * sun.scale * Math.min(1, (facing - 0.05) / 0.3);
           useRays = sun.scale > 0.01;
         }
@@ -445,7 +447,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
         m.uniforms.tScene.value = sceneTarget.texture;
         m.uniforms.uTexel.value.set(1 / size.width, 1 / size.height);
         m.uniforms.uFocus.value.set(focus.distance, focus.range, focus.span, size.height * 0.0105 * focus.strength);
-        pass(m, dofTarget);
+        measure('dof',()=>pass(m, dofTarget));
       }
 
       const c = materials.composite.uniforms;
@@ -457,7 +459,7 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       c.uUseBloom.value = bloomTexture ? 1 : 0;
       c.uUseDof.value = useDof ? 1 : 0;
       c.uTime.value = time;
-      pass(materials.composite, null);
+      measure('composite',()=>pass(materials.composite, null));
     } finally {
       renderer.setRenderTarget(previousTarget);
       if (info) info.autoReset = previousAutoReset;

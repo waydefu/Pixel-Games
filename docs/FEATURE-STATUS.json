@@ -92,6 +92,16 @@
       ]
     },
     {
+      "id": "performance-lab",
+      "name": "桌機效能量測與離線 A/B 報告",
+      "status": "implemented",
+      "pr": [42],
+      "paths": [
+        "scripts/performance/run.mjs",
+        "scripts/performance/report.mjs"
+      ]
+    },
+    {
       "id": "inventory",
       "name": "統一背包與物品管理",
       "status": "planned",

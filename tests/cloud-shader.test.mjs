@@ -98,10 +98,10 @@ test("passes that draw into their own target run before the scene pass, never in
   const pipeline = readFileSync(new URL("../src/rendering/hd2d-pipeline.js", import.meta.url), "utf8");
   const at = (s, re) => { const i = s.search(re); assert.ok(i >= 0, String(re)); return i; };
   assert.ok(at(pipeline, /prePass\(renderer, scene, activeCamera\)/) < at(pipeline, /renderer\.setRenderTarget\(sceneTarget\)/));
-  assert.match(read("main.ts"), /prePass:\(r:THREE\.WebGLRenderer,_s:THREE\.Scene,c:THREE\.Camera\)=>world\.prePass\(r,c\)/);
+  assert.match(read("main.ts"), /prePass:\(r:THREE\.WebGLRenderer,_s:THREE\.Scene,c:THREE\.Camera\)=>world\.prePass\(r,c,/);
   const world = read("world.ts");
   assert.match(world, /fjord\.runShadowPass\(renderer\)/);
-  assert.match(world, /environment\.mirrorPass\(renderer,scene,camera\)/);
+  assert.match(world, /environment\.mirrorPass\(renderer,scene,camera,/);
   // the hook / onBeforeRender paths stay only as the fallback for a renderer without that pipeline
   assert.match(read("ocean.ts"), /if\(prepared\)\{prepared=false;return;\}/);
 });

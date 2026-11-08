@@ -182,9 +182,9 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     cloudStrength=Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48;
   }
   /** Everything that draws into its own render target is drawn here, BEFORE the frame pipeline's scene pass (see cloud-shadow.ts). */
-  function prePass(renderer:THREE.WebGLRenderer,camera:THREE.Camera){
-    fjord.runShadowPass(renderer);
-    environment.mirrorPass(renderer,scene,camera);
+  function prePass(renderer:THREE.WebGLRenderer,camera:THREE.Camera,measure?:(name:string,run:()=>void)=>void){
+    if(measure)measure('cloudShadow',()=>fjord.runShadowPass(renderer));else fjord.runShadowPass(renderer);
+    environment.mirrorPass(renderer,scene,camera,measure?run=>measure('reflection',run):undefined);
   }
   function dispose(){scope.dispose();}
   return Object.freeze({
