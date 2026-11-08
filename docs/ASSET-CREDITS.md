@@ -41,3 +41,4 @@
 | 項目 | 來源與授權 | 用途 |
 |---|---|---|
 | AgX tone mapping 的對比多項式與色彩矩陣 | [Noniv/web-ocean](https://github.com/Noniv/web-ocean)，**MIT**（AgX 本身出自 Troy Sobotka）；Noniv 的 WGSL 轉為 GLSL | `src/rendering/hd2d-pipeline.js` 的合成通道（取代原本的 ACES 擬合；`?tone=aces` 可切回做 A/B）。同一倉庫的海水體色（混濁藍綠）只作美術參考，沒有複製其 FFT 海面程式 |
+| 十雲屬雲層的做法（形態分類、天氣到雲屬占比、受光與日暈公式的思路） | [takustaqu/atmosphere](https://github.com/takustaqu/atmosphere)，**MIT**；只採用公開的技法描述與參數量級，程式碼為本專案重寫（`cloud-shader.ts`、`cloud-genera.js`） | 天空雲與雲影；天氣占比的曲線、尺度與色彩為本專案自行調校 |

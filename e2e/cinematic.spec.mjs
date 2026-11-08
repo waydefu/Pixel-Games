@@ -1,6 +1,9 @@
 import { test,expect } from "@playwright/test";
 
 test("every quality tier renders through the one HD-2D pipeline without breaking camera switching",async({page})=>{
+  // Walks Balanced -> High (bloom, depth of field, light shafts) -> first person -> Basic: about 20 rendered frames, each of
+  // which takes seconds on a software rasteriser, so it needs more than the 90 s of an ordinary flow to be reliable.
+  test.setTimeout(150_000);
   const errors=[];
   page.on("console",msg=>{
     if(msg.type()==="error"&&/Shader Error|WebGLProgram|VALIDATE_STATUS|COMPILE_STATUS/i.test(msg.text()))

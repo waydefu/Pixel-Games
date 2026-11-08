@@ -330,9 +330,12 @@ async function start(){
     const applyQuality=()=>world.setShadows(quality.value!=="basic",quality.value as "basic"|"balanced"|"high",softwareGpu);
     applyQuality();
     // A software rasteriser needs seconds per frame, so the adaptive controller (120-frame windows) never reacts in time:
-    // render it at a fixed reduced scale. Audit shots and `?mirror=1` keep full resolution.
-    const lowPower=softwareGpu&&!visualShot;
-    if(lowPower)host.setRenderScale(.55);
+    // render it at a fixed reduced scale (smaller still on High, whose bloom, depth of field and light shafts cost the most).
+    // `?mirror=1` and `?fullres=1` keep full resolution (screenshot audits). This also applies to ?visualShot= pages: the
+    // browser tests use them, and at full resolution a software rasteriser ran those at the edge of their time limit.
+    const lowPower=softwareGpu&&new URLSearchParams(location.search).get("fullres")!=="1";
+    const lowScale=()=>quality.value==="high"?.45:.55;
+    if(lowPower)host.setRenderScale(lowScale());
     if(visualShot)setCameraMode(visualShot.mode);
     resize();
     observer=new ResizeObserver(resize);observer.observe(canvas);
@@ -340,6 +343,7 @@ async function start(){
       if(!host)return;
       host.setQuality(quality.value);
       applyQuality();
+      if(lowPower)host.setRenderScale(lowScale());
       resize();
     });
     document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();});

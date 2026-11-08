@@ -35,21 +35,24 @@ test("mountain forest uses region buckets, elevation and slope masks, never 150k
   assert.match(read("fjord.ts"),/forests\.push\(buildMountainForest\(k,region,layouts\[region\],index,cloudField,mesh\.geometry\)\)/);
 });
 
-test("sky and terrain share one moving cloud map and sun-projected shadows",()=>{
+test("sky and terrain share one cloud layer set: the ground reads a shadow map the cloud shader draws from the sun",()=>{
   const field=read("cloud-field.ts");
-  const world=read("world.ts"),fjord=read("fjord.ts");
+  const world=read("world.ts"),fjord=read("fjord.ts"),shadow=read("cloud-shadow.ts");
   const coast=read("coastline.ts"),environment=read("environment.ts");
-  assert.match(field,/const SIZE=128/);
-  assert.match(field,/new THREE\.DataTexture/);
+  assert.match(field,/export const SHADOW_EXTENT=900/);
+  assert.match(field,/uCloudShadowMap/);
   assert.match(field,/onBeforeCompile/);
-  assert.match(field,/uCloudSun\.xz/);
   assert.match(field,/uCloudWind\.value\.set/);
   assert.match(field,/1\.0-uCloudStrength\*cloudOcclusion/);
+  assert.match(field,/#ifdef USE_INSTANCING/,"instanced meshes take their world position through the instance matrix");
+  assert.match(field,/function applyToScene/);
   assert.match(world,/const cloudField=createCloudField\(scope\)/);
+  assert.match(world,/cloudField\.applyToScene\(scene\)/);
   assert.match(world,/cloudField\.setWind\(wind\.state\.aloftDriftX/);
   assert.match(world,/forest\.setDensity\(density\)/);
   assert.match(world,/environment\.setFoliageDensity\(density\)/);
-  assert.match(fjord,/texture2D\(uCloudMap,cloudUV\)/);
+  assert.match(fjord,/createCloudShadow\(/);
+  assert.match(shadow,/CLOUD_SHADOW_FRAG/);
   assert.match(coast,/cloudField\.applyToMaterial\(s\.material\)/);
   assert.match(environment,/cloudField\.applyToMaterial\(stone\)/);
 });

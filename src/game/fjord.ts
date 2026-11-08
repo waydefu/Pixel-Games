@@ -4,6 +4,9 @@ import { buildMountainForest } from "./mountain-forest.js";
 import { applyAerialPerspective } from "./aerial-perspective.js";
 import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
+import { CLOUD_VERT, CLOUD_FRAG } from "./cloud-shader.js";
+import { createCloudShadow } from "./cloud-shadow.js";
+import { GENERA } from "./cloud-genera.js";
 import { liveSky } from "./sky-live.js";
 import type { StageKit } from "./kit.js";
 type Region="mainland"|"east"|"north"|"south";
@@ -74,8 +77,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uTime:{value:0},uCloudAmount:{value:1.0},uCloudDetailLevel:{value:1},
     uSunDirection:{value:liveSky.sunDir},
     uHorizon:{value:liveSky.horizon},
-    uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},
-    uTwilight:liveSky.twilight,uNightC:liveSky.night,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,uSunColor:{value:liveSky.sunColor},
+    uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},
+        uTwilight:liveSky.twilight,uNightC:liveSky.night,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,uSunColor:{value:liveSky.sunColor},
   };
   // Art-directed sky: a clear tropical day (reference: saturated blue overhead fading to pale aqua at the
   // horizon, crisp white cumulus). A physical Preetham sky reads pale and hazy and cannot be steered, so the
@@ -86,13 +89,13 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uHorizon:{value:liveSky.horizon},
       uSunDirection:{value:liveSky.sunDir},uMoonDirection:{value:liveSky.moonDir},uSunColor:{value:liveSky.sunColor},
       uNight:liveSky.night,uMoonStrength:liveSky.moonStrength,uTwilight:liveSky.twilight,uStarAlpha:liveSky.starAlpha,
-      uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
+      uHalo:{value:0},uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
     },
     vertexShader:String.raw`varying vec3 vRay;
       void main(){vRay=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
     fragmentShader:String.raw`precision highp float;
       varying vec3 vRay;
-      uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;
+      uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;uniform float uHalo;
       uniform vec3 uMoonDirection;uniform vec3 uSunColor;uniform float uNight;uniform float uMoonStrength;
       uniform float uTwilight;uniform float uStarAlpha;uniform float uMoonPhase;uniform float uSkyHour;uniform float uTime;uniform float uSkyDetail;uniform float uWeatherDark;uniform float uWeatherFlash;
       float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -124,6 +127,14 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         col=mix(col,uSunColor*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
         col=mix(col,uSunColor*vec3(20.0,17.0,13.0),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        // 22-degree halo: sunlight bent by the ice crystals of a cirrostratus veil. A thin ring 21.7 degrees out, sharp and
+        // reddish on its inner edge, fading white outside (the inside stays unlit), only while such a veil is up
+        if(uHalo>.01){
+          float hd=acos(clamp(s,0.0,1.0))-0.379;
+          float ring=smoothstep(-.014,.006,hd)*exp(-max(hd,0.0)*22.0);
+          vec3 ringCol=mix(vec3(1.0,.62,.50),vec3(1.0,.96,.90),smoothstep(0.0,.035,hd));
+          col+=uSunColor*ringCol*ring*.5*uHalo*sunUp*smoothstep(-.02,.06,ray.y);
+        }
         // ---- night: the Milky Way (blue arms, dark dust lanes, a warm core), dense coloured stars ----
         if(uStarAlpha>.01){
           float ang=uSkyHour/24.0*6.2831853,ca=cos(ang),sa=sin(ang);
@@ -242,192 +253,52 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   const stars=new THREE.Points(starGeometry,starMaterial);
   stars.name="sky-stars";stars.renderOrder=-998;stars.frustumCulled=false;
   k.scene.add(stars);
+  // White noise for the cloud shader's smooth value-noise reads: 128x128, four independent channels, seeded so the sky is
+  // the same on every load. It tiles by wrapping; no mip chain (every octave fades by its own pixel footprint instead).
+  const noiseData=new Uint8Array(128*128*4);
+  {let a=0x9E3779B9;for(let i=0;i<noiseData.length;i++){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);noiseData[i]=((t^(t>>>14))>>>0)&255;}}
+  const noiseTexture=k.scope.track(new THREE.DataTexture(noiseData,128,128,THREE.RGBAFormat));
+  noiseTexture.wrapS=noiseTexture.wrapT=THREE.RepeatWrapping;noiseTexture.minFilter=noiseTexture.magFilter=THREE.LinearFilter;
+  noiseTexture.generateMipmaps=false;noiseTexture.needsUpdate=true;
+  // audit: ?cloudOnly=Cu shows one genus; ?cloudMix=Cu:.7,Sc:.5 forces the mix (see cloud-genera.js for the codes)
+  const auditQuery=new URLSearchParams(typeof location!=="undefined"?location.search:"");
+  const cloudOnly=(()=>{const c=auditQuery.get("cloudOnly");const i=GENERA.findIndex(g=>g.code.toLowerCase()===(c??"").toLowerCase());return i;})();
+  const forcedMix=(()=>{const m=auditQuery.get("cloudMix");if(!m)return null;const out=new Array(10).fill(0);for(const part of m.split(",")){const [code,v]=part.split(":");const i=GENERA.findIndex(g=>g.code.toLowerCase()===code.trim().toLowerCase());if(i>=0)out[i]=Math.min(1,Math.max(0,Number(v)||0));}return out;})();
+  const cloudUniforms={
+    uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
+    uNoise:{value:noiseTexture},uGen:{value:new Array(10).fill(0)},uOnly:{value:cloudOnly},
+    uSunDirection:skyUniforms.uSunDirection,uHorizon:skyUniforms.uHorizon,uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uSunColor:skyUniforms.uSunColor,
+    uTwilight:skyUniforms.uTwilight,uNightC:skyUniforms.uNightC,uWeatherDark:skyUniforms.uWeatherDark,uWeatherFlash:skyUniforms.uWeatherFlash,
+  };
   const cloudShader=k.scope.track(new THREE.ShaderMaterial({
-    uniforms:skyUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
-    vertexShader:String.raw`varying vec3 vRay;
-      void main(){
-        vRay=position;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
-      }`,
-    fragmentShader:String.raw`precision highp float;
-      varying vec3 vRay;
-      uniform float uTime;
-      uniform float uCloudAmount;
-      uniform float uCloudDetailLevel;
-      uniform sampler2D uCloudMap;
-      uniform vec2 uCloudWind;
-      uniform float uCloudSpan;
-      uniform float uCloudHeight;
-      uniform vec3 uSunDirection;
-      uniform vec3 uHorizon;
-      uniform vec3 uCloudLit;
-      uniform vec3 uCloudShade;
-      uniform float uTwilight;
-      uniform float uNightC;
-      uniform float uCloudBias;
-      uniform float uWeatherDark;
-      uniform float uWeatherFlash;
-      uniform vec3 uSunColor;
-      float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
-      float n3(vec3 p){
-        vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
-        return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
-                   mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);
-      }
-      void main(){
-        vec3 ray=normalize(vRay);
-        vec3 sunDir=normalize(uSunDirection);
-        vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
-        float toward=dot(rf,sf),away=max(0.0,-toward);
-        float sun=max(0.0,dot(ray,sunDir));
-        // Shared precomputed world-space cloud field: the same density drives
-        // sky cover and projected mountain/ground shadow, with no second pass.
-        // An upper cloud layer is sampled where the view ray reaches the sheet.
-        // Never clamp the cloud-plane intersection over a visible horizon band.
-        // The previous constant denominator floor produced vertical cloud columns.
-        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
-        vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
-        float low=texture2D(uCloudMap,cloudUV).r;
-        float cumulus=smoothstep(.47-uCloudBias,.63-uCloudBias,low);
-        float cirrus=smoothstep(.52,.71,
-          texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
-        // VIPER-style optical integration, adapted for the mobile WebGL2
-        // budget: one density layer on Basic, two on Balanced, three on High.
-        // No high-cost 500-step volumetric march or separate cloud-shadow pass.
-        float stacked=0.0;
-        if(uCloudDetailLevel>0.5){
-          float middle=texture2D(uCloudMap,cloudUV+ray.xz*.018+vec2(.013,-.019)).r;
-          stacked+=smoothstep(.41-uCloudBias,.59-uCloudBias,middle)*.53;
-          if(uCloudDetailLevel>1.5){
-            float top=texture2D(uCloudMap,cloudUV-ray.xz*.024+vec2(-.028,.011)).r;
-            stacked+=smoothstep(.43-uCloudBias,.63-uCloudBias,top)*.38;
-          }
-        }
-        // Fade the sheet to physical aerial haze where rays graze the horizon.
-        // Suppresses the column/curtain artifact in shot-04-vista-fjord.
-        float mask=smoothstep(.04,.17,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
-        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount*(1.0-.97*uNightC);
-        float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
-        // Cloud edge self-shading: sample the same cloud field in sunlight's
-        // projected direction. Bright rims stay local instead of whitewashing sky.
-        vec3 underside=uCloudShade,lit=uCloudLit;
-        // Solid volume from the height field: bumps give a surface normal, and a short march toward the sun accumulates
-        // the cloud's own optical depth (Beer-Lambert), so thick clouds have dark, self-shadowed bases and lit crowns.
-        vec2 sdir=normalize(sunDir.xz+vec2(1e-4))*mix(.020,.007,clamp(sunDir.y*2.0,0.0,1.0));
-        float tau=0.0;
-        int marchSteps=uCloudDetailLevel>1.5?5:uCloudDetailLevel>.5?2:0;   // the self-shadow march is a High-quality feature
-        for(int i=1;i<=5;i++){
-          if(i>marchSteps)break;
-          float d=texture2D(uCloudMap,cloudUV+sdir*float(i)).r;
-          tau+=smoothstep(.44,.62,d)*(1.0+.35*float(i));
-        }
-        float shadowed=marchSteps>0?exp(-tau*(uCloudDetailLevel>1.5?.34:.6)):.7;
-        float gx=texture2D(uCloudMap,cloudUV+vec2(.006,0.0)).r-texture2D(uCloudMap,cloudUV-vec2(.006,0.0)).r;
-        float gy=texture2D(uCloudMap,cloudUV+vec2(0.0,.006)).r-texture2D(uCloudMap,cloudUV-vec2(0.0,.006)).r;
-        vec3 bump=normalize(vec3(-gx*9.0,1.0,-gy*9.0));
-        float lambert=clamp(dot(bump,normalize(vec3(sunDir.x,max(sunDir.y,.15)+.25,sunDir.z)))*.5+.55,0.0,1.0);
-        float sideLight=clamp(lambert*.55+shadowed*.45,0.0,1.0);
-        float thick=smoothstep(.52,.88,low);
-        // ---- HIGH: real volumetric clouds. A ray marched through a slab 1.7-4.3 km up: the shared coverage map shapes the
-        // cloud field (so ground shadows and sun occlusion stay consistent), a height profile gives flat bases and billowing
-        // tops, 3D noise erodes the edges, and each sample is lit by marching toward the sun (Beer-Lambert). Clouds have depth,
-        // parallax and real volume; they thicken, rise into towers and darken with the weather. ----
-        if(uCloudDetailLevel>1.5&&ray.y>.03&&uNightC<.97){
-          const float BASE=1700.0,TOP=4300.0;
-          float t0=(BASE-cameraPosition.y)/ray.y,t1=min((TOP-cameraPosition.y)/ray.y,t0+16000.0);
-          float stepLen=(t1-t0)/28.0;
-          float jitter=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
-          float T=1.0,lightSum=0.0,weight=0.0,densSum=0.0;
-          vec3 sd=normalize(vec3(sunDir.x,max(sunDir.y,.12),sunDir.z));
-          for(int i=0;i<28;i++){
-            if(T<.03)break;
-            vec3 p=cameraPosition+ray*(t0+(float(i)+jitter)*stepLen);
-            float hgt=clamp((p.y-BASE)/(TOP-BASE),0.0,1.0);
-            vec2 cuv=p.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan;
-            float cover=texture2D(uCloudMap,cuv).r;
-            float shape=smoothstep(.40-uCloudBias,.64-uCloudBias,cover);
-            float topH=.30+.70*smoothstep(.45,.85,cover);
-            float prof=smoothstep(.0,.10,hgt)*(1.0-smoothstep(topH*.55,topH,hgt));
-            float dens=shape*prof;
-            if(dens>.01){
-              vec3 q=p*.0017+vec3(uCloudWind.x*.9,0.0,uCloudWind.y*.9)*.5;
-              float detail=.62*n3(q)+.38*n3(q*2.9+vec3(3.1));
-              dens=clamp(dens-(1.0-detail)*.72*(1.0-.45*prof),0.0,1.0);
-            }
-            if(dens>.012){
-              // light: march toward the sun through the coverage field
-              float tauL=0.0;
-              for(int k=1;k<=3;k++){
-                vec3 pl=p+sd*(float(k)*420.0);
-                float hl=clamp((pl.y-BASE)/(TOP-BASE),0.0,1.0);
-                float cl=texture2D(uCloudMap,pl.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan).r;
-                tauL+=smoothstep(.40-uCloudBias,.64-uCloudBias,cl)*smoothstep(.0,.1,hl)*(1.0-smoothstep(.55,.9,hl));
-              }
-              float lightHere=exp(-tauL*1.6)*(.42+.58*hgt)+.10*hgt;
-              float sig=dens*stepLen*.00115*uCloudAmount;
-              float a=1.0-exp(-sig);
-              lightSum+=T*a*lightHere;densSum+=T*a*dens;weight+=T*a;
-              T*=1.0-a;
-            }
-          }
-          float cov=1.0-T;
-          amount=clamp(cov,0.0,.97);
-          if(weight>.001){
-            float lit=lightSum/weight,dv=densSum/weight;
-            shadowed=clamp(lit,0.0,1.0);sideLight=clamp(lit*.9+.08,0.0,1.0);
-            low=mix(.50,.86,clamp(dv*1.3,0.0,1.0));thick=smoothstep(.52,.88,low);
-          }
-        }
-        float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
-          (1.0-smoothstep(.63,.78,low));
-        vec3 cloud=mix(underside,lit,clamp(.10+.62*sideLight+.22*sun,0.0,1.0));
-        cloud*=1.0-.42*thick*(1.0-shadowed*.6);                                  // thick bodies are darker in the middle
-        cloud+=vec3(.35,.24,.13)*silver;
-        cloud*=mix(vec3(1.0),vec3(1.30,1.0,.74),pow(sun,3.0)); // sunward clouds glow warm
-        // ---- sunrise / sunset: fiery undersides toward the sun, dark backlit bodies with burning rims, pink on the far side ----
-        float tw=uTwilight;
-        // Physics of twilight clouds: high cirrus / altocumulus catch the reddened light and keep it after the sun has set,
-        // while low clouds near the horizon fall into shadow first. The colour walks yellow -> orange -> red -> magenta.
-        float sy=sunDir.y;
-        float highLit=smoothstep(.05,.30,ray.y);
-        float afterSet=smoothstep(.0,-.10,sy);
-        float glowMask=max(pow(max(toward,0.0),1.2)*(1.0-.6*smoothstep(.0,.75,ray.y)),afterSet*highLit*(.55+.45*max(toward,0.0)));
-        vec3 fieryBase=mix(vec3(1.0,.55,.18),vec3(1.0,.16,.04),smoothstep(.13,-.02,sy));
-        fieryBase=mix(fieryBase,vec3(.80,.14,.38),smoothstep(-.03,-.09,sy));
-        fieryBase=mix(fieryBase,vec3(.38,.24,.80),smoothstep(-.09,-.16,sy));   // blue hour: violet-blue
-        vec3 fiery=fieryBase*1.7;
-        float thin=1.0-smoothstep(.47,.74,low);                                 // thin cloud edges
-        float back=pow(sun,3.0);
-        cloud=mix(cloud,mix(vec3(.10,.03,.14),fiery,.40+.60*sideLight),clamp(tw*(.55+.75*glowMask),0.0,1.0));
-        cloud*=mix(1.0,.38,back*tw*(1.0-thin));
-        cloud*=mix(1.0,.42,smoothstep(-.10,-.17,sy)*(1.0-highLit));                              // low clouds are in shadow once the sun is down                                  // backlit bodies go dark
-        cloud+=fiery*thin*pow(sun,5.0)*tw*2.4+uSunColor*thin*pow(sun,2.0)*tw*.6;  // rims burn
-        cloud=mix(cloud,vec3(.80,.38,.48)*(.55+.6*sideLight),away*tw*.35*(1.0-smoothstep(.0,.8,ray.y)));
-        // heavy weather: slate-grey, darker bodies; lightning lights the cloud from inside
-        float lumC=dot(cloud,vec3(.2126,.7152,.0722));
-        cloud=mix(cloud,vec3(lumC)*vec3(.55,.60,.70),uWeatherDark*.95);
-        cloud*=1.0-.72*uWeatherDark*(.45+.55*thick);
-        cloud+=vec3(.7,.78,1.0)*uWeatherFlash*(.35+.65*smoothstep(.45,.9,low))*1.4;
-        cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
-        // Transparent cloud sheet rendered over the physical atmosphere;
-        // shared cloudMap controls both visible cover and mountain cloud shade.
-        // Keep depth testing on, otherwise clouds paint over buildings.
-        gl_FragColor=vec4(cloud,amount);
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }`,
+    uniforms:cloudUniforms,depthWrite:false,depthTest:true,transparent:true,side:THREE.BackSide,fog:false,
+    vertexShader:CLOUD_VERT,fragmentShader:CLOUD_FRAG,
   }));
+  // ground shadows: the same layers seen from the sun (cloud-shadow.ts)
+  const shadow=createCloudShadow({scene:k.scene,scope:k.scope,cloudField,gen:cloudUniforms.uGen,
+    uniforms:{uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
+      uNoise:cloudUniforms.uNoise,uGen:cloudUniforms.uGen,uSunDirection:skyUniforms.uSunDirection}});
   const cloudDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,36,20)),cloudShader);
   cloudDome.name="sky-moving-cloud-sheet";
   cloudDome.renderOrder=-999;
   k.scene.add(cloudDome);
   function update(time:number){
     skyUniforms.uTime.value=time;
+    shadow.tick();
+  }
+  /** The weather's mix of the ten genera (cloud-genera.js order). `?cloudMix=` overrides it for audits. */
+  function setCloudMix(mix:number[]){
+    const m=forcedMix??mix;
+    for(let i=0;i<10;i++)cloudUniforms.uGen.value[i]=m[i]??0;
+    // a halo needs an ice veil (Cs) and a high enough sun; it shows once the veil is more than a trace
+    const veil=Math.min(1,Math.max(0,((m[1]??0)-.12)/.28));
+    skyMaterial.uniforms.uHalo.value=veil*veil*(3-2*veil);
   }
   /** Weather: cloud coverage multiplier (optical depth) and the threshold bias come from the cloud field. */
   function setCloudAmount(v:number){skyUniforms.uCloudAmount.value=v;}
   function setSkyQuality(quality:"basic"|"balanced"|"high"){
     skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
+
   }
-  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount};
+  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount,setCloudMix,setShadowCenter:shadow.setCenter,setShadowQuality:shadow.setQuality};
 }

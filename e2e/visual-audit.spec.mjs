@@ -36,7 +36,7 @@ for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.sta
     test.skip(shot.viewport==="mobile" ? testInfo.project.name!=="mobile-chromium" :
       testInfo.project.name!=="desktop-chromium","Shot belongs to the other viewport");
 
-    await page.goto("./?visualShot="+encodeURIComponent(shot.id));
+    await page.goto("./?visualShot="+encodeURIComponent(shot.id)+"&fullres=1");   // audit PNGs keep the full resolution a software rasteriser would otherwise trade away
     await page.waitForFunction(()=>["ready","unsupported","failed"].includes(window.__pixelGame?.read().status),null,{timeout:22000});
     const diag=await page.evaluate(()=>window.__pixelGame.read());
     expect(diag.status).toBe("ready");
