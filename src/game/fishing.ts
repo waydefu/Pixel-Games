@@ -21,7 +21,7 @@ const smooth=(a:number,b:number,v:number)=>{const t=Math.min(1,Math.max(0,(v-a)/
 
 export function createFishingView(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};
-  player:{x:number;z:number};isAboard?:()=>boolean;audio?:()=>import("./soundscape.js").Soundscape|null;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
+  player:{x:number;z:number};isBlocked?:()=>boolean;isAboard?:()=>boolean;audio?:()=>import("./soundscape.js").Soundscape|null;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
 }){
   const {scene,scope,player,ui}=opts;
   // ?fishSeed= makes the bites reproducible (used by the e2e test and for audits).
@@ -160,12 +160,13 @@ export function createFishingView(opts:{
   let held=false,tap=false,pressedNotice=false,lastHold=false;
   const setHeld=(value:boolean)=>{if(value&&!held)tap=true;held=value;};
   window.addEventListener("keydown",event=>{
-    if(event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
+    if(opts.isBlocked?.()||event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
     if(event.key.toLowerCase()==="f"){event.preventDefault();if(!event.repeat)setHeld(true);}
     if(event.key.toLowerCase()==="r"&&!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey)cycleLure();
   });
   // the tackle box: only between casts
   function cycleLure(){
+    if(opts.isBlocked?.())return;
     if(logic.isActive())return;
     setLureGeometry(lureKind+1);
     ui.lure.textContent="餌："+LURES[lureKind].name+"（R 換餌）";
@@ -175,7 +176,7 @@ export function createFishingView(opts:{
   ui.lure.addEventListener("click",cycleLure);
   window.addEventListener("keyup",event=>{if(event.key.toLowerCase()==="f")setHeld(false);});
   window.addEventListener("blur",()=>setHeld(false));
-  ui.button.addEventListener("pointerdown",event=>{event.preventDefault();ui.button.setPointerCapture(event.pointerId);setHeld(true);});
+  ui.button.addEventListener("pointerdown",event=>{if(opts.isBlocked?.())return;event.preventDefault();ui.button.setPointerCapture(event.pointerId);setHeld(true);});
   for(const type of ["pointerup","pointercancel","lostpointercapture"])ui.button.addEventListener(type,()=>setHeld(false));
   ui.button.addEventListener("contextmenu",event=>event.preventDefault());
 
@@ -488,6 +489,6 @@ export function createFishingView(opts:{
     if(turning>0&&Math.floor(crankAngle/(Math.PI/2))!==Math.floor(before/(Math.PI/2)))opts.audio?.()?.api.reelTick();   // the reel's ratchet clicks
     rodModel.spin(crankAngle);
   }
-  return {update,logic,tally:()=>tally,species:SPECIES.length,maxLine:MAX_LINE};
+  return {update,logic,tally:()=>tally,release:()=>{held=false;tap=false;},setTally:(value:typeof tally)=>{tally=value;save();showCount();},species:SPECIES.length,maxLine:MAX_LINE};
 }
 export type FishingView=ReturnType<typeof createFishingView>;

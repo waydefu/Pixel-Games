@@ -66,3 +66,19 @@
 @media(pointer:fine){.boat-hud{bottom:calc(max(env(safe-area-inset-bottom),0px) + 92px)}}
 
 .fish-lure{pointer-events:auto;padding:6px 12px;border-radius:10px;border:1px solid rgba(243,236,216,.4);background:rgba(10,20,26,.6);color:#f3ecd8;font:600 13px/1.2 inherit;cursor:pointer;touch-action:manipulation}
+
+/* Coastal inventory */
+.inventory-overlay { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); background:rgba(8,20,24,.72); }
+.inventory-overlay[hidden], .pickup-button[hidden] { display:none; }
+.inventory-panel { box-sizing:border-box; width:min(570px,100%); max-height:100%; overflow:auto; padding:20px; color:#f7e8c8; background:#293832; border:2px solid #c3a16c; border-radius:8px; box-shadow:0 12px 40px #0009; }
+.inventory-panel p { line-height:1.5; }
+.inventory-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; }
+.inventory-item { min-height:90px; padding:10px; border:1px solid #a68b5e; background:#1c2c2a; border-radius:5px; display:flex; flex-direction:column; gap:4px; }
+.inventory-icon { display:block; width:32px; height:26px; border:2px solid #392e26; image-rendering:pixelated; }
+.icon-shell { border-radius:50% 50% 25% 25%; background:repeating-conic-gradient(from 0deg at 50% 100%,#e9d6ac 0deg 20deg,#b89472 21deg 25deg); }
+.icon-driftwood { height:12px; margin:7px 0; border-radius:4px; background:repeating-linear-gradient(0deg,#7b5336 0 3px,#b98d5e 3px 5px); transform:rotate(-12deg); }
+.icon-stone { border-radius:45% 55% 38% 42%; background:linear-gradient(145deg,#b9c2ae 0 40%,#7b9189 41%); }
+.inventory-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+.inventory-actions button, .pickup-button { min-height:44px; padding:8px 16px; color:#fff1d1; background:#425348; border:1px solid #d1b27b; border-radius:5px; font:inherit; cursor:pointer; }
+.pickup-button { position:fixed; z-index:10; left:50%; bottom:max(90px,env(safe-area-inset-bottom)); transform:translateX(-50%); }
+#save-message { min-height:1.5em; color:#ffe2a6; }

@@ -73,5 +73,5 @@ export function createMovementInput(joystick: HTMLElement, knob: HTMLElement) {
     joystick.removeEventListener("pointerup",up);joystick.removeEventListener("pointercancel",up);
     reset();
   }
-  return {read,destroy};
+  return {read,destroy,reset};
 }

@@ -95,7 +95,9 @@
       "id": "performance-lab",
       "name": "桌機效能量測與離線 A/B 報告",
       "status": "implemented",
-      "pr": [42],
+      "pr": [
+        42
+      ],
       "paths": [
         "scripts/performance/run.mjs",
         "scripts/performance/report.mjs"
@@ -104,16 +106,22 @@
     {
       "id": "inventory",
       "name": "統一背包與物品管理",
-      "status": "planned",
+      "status": "in-progress",
       "pr": [],
-      "paths": []
+      "paths": [
+        "src/game/inventory.js",
+        "src/game/main.ts"
+      ]
     },
     {
       "id": "save-export",
       "name": "完整存檔／自動保存／匯入匯出",
-      "status": "planned",
+      "status": "in-progress",
       "pr": [],
-      "paths": []
+      "paths": [
+        "src/game/save.js",
+        "src/game/main.ts"
+      ]
     },
     {
       "id": "npc-schedule",
