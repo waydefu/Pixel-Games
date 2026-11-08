@@ -127,12 +127,12 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // The disc itself reddens as the sun sinks: white-yellow high, orange by about 8 degrees, fiery red at the horizon, and it
         // dims a little as the haze thickens. The corona follows the same hue.
         float sunSin=uSunDirection.y;
-        vec3 discHue=mix(vec3(1.0,.88,.66),vec3(1.0,.42,.10),smoothstep(.60,.20,sunSin));
-        discHue=mix(discHue,vec3(1.0,.10,.02),smoothstep(.16,.015,sunSin));
-        vec3 coronaTint=mix(vec3(1.0),vec3(1.0,.66,.52),smoothstep(.25,.0,sunSin));
+        vec3 discHue=mix(vec3(1.0,.88,.66),vec3(1.0,.42,.10),(1.0-smoothstep(.20,.60,sunSin)));
+        discHue=mix(discHue,vec3(1.0,.10,.02),(1.0-smoothstep(.015,.16,sunSin)));
+        vec3 coronaTint=mix(vec3(1.0),vec3(1.0,.66,.52),(1.0-smoothstep(.0,.25,sunSin)));
         col=mix(col,uSunColor*coronaTint*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*coronaTint*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
-        col=mix(col,discHue*mix(18.0,2.4,smoothstep(.55,.04,sunSin)),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        col=mix(col,discHue*mix(18.0,2.4,(1.0-smoothstep(.04,.55,sunSin))),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
         // 22-degree halo: sunlight bent by the ice crystals of a cirrostratus veil. A thin ring 21.7 degrees out, sharp and
         // reddish on its inner edge, fading white outside (the inside stays unlit), only while such a veil is up
         if(uHalo>.01){
