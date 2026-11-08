@@ -1,3 +1,5 @@
+> **HISTORICAL + 保留有效美術原則。** 本文 P1-R1 時期（11/5）的「尚未加入天氣、音景、後製、新海水」僅是當時快照，已被 #21、#29、#32、#33、#34 的實作取代。最新功能請核 [FEATURE-STATUS](FEATURE-STATUS.json) 與 [決策效力](decisions/DECISION-REGISTER.md)；參考素材與授權邊界仍有效。
+
 # P1-R1｜原創中世紀海岸美術規格
 
 ## 參考定位與原創性

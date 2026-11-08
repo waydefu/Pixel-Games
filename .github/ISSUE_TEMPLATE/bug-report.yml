@@ -1,0 +1,46 @@
+name: 遊戲 Bug 與回歸
+description: 回報可重現的畫面、玩法、部署或 CI 問題
+title: "[Bug] "
+labels: []
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 嚴重性
+      options:
+        - P0 - 無法運作／資料遺失
+        - P1 - 顯著玩法或畫面缺陷
+        - P2 - 次要問題
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit SHA 或 Pages URL
+      placeholder: "main@<sha>"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 重現步驟與期望／實際結果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 測試環境與證據
+      description: 裝置、瀏覽器、畫質、DPR、截圖、影片、日誌、console
+  - type: dropdown
+    id: executor
+    attributes:
+      label: 指定端
+      options:
+        - 未認領
+        - A
+        - B
+  - type: input
+    id: overlap
+    attributes:
+      label: 相關 PR／共同修改檔案
+      placeholder: "無，或 #35 / src/game/main.ts"
