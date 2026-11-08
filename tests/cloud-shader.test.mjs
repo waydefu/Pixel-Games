@@ -113,3 +113,18 @@ test("clouds are soft (wide density ramp, gathered when sparse) and the sunset i
   // light shafts only at sunrise and sunset: by day they smeared bright clouds into radial smoke
   assert.match(read("main.ts"), /setRayScale\(Math\.min\(1,liveSky\.sunRays\*liveSky\.twilight\.value\*1\.6\)\)/);
 });
+
+test("sky and ground shadows drift together, downwind, at a visible pace; the sun disc reddens as it sinks", () => {
+  // one line moves every layer, and the sky and the shadow pass both read it through evalLayer
+  assert.match(CLOUD_COMMON, /vec2 uv=\(P-uCloudWind\*LW\[id\]\)\/LS\[id\];/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\],ldir,Q,al\)/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
+  // angular speed of a layer at the default wind (0.48 drift units a second): low layers about a degree a second
+  const H = arrayOf("LH"), W = arrayOf("LW");
+  const degPerSecond = i => (W[i] * 0.48 / H[i]) * 180 / Math.PI;
+  for (const id of [6, 7, 8, 9]) assert.ok(degPerSecond(id) > 0.6, "low layer " + id + " moves visibly: " + degPerSecond(id).toFixed(2));
+  for (let i = 0; i < 10; i++) assert.ok(degPerSecond(i) > 0.2 && degPerSecond(i) < 1.6, "layer " + i + " is neither frozen nor racing: " + degPerSecond(i).toFixed(2));
+  const fjord = read("fjord.ts");
+  assert.match(fjord, /vec3 discHue=mix\(vec3\(1\.0,\.88,\.66\),vec3\(1\.0,\.42,\.10\),smoothstep\(\.60,\.20,sunSin\)\);/);
+  assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),smoothstep\(\.16,\.015,sunSin\)\);/);
+});

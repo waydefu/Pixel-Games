@@ -178,14 +178,16 @@ vec2 skyPlane(vec2 dirXZ,float elevation){return dirXZ/(0.28+0.72*max(elevation,
 // St Cu Cb Sc Ns As Ac Cs Cc Ci = 6 8 9 7 5 3 4 1 2 0.
 const float LH[10]=float[10](1600.0,1400.0,1500.0,900.0,1000.0,600.0,96.0,280.0,210.0,210.0);
 const float LS[10]=float[10](500.0,640.0,83.0,500.0,111.0,400.0,80.0,70.0,95.0,95.0);
-const float LW[10]=float[10](0.4,0.5,0.4,0.7,0.6,0.8,1.0,0.9,1.0,1.0);      // wind: low layers move faster
+// Wind: world units a layer travels per unit of the shared drift. Chosen so a layer crosses the sky at a visible pace (about 1 degree a
+// second for the low ones, a quarter of that for the high ones) and so the ground shadow of a cumulus sweeps along at a walking pace.
+const float LW[10]=float[10](14.0,13.0,14.0,15.0,16.0,14.0,3.5,10.0,7.5,7.5);
 const float LALT[10]=float[10](1.0,0.9,0.95,0.45,0.55,0.3,0.05,0.15,0.1,0.1);   // 0 low .. 1 high: how long the sun lasts on it
 const float LRIM[10]=float[10](1.0,0.6,0.8,0.1,0.9,0.0,0.2,0.8,1.0,1.0);        // how strongly its margin burns toward the sun
 bool gNeedLit=true;
 
 // one genus at world plane point P: x lit-ness, y thickness; alpha (before the horizon fade) out
 vec2 evalLayer(int id,vec2 P,vec2 ldir,int Q,out float alpha){
-  vec2 uv=P/LS[id]+uCloudWind*(0.02*LW[id]);
+  vec2 uv=(P-uCloudWind*LW[id])/LS[id];      // downwind, like the gusts and the smoke; the shadow pass reads this same line
   float fw=length(fwidth(uv));
   float g=uGen[id];
   int QL=gNeedLit?Q:0;
