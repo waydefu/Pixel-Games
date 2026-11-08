@@ -119,6 +119,7 @@ export function createRendererPort({
       triangles: renderer.info?.render?.triangles ?? null,
       geometries: renderer.info?.memory?.geometries ?? null,
       textures: renderer.info?.memory?.textures ?? null,
+      programs: renderer.info?.programs?.length ?? null,
     });
   }
 

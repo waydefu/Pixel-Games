@@ -20,7 +20,9 @@
     "validate": "npm run check && npm run assets && npm test && npm run typecheck && npm run build && npm run check:build",
     "graphics:matrix": "node scripts/graphics-matrix.mjs",
     "visual:audit": "npm run build && node scripts/run-visual-audit.mjs",
-    "check:governance": "node scripts/check-governance.mjs"
+    "check:governance": "node scripts/check-governance.mjs",
+    "perf:run": "npm run build && node scripts/performance/run.mjs",
+    "perf:compare": "node scripts/performance/compare.mjs"
   },
   "dependencies": {
     "three": "0.187.0"

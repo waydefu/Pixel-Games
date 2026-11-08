@@ -6,7 +6,7 @@ import { createAdaptiveResolutionController } from "../src/rendering/quality.js"
 function setup(asyncBackend=false) {
   const listeners = new Map(), calls=[], statuses=[];
   const canvas={addEventListener:(n,fn)=>listeners.set(n,fn),removeEventListener:(n)=>listeners.delete(n)};
-  const renderer={info:{render:{calls:5,triangles:10},memory:{textures:2,geometries:1}},shadowMap:{},setSize:(...args)=>calls.push(["size",...args]),setPixelRatio:v=>calls.push(["ratio",v]),dispose:()=>calls.push(["disposed"]),render:()=>calls.push(["draw"])};
+  const renderer={info:{render:{calls:5,triangles:10},memory:{textures:2,geometries:1},programs:[{},{}]},shadowMap:{},setSize:(...args)=>calls.push(["size",...args]),setPixelRatio:v=>calls.push(["ratio",v]),dispose:()=>calls.push(["disposed"]),render:()=>calls.push(["draw"])};
   if(asyncBackend) {renderer.init=async()=>calls.push(["init"]); renderer.renderAsync=async()=>calls.push(["drawAsync"]);}
   const host=createRendererPort({renderer,canvas,scene:{},camera:{},resizeCamera:(w,h)=>calls.push(["camera",w,h]),onStatus:s=>statuses.push(s)});
   return {listeners,calls,statuses,host,renderer};
@@ -21,6 +21,7 @@ test("generic port awaits async initialize and draw",async()=>{
  assert.ok(calls.some(v=>v[0]==="drawAsync"));
  assert.ok(calls.some(v=>v[0]==="camera"));
  assert.ok(host.stats().textures===2);
+ assert.equal(host.stats().programs,2);
  await host.dispose();
  assert.equal(host.state,"disposed");
 });

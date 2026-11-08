@@ -4,6 +4,7 @@ import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
 import { liveSky, setMoonPhase } from "./sky-live.js";
 import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
+import { createGpuTimer } from "../rendering/gpu-timer.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
 import { loadVillageKit } from "./village-kit.js";
@@ -41,11 +42,15 @@ const joystick=element<HTMLElement>("#joystick");
 const knob=element<HTMLElement>("#joystick-knob");
 const hint=element<HTMLElement>("#hint");
 const lookHint=element<HTMLElement>("#look-hint");
+const performanceAudit=new URLSearchParams(location.search).get("perfAudit")==="1";
+const startup={scriptStartMs:performanceAudit?performance.now():null as number|null,assetsReadyMs:null as number|null,worldReadyMs:null as number|null,inputReadyMs:null as number|null,rendererReadyMs:null as number|null,firstDrawMs:null as number|null,assetsLoaded:false};
 
 // Polyfork Medieval Village Kit (CC BY 4.0). If it cannot load, the procedural village is used instead.
 const villageKit=await loadVillageKit().catch(error=>{console.warn("Village kit unavailable; using procedural village",error);return null;});
+if(performanceAudit){startup.assetsReadyMs=performance.now();startup.assetsLoaded=!!villageKit;}
 const world=createCoastalWorld(villageKit);
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
+if(performanceAudit)startup.worldReadyMs=performance.now();
 let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 let lockFailed=false,lockPending=false;
 function updateLookHint(){
@@ -149,6 +154,7 @@ const weatherPicker=element<HTMLSelectElement>("#weather");
 {const initial=new URLSearchParams(window.location.search).get("weather");if(initial&&[...weatherPicker.options].some(o=>o.value===initial))weatherPicker.value=initial;}
 weatherPicker.addEventListener("change",()=>world.setWeather(weatherPicker.value==="auto"?null:weatherPicker.value));
 const input=createMovementInput(joystick,knob);
+if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
 const diagnostics={
@@ -157,6 +163,27 @@ const diagnostics={
   camera:"quarter" as CameraMode,projection:"orthographic",yaw:0,pitch:0,scenery:world.scenery,
   visualShot:visualShot?.id??null,hour:0,phase:"",sunElevation:0,
 };
+// Opt-in benchmark samples the game's own RAF loop, not a separate observer loop.
+let perfSamples:{atMs:number;frameMs:number}[]|null=null,perfStarted=0,perfHidden=false,perfInterrupted=false;
+let perfCpu:{atMs:number;movementMs:number;cameraMs:number;worldMs:number;drawSubmitMs:number}[]=[];
+let perfResources:{atMs:number;geometries:number|null;textures:number|null;programs:number|null}[]=[],lastResourceAt=0;
+let gpuTimer:ReturnType<typeof createGpuTimer>|null=null;
+let gpuDetailFrame=false,gpuFrameAt=0,gpuFrameIndex=0;
+function profileGpu(name:string,run:()=>void){
+  if(!perfSamples||!gpuDetailFrame){run();return;}
+  gpuTimer?.begin(gpuFrameAt,name);
+  try{run();}finally{gpuTimer?.end();}
+}
+if(performanceAudit){
+  Object.defineProperty(window,"__pixelPerf",{value:{
+    start:()=>{perfSamples=[];perfCpu=[];perfResources=[];lastResourceAt=-1000;gpuFrameIndex=0;perfStarted=performance.now();perfHidden=document.visibilityState!=="visible"||!document.hasFocus();perfInterrupted=false;gpuTimer?.start();},
+    stop:()=>{gpuTimer?.stop();if(host&&perfSamples){const stats=host.stats();perfResources.push({atMs:performance.now()-perfStarted,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}const result={samples:perfSamples??[],cpu:perfCpu,resources:perfResources,hidden:perfHidden,interrupted:perfInterrupted,durationMs:performance.now()-perfStarted};perfSamples=null;return result;},
+    startup:()=>({...startup}),
+    gpu:()=>gpuTimer?.read()??{status:"UNAVAILABLE",samples:[],pending:0,dropped:0},
+  }});
+  document.addEventListener("visibilitychange",()=>{if(perfSamples&&document.visibilityState!=="visible")perfHidden=true;});
+  window.addEventListener("blur",()=>{if(perfSamples)perfHidden=true;});
+}
 Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,weather:world.weather.state.preset,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 const pipelineInfo={hdr:false,quality:"balanced"};
@@ -164,6 +191,7 @@ let focusPipeline:(distance:number,active:boolean)=>void=()=>{};
 let lastSoundX=0,lastSoundZ=0;
 let animation=0,previous=0,elapsed=0,uiTime=0,closed=false,observer:ResizeObserver|null=null;
 function mark(state:GameState,message:string){
+  if(perfSamples&&state!=="ready")perfInterrupted=true;
   diagnostics.status=state;
   status.textContent=message;
   status.toggleAttribute("hidden",state==="ready");
@@ -321,6 +349,7 @@ async function start(){
   try{
     const context=canvas.getContext("webgl2",{antialias:false,alpha:false});
     if(!context){mark("unsupported","WebGL2 不可用");return;}
+    if(performanceAudit)gpuTimer=createGpuTimer(context);
     const renderer=new THREE.WebGLRenderer({canvas,context,antialias:false,alpha:false,powerPreference:"high-performance"});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
     // Audit switch for phone GPUs: `?rtt=0` makes three.js resolve multisampled targets with a blit instead of the
@@ -334,7 +363,7 @@ async function start(){
     renderer.toneMappingExposure=1;
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=THREE.PCFShadowMap; // r187 removed PCFSoftShadowMap
-    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value,prePass:(r:THREE.WebGLRenderer,_s:THREE.Scene,c:THREE.Camera)=>world.prePass(r,c)});
+    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value,prePass:(r:THREE.WebGLRenderer,_s:THREE.Scene,c:THREE.Camera)=>world.prePass(r,c,performanceAudit?profileGpu:undefined),...(performanceAudit?{measure:profileGpu}:{})});
     pipelineInfo.hdr=pipeline.hdr;pipelineInfo.quality=quality.value;
     if(new URLSearchParams(window.location.search).get("tone")==="aces")pipeline.setGrade({uAgx:0}); // audit: compare with the old tone mapper
     focusPipeline=(distance:number,active:boolean)=>pipeline.setFocus({distance,range:2.2,span:10,strength:active?1:0});
@@ -359,6 +388,7 @@ async function start(){
       restoreResources:async()=>{},
     });
     await host.initialize();
+    if(performanceAudit)startup.rendererReadyMs=performance.now();
     // A software rasteriser (SwiftShader, llvmpipe) cannot afford the sea's second scene pass: it keeps the analytic
     // sky reflection. `?mirror=1` forces the real reflection back on, for screenshots taken on such a machine.
     const gpuInfo=context.getExtension("WEBGL_debug_renderer_info");
@@ -387,11 +417,13 @@ async function start(){
     const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     async function frame(now:number){
       if(!host||closed)return;
+      gpuTimer?.poll();
       const wallDt=previous?Math.max(0,(now-previous)*.001):0;
       const dt=Math.min(.05,wallDt); // movement stays bounded; the in-game clock must not slow with FPS
       if(previous && document.visibilityState==="visible"){
         const frameMs=now-previous;
         if(frameMs>0){
+          if(perfSamples&&now>=perfStarted)perfSamples.push({atMs:now-perfStarted,frameMs});
           frameMetrics.record(frameMs);
           if(!visualShot&&!lowPower){
             const next=adaptive.observe(frameMs);
@@ -401,10 +433,17 @@ async function start(){
       }
       previous=now;
       elapsed+=dt;
+      const measureCpu=!!perfSamples&&now>=perfStarted;
+      if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
+      let cpuTime=measureCpu?performance.now():0;
       update(dt);
+      const movementMs=measureCpu?performance.now()-cpuTime:0;
+      if(measureCpu)cpuTime=performance.now();
       const camera=rig.tick(dt);
       host.setCamera(camera);
       world.faceCamera(camera);
+      const cameraMs=measureCpu?performance.now()-cpuTime:0;
+      if(measureCpu)cpuTime=performance.now();
       fishing.update();
       if(sound){
         const cam=rig.camera,fwd=new THREE.Vector3();cam.getWorldDirection(fwd);
@@ -423,11 +462,19 @@ async function start(){
       host.setSun(liveSky.sunDir);host.setRayScale(Math.min(1,liveSky.sunRays*liveSky.twilight.value*1.6));   // light shafts only at sunrise and sunset: by day they smeared the bright clouds into radial smoke
       host.setGrade({uExposure:liveSky.exposure});
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
+      const worldMs=measureCpu?performance.now()-cpuTime:0;
       try{
         if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);
         else focusPipeline(30,false);
-        const drawn=await host.draw(elapsed);
-        if(drawn){diagnostics.frames++;diagnostics.drawCalls=host.stats().calls??0;}
+        gpuFrameAt=now-perfStarted;gpuDetailFrame=measureCpu&&(gpuFrameIndex++%3!==0);
+        if(measureCpu&&!gpuDetailFrame)gpuTimer?.begin(gpuFrameAt);
+        let drawing:ReturnType<typeof host.draw>;
+        if(measureCpu)cpuTime=performance.now();
+        try{drawing=host.draw(elapsed);}finally{if(!gpuDetailFrame)gpuTimer?.end();}
+        const drawSubmitMs=measureCpu?performance.now()-cpuTime:0;
+        if(measureCpu)perfCpu.push({atMs:gpuFrameAt,movementMs,cameraMs,worldMs,drawSubmitMs});
+        const drawn=await drawing;
+        if(drawn){diagnostics.frames++;diagnostics.drawCalls=host.stats().calls??0;if(performanceAudit&&startup.firstDrawMs===null)startup.firstDrawMs=performance.now();}
       }catch{
         mark("failed","3D 繪製失敗");
         return;
@@ -446,6 +493,7 @@ async function start(){
       closed=true;
       cancelAnimationFrame(animation);
       observer?.disconnect();
+      gpuTimer?.dispose();
       input.destroy();
       void host?.dispose();
       world.dispose();
