@@ -74,7 +74,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uTime:{value:0},uCloudAmount:{value:1.0},uCloudDetailLevel:{value:1},
     uSunDirection:{value:liveSky.sunDir},
     uHorizon:{value:liveSky.horizon},
-    uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},
+    uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},
     uTwilight:liveSky.twilight,uNightC:liveSky.night,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,uSunColor:{value:liveSky.sunColor},
   };
   // Art-directed sky: a clear tropical day (reference: saturated blue overhead fading to pale aqua at the
@@ -268,150 +268,125 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform float uWeatherDark;
       uniform float uWeatherFlash;
       uniform vec3 uSunColor;
-      float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
-      float n3(vec3 p){
-        vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
-        return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
-                   mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);
+      uniform vec3 uZenith;
+      uniform vec3 uMid;
+      vec3 cm(vec2 uv){return texture2D(uCloudMap,uv).rgb;}
+      // Henyey-Greenstein phase: forward lobe (silver lining) plus a weak back lobe
+      float hg(float c,float g){float k=1.0+g*g-2.0*g*c;return (1.0-g*g)/(12.566*k*sqrt(k));}
+      // ---- layer 0: low cumulus. Large shapes from the shared coverage map (the same R the ground shadows read) with three
+      // octaves of rounded puffs eroding the edge into lobes. Returns optical thickness 0..1.
+      float thick0(vec2 uv){
+        vec3 a=cm(uv),b=cm(uv*3.1+vec2(.37,.11)),c=cm(uv*7.3+vec2(.71,.29));
+        float f=a.r+(a.g-.37)*.34+(b.g-.37)*.26+(c.g-.37)*.12;
+        return smoothstep(.43-uCloudBias,.74-uCloudBias,f);
+      }
+      float cheap0(vec2 uv){vec3 a=cm(uv);return smoothstep(.43-uCloudBias,.74-uCloudBias,a.r+(a.g-.37)*.34);}
+      // ---- layer 1: altocumulus: a field of small puffs (the mackerel sky), in patches
+      float thick1(vec2 uv){
+        float patch=cm(uv*.42+vec2(.23,.61)).r+(cm(uv*.9).r-.5)*.5;
+        vec3 a=cm(uv),b=cm(uv*2.7+vec2(.19,.43));
+        float f=a.g*.62+b.g*.38+(a.r-.5)*.25;
+        return smoothstep(.30,.56,f)*smoothstep(.40-uCloudBias*.6,.62-uCloudBias*.6,patch);
+      }
+      float cheap1(vec2 uv){vec3 a=cm(uv);return smoothstep(.30,.56,a.g*.8+(a.r-.5)*.25);}
+      // ---- layer 2: cirrus: streaks along one axis, thin and translucent
+      float thick2(vec2 uv){
+        vec3 a=cm(uv),b=cm(uv*.37+vec2(.5,.1));
+        return smoothstep(.50,.74,a.b*.8+(b.r-.5)*.5)*smoothstep(.36,.6,b.r);
       }
       void main(){
         vec3 ray=normalize(vRay);
         vec3 sunDir=normalize(uSunDirection);
         vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
         float toward=dot(rf,sf),away=max(0.0,-toward);
-        float sun=max(0.0,dot(ray,sunDir));
-        // Shared precomputed world-space cloud field: the same density drives
-        // sky cover and projected mountain/ground shadow, with no second pass.
-        // An upper cloud layer is sampled where the view ray reaches the sheet.
-        // Never clamp the cloud-plane intersection over a visible horizon band.
-        // The previous constant denominator floor produced vertical cloud columns.
-        float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
-        vec2 cloudUV=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
-        float low=texture2D(uCloudMap,cloudUV).r;
-        float cumulus=smoothstep(.47-uCloudBias,.63-uCloudBias,low);
-        float cirrus=smoothstep(.52,.71,
-          texture2D(uCloudMap,cloudUV*2.1+vec2(.17,.39)).r)*.18;
-        // VIPER-style optical integration, adapted for the mobile WebGL2
-        // budget: one density layer on Basic, two on Balanced, three on High.
-        // No high-cost 500-step volumetric march or separate cloud-shadow pass.
-        float stacked=0.0;
-        if(uCloudDetailLevel>0.5){
-          float middle=texture2D(uCloudMap,cloudUV+ray.xz*.018+vec2(.013,-.019)).r;
-          stacked+=smoothstep(.41-uCloudBias,.59-uCloudBias,middle)*.53;
-          if(uCloudDetailLevel>1.5){
-            float top=texture2D(uCloudMap,cloudUV-ray.xz*.024+vec2(-.028,.011)).r;
-            stacked+=smoothstep(.43-uCloudBias,.63-uCloudBias,top)*.38;
-          }
-        }
-        // Fade the sheet to physical aerial haze where rays graze the horizon.
-        // Suppresses the column/curtain artifact in shot-04-vista-fjord.
-        float mask=smoothstep(.04,.17,ray.y)*(1.0-smoothstep(.86,.98,ray.y));
-        float opticalDepth=(1.68*cumulus+stacked+.62*cirrus)*mask*uCloudAmount*(1.0-.97*uNightC);
-        float amount=clamp(1.0-exp(-opticalDepth),0.0,.96);
-        // Cloud edge self-shading: sample the same cloud field in sunlight's
-        // projected direction. Bright rims stay local instead of whitewashing sky.
-        vec3 underside=uCloudShade,lit=uCloudLit;
-        // Solid volume from the height field: bumps give a surface normal, and a short march toward the sun accumulates
-        // the cloud's own optical depth (Beer-Lambert), so thick clouds have dark, self-shadowed bases and lit crowns.
-        vec2 sdir=normalize(sunDir.xz+vec2(1e-4))*mix(.020,.007,clamp(sunDir.y*2.0,0.0,1.0));
-        float tau=0.0;
-        int marchSteps=uCloudDetailLevel>1.5?5:uCloudDetailLevel>.5?2:0;   // the self-shadow march is a High-quality feature
-        for(int i=1;i<=5;i++){
-          if(i>marchSteps)break;
-          float d=texture2D(uCloudMap,cloudUV+sdir*float(i)).r;
-          tau+=smoothstep(.44,.62,d)*(1.0+.35*float(i));
-        }
-        float shadowed=marchSteps>0?exp(-tau*(uCloudDetailLevel>1.5?.34:.6)):.7;
-        float gx=texture2D(uCloudMap,cloudUV+vec2(.006,0.0)).r-texture2D(uCloudMap,cloudUV-vec2(.006,0.0)).r;
-        float gy=texture2D(uCloudMap,cloudUV+vec2(0.0,.006)).r-texture2D(uCloudMap,cloudUV-vec2(0.0,.006)).r;
-        vec3 bump=normalize(vec3(-gx*9.0,1.0,-gy*9.0));
-        float lambert=clamp(dot(bump,normalize(vec3(sunDir.x,max(sunDir.y,.15)+.25,sunDir.z)))*.5+.55,0.0,1.0);
-        float sideLight=clamp(lambert*.55+shadowed*.45,0.0,1.0);
-        float thick=smoothstep(.52,.88,low);
-        // ---- HIGH: real volumetric clouds. A ray marched through a slab 1.7-4.3 km up: the shared coverage map shapes the
-        // cloud field (so ground shadows and sun occlusion stay consistent), a height profile gives flat bases and billowing
-        // tops, 3D noise erodes the edges, and each sample is lit by marching toward the sun (Beer-Lambert). Clouds have depth,
-        // parallax and real volume; they thicken, rise into towers and darken with the weather. ----
-        if(uCloudDetailLevel>1.5&&ray.y>.03&&uNightC<.97){
-          const float BASE=1700.0,TOP=4300.0;
-          float t0=(BASE-cameraPosition.y)/ray.y,t1=min((TOP-cameraPosition.y)/ray.y,t0+16000.0);
-          float stepLen=(t1-t0)/28.0;
-          float jitter=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);
-          float T=1.0,lightSum=0.0,weight=0.0,densSum=0.0;
-          vec3 sd=normalize(vec3(sunDir.x,max(sunDir.y,.12),sunDir.z));
-          for(int i=0;i<28;i++){
-            if(T<.03)break;
-            vec3 p=cameraPosition+ray*(t0+(float(i)+jitter)*stepLen);
-            float hgt=clamp((p.y-BASE)/(TOP-BASE),0.0,1.0);
-            vec2 cuv=p.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan;
-            float cover=texture2D(uCloudMap,cuv).r;
-            float shape=smoothstep(.40-uCloudBias,.64-uCloudBias,cover);
-            float topH=.30+.70*smoothstep(.45,.85,cover);
-            float prof=smoothstep(.0,.10,hgt)*(1.0-smoothstep(topH*.55,topH,hgt));
-            float dens=shape*prof;
-            if(dens>.01){
-              vec3 q=p*.0017+vec3(uCloudWind.x*.9,0.0,uCloudWind.y*.9)*.5;
-              float detail=.62*n3(q)+.38*n3(q*2.9+vec3(3.1));
-              dens=clamp(dens-(1.0-detail)*.72*(1.0-.45*prof),0.0,1.0);
-            }
-            if(dens>.012){
-              // light: march toward the sun through the coverage field
-              float tauL=0.0;
-              for(int k=1;k<=3;k++){
-                vec3 pl=p+sd*(float(k)*420.0);
-                float hl=clamp((pl.y-BASE)/(TOP-BASE),0.0,1.0);
-                float cl=texture2D(uCloudMap,pl.xz/(uCloudSpan*34.0)+uCloudWind/uCloudSpan).r;
-                tauL+=smoothstep(.40-uCloudBias,.64-uCloudBias,cl)*smoothstep(.0,.1,hl)*(1.0-smoothstep(.55,.9,hl));
-              }
-              float lightHere=exp(-tauL*1.6)*(.42+.58*hgt)+.10*hgt;
-              float sig=dens*stepLen*.00115*uCloudAmount;
-              float a=1.0-exp(-sig);
-              lightSum+=T*a*lightHere;densSum+=T*a*dens;weight+=T*a;
-              T*=1.0-a;
-            }
-          }
-          float cov=1.0-T;
-          amount=clamp(cov,0.0,.97);
-          if(weight>.001){
-            float lit=lightSum/weight,dv=densSum/weight;
-            shadowed=clamp(lit,0.0,1.0);sideLight=clamp(lit*.9+.08,0.0,1.0);
-            low=mix(.50,.86,clamp(dv*1.3,0.0,1.0));thick=smoothstep(.52,.88,low);
-          }
-        }
-        float silver=pow(sun,16.0)*smoothstep(.43,.57,low)*
-          (1.0-smoothstep(.63,.78,low));
-        vec3 cloud=mix(underside,lit,clamp(.10+.62*sideLight+.22*sun,0.0,1.0));
-        cloud*=1.0-.42*thick*(1.0-shadowed*.6);                                  // thick bodies are darker in the middle
-        cloud+=vec3(.35,.24,.13)*silver;
-        cloud*=mix(vec3(1.0),vec3(1.30,1.0,.74),pow(sun,3.0)); // sunward clouds glow warm
-        // ---- sunrise / sunset: fiery undersides toward the sun, dark backlit bodies with burning rims, pink on the far side ----
-        float tw=uTwilight;
-        // Physics of twilight clouds: high cirrus / altocumulus catch the reddened light and keep it after the sun has set,
-        // while low clouds near the horizon fall into shadow first. The colour walks yellow -> orange -> red -> magenta.
+        float cs=dot(ray,sunDir);
+        float sun=max(0.0,cs);
         float sy=sunDir.y;
-        float highLit=smoothstep(.05,.30,ray.y);
-        float afterSet=smoothstep(.0,-.10,sy);
-        float glowMask=max(pow(max(toward,0.0),1.2)*(1.0-.6*smoothstep(.0,.75,ray.y)),afterSet*highLit*(.55+.45*max(toward,0.0)));
+        float tw=uTwilight;
+        // Fade the sheet to physical aerial haze where rays graze the horizon (suppresses cloud-column artifacts).
+        float mask=smoothstep(.04,.17,ray.y)*(1.0-smoothstep(.86,.98,ray.y))*(1.0-.97*uNightC);
+        float amt=uCloudAmount*mask;
+        // ---- light. Direct light is the sun's own colour (orange at the horizon, via the sun-elevation table); at twilight it
+        // walks yellow -> orange -> red -> magenta as the sun sinks. Shadowed parts only get SKY light: the zenith blue and the
+        // violet band above the glow. That split alone gives the look of dusk clouds: warm lit edges, cool dark bodies.
         vec3 fieryBase=mix(vec3(1.0,.55,.18),vec3(1.0,.16,.04),smoothstep(.13,-.02,sy));
         fieryBase=mix(fieryBase,vec3(.80,.14,.38),smoothstep(-.03,-.09,sy));
-        fieryBase=mix(fieryBase,vec3(.38,.24,.80),smoothstep(-.09,-.16,sy));   // blue hour: violet-blue
+        fieryBase=mix(fieryBase,vec3(.38,.24,.80),smoothstep(-.09,-.16,sy));
         vec3 fiery=fieryBase*1.7;
-        float thin=1.0-smoothstep(.47,.74,low);                                 // thin cloud edges
-        float back=pow(sun,3.0);
-        cloud=mix(cloud,mix(vec3(.10,.03,.14),fiery,.40+.60*sideLight),clamp(tw*(.55+.75*glowMask),0.0,1.0));
-        cloud*=mix(1.0,.38,back*tw*(1.0-thin));
-        cloud*=mix(1.0,.42,smoothstep(-.10,-.17,sy)*(1.0-highLit));                              // low clouds are in shadow once the sun is down                                  // backlit bodies go dark
-        cloud+=fiery*thin*pow(sun,5.0)*tw*2.4+uSunColor*thin*pow(sun,2.0)*tw*.6;  // rims burn
-        cloud=mix(cloud,vec3(.80,.38,.48)*(.55+.6*sideLight),away*tw*.35*(1.0-smoothstep(.0,.8,ray.y)));
+        vec3 direct=mix(uSunColor*1.9,fiery*1.25,clamp(tw*1.3,0.0,1.0));
+        vec3 skyAmb=mix(uZenith,uMid,.65)*1.7;
+        float amL=dot(skyAmb,vec3(.2126,.7152,.0722));
+        vec3 amb=mix(vec3(amL),skyAmb,.85)+vec3(.014,.018,.030);
+        // a high layer keeps the light after the sun has set, a low one loses it first
+        float litLow=smoothstep(-.045,.07,sy),litMid=smoothstep(-.10,.0,sy),litHigh=smoothstep(-.17,-.02,sy);
+        // the glow along the horizon under the sun bounces warm light into the shaded sides
+        vec3 bounce=fiery*.16*tw*pow(max(toward,0.0),1.5)*(1.0-.6*smoothstep(.0,.8,ray.y));
+        float phase=1.0+3.0*(.55*hg(cs,.7)+.45*hg(cs,-.2));
+        float lowSun=mix(.030,.010,clamp(sy*2.5,0.0,1.0));   // how far toward the sun the self-shadow looks
+        vec2 sdir=normalize(sunDir.xz+vec2(1e-4))*lowSun;
+        int quality=uCloudDetailLevel>1.5?2:uCloudDetailLevel>.5?1:0;
+        vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
+        // ================= layer 0: low cumulus =================
+        {
+          float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
+          vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
+          float t=thick0(uv);
+          float a=clamp(1.0-exp(-8.0*t*amt),0.0,.97);
+          if(a>.003){
+            float tau=t*.7;
+            int steps=quality==2?3:quality==1?2:1;
+            for(int i=1;i<=3;i++){if(i>steps)break;tau+=cheap0(uv+sdir*(float(i)*(i==3?2.2:1.0)))*(1.0+.15*float(i));}
+            tau*=1.15;
+            float Lr=(exp(-tau)+.2*exp(-.3*tau))/1.2;
+            float lit=litLow;
+            // dark edges (powder): thin parts seen away from the sun lose their light; toward the sun they flare (phase)
+            float thinE=1.0-smoothstep(.0,.38,t);
+            float powder=1.0-.5*thinE*(1.0-smoothstep(-.2,.7,cs));
+            vec3 c=amb*mix(1.0,.62,t)+bounce+direct*lit*Lr*phase*powder;
+            c+=direct*lit*thinE*pow(sun,5.0)*Lr*1.8;                 // the burning rim facing the sun
+            col+=T*a*c;thickAcc+=T*a*t;T*=1.0-a;
+          }
+        }
+        // ================= layer 1: altocumulus =================
+        if(quality>=1||true){
+          float reach=max(0.0,uCloudHeight*2.1-cameraPosition.y)/max(.035,ray.y);
+          vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind*.8+vec2(.31,.17)*uCloudSpan)/uCloudSpan*2.3;
+          float t=quality>=1?thick1(uv):cheap1(uv)*smoothstep(.40,.62,cm(uv*.42).r);
+          float a=clamp(1.0-exp(-5.2*t*amt),0.0,.9);
+          if(a>.003){
+            float tau=t*.6;
+            if(quality>=1)tau+=cheap1(uv+sdir*2.3)*.9+(quality==2?cheap1(uv+sdir*4.6)*.8:0.0);
+            float Lr=(exp(-tau*1.1)+.2*exp(-.3*tau))/1.2;
+            float thinE=1.0-smoothstep(.0,.4,t);
+            float powder=1.0-.45*thinE*(1.0-smoothstep(-.2,.7,cs));
+            vec3 c=amb*mix(1.0,.7,t)+bounce+direct*litMid*Lr*phase*powder;
+            c+=direct*litMid*thinE*pow(sun,5.0)*Lr*1.5;
+            col+=T*a*c;thickAcc+=T*a*t*.8;T*=1.0-a;
+          }
+        }
+        // ================= layer 2: cirrus streaks =================
+        if(quality>=1){
+          float reach=max(0.0,uCloudHeight*4.6-cameraPosition.y)/max(.035,ray.y);
+          vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind*1.5+vec2(.57,.83)*uCloudSpan)/uCloudSpan*1.4;
+          float t=thick2(uv);
+          float a=clamp(1.0-exp(-3.0*t*amt),0.0,.7);
+          if(a>.003){
+            float thinE=1.0-t;
+            vec3 c=amb*.9+bounce*1.3+direct*litHigh*(.55+.45*thinE)*mix(1.0,phase,.6);
+            c+=direct*litHigh*pow(sun,5.0)*1.2;
+            col+=T*a*c;T*=1.0-a;
+          }
+        }
+        float amount=clamp(1.0-T,0.0,.97);
+        vec3 cloud=amount>.001?col/max(amount,.02):vec3(0.0);
+        float thick=clamp(thickAcc/max(amount,.02),0.0,1.0);
         // heavy weather: slate-grey, darker bodies; lightning lights the cloud from inside
         float lumC=dot(cloud,vec3(.2126,.7152,.0722));
         cloud=mix(cloud,vec3(lumC)*vec3(.55,.60,.70),uWeatherDark*.95);
         cloud*=1.0-.72*uWeatherDark*(.45+.55*thick);
-        cloud+=vec3(.7,.78,1.0)*uWeatherFlash*(.35+.65*smoothstep(.45,.9,low))*1.4;
+        cloud+=vec3(.7,.78,1.0)*uWeatherFlash*(.35+.65*thick)*1.4;
         cloud=mix(uHorizon,cloud,clamp(.34+ray.y*2.8,0.0,1.0));
-        // Transparent cloud sheet rendered over the physical atmosphere;
-        // shared cloudMap controls both visible cover and mountain cloud shade.
-        // Keep depth testing on, otherwise clouds paint over buildings.
+        // Transparent cloud sheet over the physical atmosphere; depth testing stays on so clouds never paint over buildings.
         gl_FragColor=vec4(cloud,amount);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
