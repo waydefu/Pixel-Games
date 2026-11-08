@@ -167,9 +167,9 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   scene.userData.batching=batching;
   function setShadows(enabled:boolean,quality:"basic"|"balanced"|"high"="balanced",softwareGpu=false){
     environment.sunlight.castShadow=enabled;
-    // A software rasteriser (CI, headless) takes seconds per frame: the High tier's volumetric clouds, 14000 raindrops and
-    // dense grass would only make it unusable, so there they run at the Balanced level. `?mirror=1` keeps the full High.
-    const heavy:"basic"|"balanced"|"high"=softwareGpu&&quality==="high"?"balanced":quality;
+    // A software rasteriser (CI, headless) takes seconds per frame: the sky's cloud detail, the rain and the grass drop to the
+    // Basic level there, and the cloud shadows are off. `?mirror=1` keeps the full tier.
+    const heavy:"basic"|"balanced"|"high"=softwareGpu?"basic":quality;
     const forcedShadow=Number.parseFloat(new URLSearchParams(window.location.search).get("cloudShadow")??"");   // audit: ?cloudShadow=.5 shows the shadows at full strength
     cloudField.setStrength((Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48)*liveSky.dayLight.value);
     fjord.setSkyQuality(heavy);

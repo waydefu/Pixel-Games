@@ -246,6 +246,7 @@ void main(){
   for(int k=0;k<10;k++){
     int id=ORDER[k];
     if(uGen[id]<=0.01||!shown(id))continue;
+    if(Q==0&&LALT[id]>0.85)continue;       // the cheapest tier leaves out the thin high veils
     float al;
     vec2 lt=evalLayer(id,cameraPosition.xz+plane*LH[id],ldir,Q,al);
     float a=clamp(al*mask,0.0,0.97);
@@ -285,6 +286,7 @@ void main(){
   for(int k=0;k<10;k++){
     int id=ORDER[k];
     if(uGen[id]<=0.01)continue;
+    if(Q==0&&LALT[id]>0.85)continue;
     float al;
     evalLayer(id,ground+off*LH[id],vec2(0.0),Q,al);
     // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
