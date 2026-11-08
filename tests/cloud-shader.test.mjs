@@ -125,6 +125,28 @@ test("sky and ground shadows drift together, downwind, at a visible pace; the su
   for (const id of [6, 7, 8, 9]) assert.ok(degPerSecond(id) > 0.6, "low layer " + id + " moves visibly: " + degPerSecond(id).toFixed(2));
   for (let i = 0; i < 10; i++) assert.ok(degPerSecond(i) > 0.2 && degPerSecond(i) < 1.6, "layer " + i + " is neither frozen nor racing: " + degPerSecond(i).toFixed(2));
   const fjord = read("fjord.ts");
-  assert.match(fjord, /vec3 discHue=mix\(vec3\(1\.0,\.88,\.66\),vec3\(1\.0,\.42,\.10\),smoothstep\(\.60,\.20,sunSin\)\);/);
-  assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),smoothstep\(\.16,\.015,sunSin\)\);/);
+  assert.match(fjord, /vec3 discHue=mix\(vec3\(1\.0,\.88,\.66\),vec3\(1\.0,\.42,\.10\),\(1\.0-smoothstep\(\.20,\.60,sunSin\)\)\);/);
+  assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),\(1\.0-smoothstep\(\.015,\.16,sunSin\)\)\);/);
+});
+
+// GLSL requires edge0 < edge1. Descending solar-height transitions must invert a
+// conventional smoothstep: reversed parameters produce undefined GPU-specific output.
+test("sunset shader transitions use defined smoothstep order", () => {
+  const fjord = read("fjord.ts");
+  for (const fragment of [
+    "(1.0-smoothstep(.20,.60,sunSin))",
+    "(1.0-smoothstep(.015,.16,sunSin))",
+    "(1.0-smoothstep(.0,.25,sunSin))",
+    "(1.0-smoothstep(.04,.55,sunSin))",
+  ]) assert.ok(fjord.includes(fragment), "fjord must use ordered GLSL smoothstep: " + fragment);
+  for (const fragment of [
+    "(1.0-smoothstep(0.01,0.20,sy))",
+    "(1.0-smoothstep(-0.09,-0.03,sy))",
+    "(1.0-smoothstep(-0.16,-0.09,sy))",
+  ]) assert.ok(CLOUD_FRAG.includes(fragment), "clouds must use ordered GLSL smoothstep: " + fragment);
+  function smooth(low,high,x){ const t=Math.max(0,Math.min(1,(x-low)/(high-low))); return t*t*(3-2*t); }
+  const fade=(low,high,x)=>1-smooth(low,high,x);
+  assert.equal(fade(.2,.6,.7),0);
+  assert.equal(fade(.2,.6,.1),1);
+  assert.ok(fade(.2,.6,.4)>0&&fade(.2,.6,.4)<1);
 });
