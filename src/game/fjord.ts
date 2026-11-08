@@ -4,6 +4,7 @@ import { buildMountainForest } from "./mountain-forest.js";
 import { applyAerialPerspective } from "./aerial-perspective.js";
 import { applyRockSurface } from "./rock-surface.js";
 import type { CloudField } from "./cloud-field.js";
+import { createCloudNoiseJob } from "./cloud-noise3d.js";
 import { liveSky } from "./sky-live.js";
 import type { StageKit } from "./kit.js";
 type Region="mainland"|"east"|"north"|"south";
@@ -75,6 +76,10 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     uSunDirection:{value:liveSky.sunDir},
     uHorizon:{value:liveSky.horizon},
     uCloudLit:{value:liveSky.cloudLit},uCloudShade:{value:liveSky.cloudShade},uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},
+    uNoise3:{value:null as THREE.Data3DTexture|null},uVolReady:{value:0},
+    // audit: ?cloudLayers=v12 shows the volumetric (v), altocumulus (1) and cirrus (2) layers; any subset
+    uDbg:{value:Number(new URLSearchParams(typeof location!=="undefined"?location.search:"").get("volDbg")??0)},
+    uLayers:{value:(()=>{const q=new URLSearchParams(typeof location!=="undefined"?location.search:"").get("cloudLayers")??"v012";return (q.includes("v")?1:0)+(q.includes("0")?2:0)+(q.includes("1")?4:0)+(q.includes("2")?8:0);})()},
     uTwilight:liveSky.twilight,uNightC:liveSky.night,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,uSunColor:{value:liveSky.sunColor},
   };
   // Art-directed sky: a clear tropical day (reference: saturated blue overhead fading to pale aqua at the
@@ -268,31 +273,64 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uniform float uWeatherDark;
       uniform float uWeatherFlash;
       uniform vec3 uSunColor;
+      precision highp sampler3D;
       uniform vec3 uZenith;
       uniform vec3 uMid;
+      uniform sampler3D uNoise3;
+      uniform float uVolReady;
+      uniform float uLayers;
+      uniform float uDbg;
+      bool layerOn(float bit){return mod(floor(uLayers/bit),2.0)>.5;}
       vec3 cm(vec2 uv){return texture2D(uCloudMap,uv).rgb;}
+      // smoothstep whose edge is never narrower than about a pixel's change in the field (no stair-stepped edges)
+      float ss(float lo,float hi,float f){float w=max(hi-lo,fwidth(f)*1.6);float m=(lo+hi)*.5;return smoothstep(m-w*.5,m+w*.5,f);}
       // Henyey-Greenstein phase: forward lobe (silver lining) plus a weak back lobe
       float hg(float c,float g){float k=1.0+g*g-2.0*g*c;return (1.0-g*g)/(12.566*k*sqrt(k));}
       // ---- layer 0: low cumulus. Large shapes from the shared coverage map (the same R the ground shadows read) with three
       // octaves of rounded puffs eroding the edge into lobes. Returns optical thickness 0..1.
       float thick0(vec2 uv){
         vec3 a=cm(uv),b=cm(uv*3.1+vec2(.37,.11)),c=cm(uv*7.3+vec2(.71,.29));
-        float f=a.r+(a.g-.37)*.34+(b.g-.37)*.26+(c.g-.37)*.12;
-        return smoothstep(.43-uCloudBias,.74-uCloudBias,f);
+        float f=a.r+(a.g-.53)*.40+(b.g-.53)*.34+(c.g-.53)*.20;
+        return ss(.47-uCloudBias,.73-uCloudBias,f);
       }
-      float cheap0(vec2 uv){vec3 a=cm(uv);return smoothstep(.43-uCloudBias,.74-uCloudBias,a.r+(a.g-.37)*.34);}
+      float cheap0(vec2 uv){vec3 a=cm(uv);return smoothstep(.47-uCloudBias,.73-uCloudBias,a.r+(a.g-.53)*.40);}
       // ---- layer 1: altocumulus: a field of small puffs (the mackerel sky), in patches
       float thick1(vec2 uv){
-        float patch=cm(uv*.42+vec2(.23,.61)).r+(cm(uv*.9).r-.5)*.5;
+        float zone=cm(uv*.42+vec2(.23,.61)).r+(cm(uv*.9).r-.5)*.5;
         vec3 a=cm(uv),b=cm(uv*2.7+vec2(.19,.43));
         float f=a.g*.62+b.g*.38+(a.r-.5)*.25;
-        return smoothstep(.30,.56,f)*smoothstep(.40-uCloudBias*.6,.62-uCloudBias*.6,patch);
+        return ss(.58,.72,f)*ss(.50-uCloudBias*.6,.70-uCloudBias*.6,zone);
       }
-      float cheap1(vec2 uv){vec3 a=cm(uv);return smoothstep(.30,.56,a.g*.8+(a.r-.5)*.25);}
+      float cheap1(vec2 uv){vec3 a=cm(uv);return smoothstep(.45,.62,a.g*.9+(a.r-.5)*.25);}
       // ---- layer 2: cirrus: streaks along one axis, thin and translucent
       float thick2(vec2 uv){
         vec3 a=cm(uv),b=cm(uv*.37+vec2(.5,.1));
-        return smoothstep(.50,.74,a.b*.8+(b.r-.5)*.5)*smoothstep(.36,.6,b.r);
+        return ss(.58,.74,a.b+(b.r-.5)*.5)*ss(.44,.64,b.r);
+      }
+      // ---- HIGH: volumetric cumulus. A slab 1.5-3.7 km up. Coverage comes from the shared map (sparse, isolated clouds), the
+      // height profile gives a flat base and a rounded top that rises where coverage is strongest, a Perlin-Worley volume
+      // gives the cauliflower lumps and Worley octaves erode the edges into billows.
+      const float VBASE=1500.0,VTOP=3700.0,VSIG=.0036,VWIND=18.0;
+      float volCover(vec2 xz){
+        vec3 cv=texture2D(uCloudMap,xz/(uCloudSpan*VWIND*1.6)).rgb;
+        return smoothstep(.56-uCloudBias,.73-uCloudBias,cv.r+(cv.g-.53)*.30);
+      }
+      float volDensity(vec3 pw,bool detail){
+        float hgt=clamp((pw.y-VBASE)/(VTOP-VBASE),0.0,1.0);
+        float cov=volCover(pw.xz);
+        if(cov<.001)return 0.0;
+        float topH=.32+.68*cov;
+        float prof=smoothstep(.0,.07,hgt)*(1.0-smoothstep(topH*.45,topH,hgt));   // flat base, rounded top
+        float base=cov*prof;
+        if(base<.001)return 0.0;
+        float shape=texture(uNoise3,pw*.00046).r;
+        float d=base*1.45-(1.0-shape)*.95;
+        if(detail&&d>.0){
+          vec3 w=texture(uNoise3,pw*.0021+vec3(.31,.17,.53)).gba;
+          float er=.60*w.x+.30*w.y+.10*w.z;
+          d-=(1.0-er)*.42*(.40+.60*hgt);                                   // the top boils, the base stays calm
+        }
+        return clamp(d,0.0,1.0);
       }
       void main(){
         vec3 ray=normalize(vRay);
@@ -313,10 +351,12 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         fieryBase=mix(fieryBase,vec3(.80,.14,.38),smoothstep(-.03,-.09,sy));
         fieryBase=mix(fieryBase,vec3(.38,.24,.80),smoothstep(-.09,-.16,sy));
         vec3 fiery=fieryBase*1.7;
-        vec3 direct=mix(uSunColor*1.9,fiery*1.25,clamp(tw*1.3,0.0,1.0));
-        vec3 skyAmb=mix(uZenith,uMid,.65)*1.7;
+        vec3 direct=mix(uSunColor*2.2,fiery*2.1,clamp(tw*1.3,0.0,1.0));
+        vec3 skyAmb=mix(uZenith,uMid,.55)*.72;
         float amL=dot(skyAmb,vec3(.2126,.7152,.0722));
         vec3 amb=mix(vec3(amL),skyAmb,.85)+vec3(.014,.018,.030);
+        float dayK=smoothstep(.06,.5,sy);
+        amb=mix(amb,vec3(.55,.62,.78),dayK*.55);                // by day the shaded side is bright sky blue-grey, not dark
         // a high layer keeps the light after the sun has set, a low one loses it first
         float litLow=smoothstep(-.045,.07,sy),litMid=smoothstep(-.10,.0,sy),litHigh=smoothstep(-.17,-.02,sy);
         // the glow along the horizon under the sun bounces warm light into the shaded sides
@@ -326,50 +366,88 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         vec2 sdir=normalize(sunDir.xz+vec2(1e-4))*lowSun;
         int quality=uCloudDetailLevel>1.5?2:uCloudDetailLevel>.5?1:0;
         vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
-        // ================= layer 0: low cumulus =================
-        {
+        bool useVol=uVolReady>.5&&ray.y>.03&&uNightC<.97&&layerOn(1.0);
+        // ================= HIGH: volumetric cumulus =================
+        if(useVol){
+          float t0=(VBASE-cameraPosition.y)/ray.y;
+          float t1=min((VTOP-cameraPosition.y)/ray.y,t0+15000.0);
+          const int N=40;
+          float stepLen=(t1-t0)/float(N);
+          float jit=uDbg>1.5&&uDbg<2.5?0.5:fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+          vec3 sd=normalize(vec3(sunDir.x,max(sunDir.y,.10),sunDir.z));
+          vec3 drift=vec3(uCloudWind.x,0.0,uCloudWind.y)*VWIND;
+          for(int i=0;i<N;i++){
+            if(T<.03)break;
+            vec3 pw=cameraPosition+ray*(t0+(float(i)+jit)*stepLen)+drift;
+            float d=volDensity(pw,uDbg<.5);
+            if(d>.012){
+              float tauL=0.0;
+              for(int k=1;k<=4;k++){
+                float seg=float(k)*float(k)*95.0;
+                tauL+=volDensity(pw+sd*seg,false)*(seg-float((k-1)*(k-1))*95.0);
+              }
+              tauL*=VSIG*uCloudAmount;
+              float Lr=(exp(-tauL)+.30*exp(-.25*tauL))/1.3;
+              float hgt=clamp((pw.y-drift.y-VBASE)/(VTOP-VBASE),0.0,1.0);
+              float lit=mix(litLow,litHigh,hgt);               // the tops keep the sun after the bases have lost it
+              float powder=1.0-.55*exp(-d*3.5)*(1.0-smoothstep(-.1,.6,cs));
+              vec3 S=amb*(.50+.50*hgt)+bounce*(1.0-hgt)+direct*lit*Lr*phase*powder;
+              float a=1.0-exp(-d*stepLen*VSIG*uCloudAmount);
+              col+=T*a*S;thickAcc+=T*a*d;T*=1.0-a;
+            }
+          }
+          // fade out toward the horizon, where the slab is far and the march coarse
+          float fadeV=smoothstep(.03,.14,ray.y);
+          float kept=mix(1.0,T,fadeV);
+          col*=fadeV;thickAcc*=fadeV;T=kept;
+        }
+        // ================= layer 0: low cumulus (2D; Balanced and Basic) =================
+        if(!useVol&&layerOn(2.0)){
           float reach=max(0.0,uCloudHeight-cameraPosition.y)/max(.035,ray.y);
           vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind)/uCloudSpan;
+          uv+=(cm(uv*.55+vec2(.3,.7)).rg-vec2(.5,.53))*.12;      // warp: no lattice-aligned shapes
           float t=thick0(uv);
-          float a=clamp(1.0-exp(-8.0*t*amt),0.0,.97);
+          float a=clamp(1.0-exp(-10.0*t*amt),0.0,.97);
           if(a>.003){
             float tau=t*.7;
             int steps=quality==2?3:quality==1?2:1;
             for(int i=1;i<=3;i++){if(i>steps)break;tau+=cheap0(uv+sdir*(float(i)*(i==3?2.2:1.0)))*(1.0+.15*float(i));}
-            tau*=1.15;
-            float Lr=(exp(-tau)+.2*exp(-.3*tau))/1.2;
+            tau*=.85;
+            float Lr=(exp(-tau)+.30*exp(-.3*tau))/1.30;
             float lit=litLow;
             // dark edges (powder): thin parts seen away from the sun lose their light; toward the sun they flare (phase)
             float thinE=1.0-smoothstep(.0,.38,t);
             float powder=1.0-.5*thinE*(1.0-smoothstep(-.2,.7,cs));
-            vec3 c=amb*mix(1.0,.62,t)+bounce+direct*lit*Lr*phase*powder;
+            vec3 c=amb*mix(1.0,.45,t)+bounce+direct*lit*Lr*phase*powder;
             c+=direct*lit*thinE*pow(sun,5.0)*Lr*1.8;                 // the burning rim facing the sun
             col+=T*a*c;thickAcc+=T*a*t;T*=1.0-a;
           }
         }
         // ================= layer 1: altocumulus =================
-        if(quality>=1||true){
+        if(layerOn(4.0)){
           float reach=max(0.0,uCloudHeight*2.1-cameraPosition.y)/max(.035,ray.y);
-          vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind*.8+vec2(.31,.17)*uCloudSpan)/uCloudSpan*2.3;
-          float t=quality>=1?thick1(uv):cheap1(uv)*smoothstep(.40,.62,cm(uv*.42).r);
+          vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind*.8+vec2(.31,.17)*uCloudSpan)/uCloudSpan*1.15;
+          uv=mat2(.82,.57,-.57,.82)*uv;uv+=(cm(uv*.31).rg-vec2(.5,.53))*.55;   // turned off the lattice axes and warped
+          float t=quality>=1?thick1(uv):cheap1(uv)*smoothstep(.46,.66,cm(uv*.42+vec2(.23,.61)).r);
           float a=clamp(1.0-exp(-5.2*t*amt),0.0,.9);
           if(a>.003){
             float tau=t*.6;
             if(quality>=1)tau+=cheap1(uv+sdir*2.3)*.9+(quality==2?cheap1(uv+sdir*4.6)*.8:0.0);
-            float Lr=(exp(-tau*1.1)+.2*exp(-.3*tau))/1.2;
+            float Lr=(exp(-tau*.7)+.35*exp(-.3*tau))/1.35;
             float thinE=1.0-smoothstep(.0,.4,t);
             float powder=1.0-.45*thinE*(1.0-smoothstep(-.2,.7,cs));
-            vec3 c=amb*mix(1.0,.7,t)+bounce+direct*litMid*Lr*phase*powder;
+            vec3 c=amb*mix(1.0,.55,t)+bounce+direct*litMid*Lr*phase*powder;
             c+=direct*litMid*thinE*pow(sun,5.0)*Lr*1.5;
             col+=T*a*c;thickAcc+=T*a*t*.8;T*=1.0-a;
           }
         }
         // ================= layer 2: cirrus streaks =================
-        if(quality>=1){
+        if(quality>=1&&layerOn(8.0)){
           float reach=max(0.0,uCloudHeight*4.6-cameraPosition.y)/max(.035,ray.y);
           vec2 uv=(cameraPosition.xz+ray.xz*reach+uCloudWind*1.5+vec2(.57,.83)*uCloudSpan)/uCloudSpan*1.4;
+          uv=mat2(.64,-.77,.77,.64)*uv;uv+=(cm(uv*.23+vec2(.4,.2)).rg-vec2(.5,.53))*.6;
           float t=thick2(uv);
-          float a=clamp(1.0-exp(-3.0*t*amt),0.0,.7);
+          float a=clamp(1.0-exp(-2.2*t*amt),0.0,.55);
           if(a>.003){
             float thinE=1.0-t;
             vec3 c=amb*.9+bounce*1.3+direct*litHigh*(.55+.45*thinE)*mix(1.0,phase,.6);
@@ -396,13 +474,30 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   cloudDome.name="sky-moving-cloud-sheet";
   cloudDome.renderOrder=-999;
   k.scene.add(cloudDome);
+  // The volumetric cumulus needs a 3D noise volume. It is built in small slices over a few frames, only once the High
+  // tier is first chosen, so Basic and Balanced (and the first frames) never pay for it.
+  const placeholder=k.scope.track(new THREE.Data3DTexture(new Uint8Array(4),1,1,1));
+  placeholder.format=THREE.RGBAFormat;placeholder.type=THREE.UnsignedByteType;placeholder.needsUpdate=true;
+  skyUniforms.uNoise3.value=placeholder;
+  let noiseJob:ReturnType<typeof createCloudNoiseJob>|null=null,noiseReady=false,highWanted=false;
   function update(time:number){
     skyUniforms.uTime.value=time;
+    if(noiseJob&&!noiseReady&&noiseJob.step(4)){
+      const size=noiseJob.size,tex=k.scope.track(new THREE.Data3DTexture(noiseJob.data,size,size,size));
+      tex.format=THREE.RGBAFormat;tex.type=THREE.UnsignedByteType;
+      tex.minFilter=tex.magFilter=THREE.LinearFilter;tex.wrapS=tex.wrapT=tex.wrapR=THREE.RepeatWrapping;
+      tex.generateMipmaps=false;tex.unpackAlignment=1;tex.needsUpdate=true;
+      skyUniforms.uNoise3.value=tex;noiseReady=true;
+      skyUniforms.uVolReady.value=highWanted?1:0;
+    }
   }
   /** Weather: cloud coverage multiplier (optical depth) and the threshold bias come from the cloud field. */
   function setCloudAmount(v:number){skyUniforms.uCloudAmount.value=v;}
   function setSkyQuality(quality:"basic"|"balanced"|"high"){
     skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
+    highWanted=quality==="high";
+    if(highWanted&&!noiseJob)noiseJob=createCloudNoiseJob();
+    skyUniforms.uVolReady.value=highWanted&&noiseReady?1:0;
   }
   return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount};
 }
