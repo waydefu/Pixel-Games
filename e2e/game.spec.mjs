@@ -119,3 +119,24 @@ test("three camera modes retain safe movement, perspective and settings",async({
   expect(shaderErrors).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test("physical WASD movement survives non-English key values while GPU frame time is slow",async({page})=>{
+  await page.goto("./");
+  await page.waitForFunction(()=>window.__pixelGame?.read().status==="ready",null,{timeout:45000});
+  const before=await page.evaluate(()=>window.__pixelGame.read().player);
+  // This models an active Chinese keyboard layout: the physical W scan code
+  // is KeyW, but KeyboardEvent.key is no longer the Latin character "w".
+  await page.evaluate(()=>window.dispatchEvent(new KeyboardEvent("keydown",{
+    key:"ㄊ",code:"KeyW",bubbles:true
+  })));
+  try{
+    await expect.poll(async()=>{
+      const p=await page.evaluate(()=>window.__pixelGame.read().player);
+      return Math.hypot(p.x-before.x,p.z-before.z);
+    },{timeout:25000}).toBeGreaterThan(.2);
+  }finally{
+    await page.evaluate(()=>window.dispatchEvent(new KeyboardEvent("keyup",{
+      key:"ㄊ",code:"KeyW",bubbles:true
+    })));
+  }
+});

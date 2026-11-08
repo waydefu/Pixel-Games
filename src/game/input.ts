@@ -3,18 +3,41 @@ export interface MovementInput {
   y: number;
   sprint: boolean;
 }
+// Use physical key positions when available. KeyboardEvent.key can be IME text
+// or a different character on non-US layouts; fallback to key for virtual keyboards.
+const physicalMovementKeys: Record<string,string> = {
+  KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",
+  ArrowUp:"arrowup",ArrowDown:"arrowdown",ArrowLeft:"arrowleft",ArrowRight:"arrowright",
+  ShiftLeft:"shift",ShiftRight:"shift",
+};
+const logicalMovementKeys = new Set(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright","shift"]);
+export function movementKey(event: Pick<KeyboardEvent,"key"|"code">): string | null {
+  const physical = physicalMovementKeys[event.code];
+  if (physical) return physical;
+  const logical = event.key.toLowerCase();
+  return logicalMovementKeys.has(logical) ? logical : null;
+}
+function isEditingTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable);
+}
 export function createMovementInput(joystick: HTMLElement, knob: HTMLElement) {
   const pressed = new Set<string>();
   let touchX = 0, touchY = 0, pointerId: number | null = null;
-  const keys = new Set(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright","shift"]);
   const onKeyDown = (event: KeyboardEvent) => {
-    const k = event.key.toLowerCase();
-    if (keys.has(k) && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLSelectElement)) {
+    if (event.isComposing || isEditingTarget(event.target)) return;
+    const k = movementKey(event);
+    if (k) {
       pressed.add(k);
       if (k.startsWith("arrow")) event.preventDefault();
     }
   };
-  const onKeyUp = (event: KeyboardEvent) => { pressed.delete(event.key.toLowerCase()); };
+  const onKeyUp = (event: KeyboardEvent) => {
+    const k = movementKey(event);
+    if (k) pressed.delete(k);
+  };
   const reset = () => { pressed.clear(); touchX=0; touchY=0; pointerId=null; knob.style.transform="translate(-50%,-50%)"; };
   const onBlur = () => reset();
   function movePointer(e: PointerEvent) {
