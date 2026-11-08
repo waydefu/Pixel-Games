@@ -16,6 +16,7 @@ import { FOG_DENSITY } from "./environment-state.js";
 import { liveSky, applyHour } from "./sky-live.js";
 import { createWind, gustAt } from "./wind.js";
 import { createWeather } from "./weather.js";
+import { cloudMix, weatherToCloudInputs } from "./cloud-genera.js";
 import { createWeatherView } from "./weather-view.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
@@ -134,7 +135,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     const W=weather.state;
     liveSky.weatherDark.value=W.dark;liveSky.weatherFlash.value=W.flash;liveSky.weatherFog.value=W.fog;liveSky.weatherRain.value=W.rain;
     wind.setClimate(W.wind);
-    cloudField.setBias((W.cover-.8)*.30);fjord.setCloudAmount(.55+.75*W.cover);
+    cloudField.setBias((W.cover-.8)*.30);fjord.setCloudAmount(1);fjord.setCloudMix(cloudMix(weatherToCloudInputs(W)));
     (scene.fog as THREE.FogExp2).density=FOG_DENSITY*(1+W.fog*3.2+W.rain*.8);
     environment.hemiScale(1-.3*W.dark+W.flash*2.2);
     environment.setSeaWeather(1+.9*W.storm+.35*W.rain,W.dark*(.6+.4*W.storm));
