@@ -36,6 +36,7 @@
 - 量測：不同解析度 DPR，第一人稱水面特寫和斜角景觀兩個鏡頭各自量測 draw calls、frame p50/p95、真機 GPU time（若可用）；避免以桌面 SwiftShader 代替行動 GPU。
 - **不得假稱**已達 Bells of Evermere、已有 SSGI/SSR/FFT/體積雲或通過長時間實機溫控驗收。
 - **雲的審查網址參數**：`?cloudMix=Cu:.7,Ac:.4`（強制各雲屬占比，代號見 `cloud-genera.js`）、`?cloudOnly=Cu`（只畫一屬）、`?cloudShadow=.5`（雲影強度拉滿）、`?mirror=1`（軟體 GPU 上也開完整畫質與雲影）、`?fullres=1`（軟體 GPU 上也不降解析度；審查截圖用）。軟體 GPU（CI）預設以固定 0.55 倍解析度渲染（高畫質 0.45），**包含帶 `?visualShot=` 的測試頁**——這是 e2e 能穩定在時限內完成的原因。逐屬單獨截圖時請固定 `weather=` 與 `hour=`。
+- **手機空白幀診斷參數**：`?reflect=0`（關掉海面反射那一遍）、`?rtt=0`（不用 `WEBGL_multisampled_render_to_texture`，改以 blit 解析多重取樣）。雲影圖與海面反射一律在場景繪製**之前**畫（`hd2d-pipeline` 的 `prePass`），不可在場景繪製途中切換渲染目標：手機 GPU 上這會讓整幀變成空白（Poco F8 Ultra 錄影，約每兩個遊戲幀一次）。
 - **雲影圖預算**：雲影只有一張方形渲染目標（高 256 px、平衡 128、基本 64），每幀最多畫一次，軟體光柵（CI、無頭瀏覽器）完全不畫；天上看到的雲與地上的影讀同一組雲層。真機 GPU 時間**未測**。
 
 - `tests/coastline.test.mjs` 保護草岸/沙岸的自然頭岬收尖和座標有限性；東端海灣水道不得因地形更新再次變成斷開的綠色陸地細線。

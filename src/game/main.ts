@@ -292,12 +292,18 @@ async function start(){
     if(!context){mark("unsupported","WebGL2 不可用");return;}
     const renderer=new THREE.WebGLRenderer({canvas,context,antialias:false,alpha:false,powerPreference:"high-performance"});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
+    // Audit switch for phone GPUs: `?rtt=0` makes three.js resolve multisampled targets with a blit instead of the
+    // WEBGL_multisampled_render_to_texture extension, to tell whether that extension is behind blank frames.
+    if(new URLSearchParams(location.search).get("rtt")==="0"){
+      const has=renderer.extensions.has.bind(renderer.extensions);
+      renderer.extensions.has=(name:string)=>name==="WEBGL_multisampled_render_to_texture"?false:has(name);
+    }
     // Tone mapping, grading and sRGB encoding happen once, in the HD-2D composite pass.
     renderer.toneMapping=THREE.NoToneMapping;
     renderer.toneMappingExposure=1;
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=THREE.PCFShadowMap; // r187 removed PCFSoftShadowMap
-    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value});
+    const pipeline=createHd2dPipeline({renderer,scene:world.scene,camera:rig.camera,quality:quality.value,prePass:(r:THREE.WebGLRenderer,_s:THREE.Scene,c:THREE.Camera)=>world.prePass(r,c)});
     pipelineInfo.hdr=pipeline.hdr;pipelineInfo.quality=quality.value;
     if(new URLSearchParams(window.location.search).get("tone")==="aces")pipeline.setGrade({uAgx:0}); // audit: compare with the old tone mapper
     focusPipeline=(distance:number,active:boolean)=>pipeline.setFocus({distance,range:2.2,span:10,strength:active?1:0});

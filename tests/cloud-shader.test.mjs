@@ -86,3 +86,22 @@ test("the sky shader is wired to the mix, the noise and the audit switches", () 
   // the 22-degree halo is 21.7 degrees out and only while an ice veil is up
   assert.match(fjord, /acos\(clamp\(s,0\.0,1\.0\)\)-0\.379/);
 });
+
+test("High draws a sky the Balanced tier does not: a billow octave and a second sun-ward tap", () => {
+  assert.match(CLOUD_COMMON, /Q>=2\?\(fbmF\(q\*11\.0\+5\.0,3,fw\*11\.0\)-0\.5\)\*0\.30:0\.0/);
+  assert.equal((CLOUD_COMMON.match(/if\(Q>=2\)\{/g) ?? []).length >= 2, true);
+  // the shadow pass never runs the High-only work (its Q stops at 1)
+  assert.match(CLOUD_SHADOW_FRAG, /int Q=uCloudDetailLevel>0\.5\?1:0;/);
+});
+
+test("passes that draw into their own target run before the scene pass, never inside it (blank frames on phone GPUs)", () => {
+  const pipeline = readFileSync(new URL("../src/rendering/hd2d-pipeline.js", import.meta.url), "utf8");
+  const at = (s, re) => { const i = s.search(re); assert.ok(i >= 0, String(re)); return i; };
+  assert.ok(at(pipeline, /prePass\(renderer, scene, activeCamera\)/) < at(pipeline, /renderer\.setRenderTarget\(sceneTarget\)/));
+  assert.match(read("main.ts"), /prePass:\(r:THREE\.WebGLRenderer,_s:THREE\.Scene,c:THREE\.Camera\)=>world\.prePass\(r,c\)/);
+  const world = read("world.ts");
+  assert.match(world, /fjord\.runShadowPass\(renderer\)/);
+  assert.match(world, /environment\.mirrorPass\(renderer,scene,camera\)/);
+  // the hook / onBeforeRender paths stay only as the fallback for a renderer without that pipeline
+  assert.match(read("ocean.ts"), /if\(prepared\)\{prepared=false;return;\}/);
+});

@@ -30,8 +30,12 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   assert.match(clouds,/ground\+off\*LH\[ID\]/);
   // Regress the verified old shader bug: a .11 ray clamp with an active
   // cloud horizon band formed tall rectangular cloud curtains in G4 snapshots.
-  assert.match(clouds,/max\(ray\.y,0\.035\)/);
-  assert.match(clouds,/smoothstep\(0\.04,0\.17,ray\.y\)/);
+  // The stretch of a flat layer at a low angle is capped (it drew every cloud as a thin rod), and the sky and the shadows share it.
+  assert.match(clouds,/vec2 skyPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/\(0\.28\+0\.72\*max\(elevation,0\.0\)\);\}/);
+  assert.match(clouds,/vec2 plane=skyPlane\(ray\.xz,ray\.y\)/);
+  assert.match(clouds,/vec2 off=skyPlane\(s\.xz,s\.y\)/);
+  assert.doesNotMatch(clouds,/ray\.xz\/max\(ray\.y/);
+  assert.match(clouds,/smoothstep\(0\.05,0\.20,ray\.y\)/);
   assert.doesNotMatch(clouds,/max\(0?\.11,ray\.y\)/);
   assert.match(clouds,/uCloudDetailLevel>0\.5/);
   assert.match(clouds,/uCloudDetailLevel>1\.5/);

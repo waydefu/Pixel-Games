@@ -251,16 +251,31 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   // clip trick, so both fall back to the analytic sky.
   let reflectionOn=true;
   // The mirror image changes slowly, so it is re-rendered every second frame; the other frame reuses the last one.
-  let mirrorTick=0;
+  let mirrorTick=0,prepared=false;
   const originalBeforeRender=water.onBeforeRender;
-  water.onBeforeRender=function(renderer,scene,camera,geometry,mat,group){
+  function renderMirror(renderer:THREE.WebGLRenderer,scene:THREE.Scene,camera:THREE.Camera){
+    outer.visible=false;
+    originalBeforeRender.call(water,renderer,scene,camera,undefined as never,undefined as never,undefined as never);
+    outer.visible=true;
+  }
+  /** Draws the mirror image for this frame. The frame pipeline calls it BEFORE the scene pass: a render-target switch in the
+   *  middle of a multisampled scene pass loses what was already drawn on phone GPUs (blank frames). */
+  function mirrorPass(renderer:THREE.WebGLRenderer,scene:THREE.Scene,camera:THREE.Camera){
+    prepared=true;
     const ortho=(camera as THREE.OrthographicCamera).isOrthographicCamera===true;
     uniforms.uReflect.value=reflectionOn&&!ortho?1:0;
     if(!reflectionOn||ortho)return;
     if((mirrorTick++&1)===1)return;
-    outer.visible=false;
-    originalBeforeRender.call(water,renderer,scene,camera,geometry,mat,group);
-    outer.visible=true;
+    renderMirror(renderer,scene,camera);
+  }
+  // Fallback for a renderer that does not run the pre-pass: the mirror is drawn from here, as the example does.
+  water.onBeforeRender=function(renderer,scene,camera){
+    if(prepared){prepared=false;return;}
+    const ortho=(camera as THREE.OrthographicCamera).isOrthographicCamera===true;
+    uniforms.uReflect.value=reflectionOn&&!ortho?1:0;
+    if(!reflectionOn||ortho)return;
+    if((mirrorTick++&1)===1)return;
+    renderMirror(renderer,scene,camera);
   };
   function setReflection(on:boolean){reflectionOn=on;}
   function setWeather(waveScale:number,grey:number){uniforms.uWeather.value.set(waveScale,grey);}
@@ -283,5 +298,5 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   }
   /** Foam rings follow the boats when they are rowed. */
   function setBoats(poses:{x:number;z:number;heading:number;length:number}[]){boatPoses=poses;writeSpots();}
-  return {material,mesh,update,setSpots,setBoats,setReflection,setWeather};
+  return {material,mesh,update,setSpots,setBoats,setReflection,setWeather,mirrorPass};
 }

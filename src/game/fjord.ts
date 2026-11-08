@@ -300,5 +300,5 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
     skyUniforms.uCloudDetailLevel.value=quality==="high"?2:quality==="balanced"?1:0;
 
   }
-  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount,setCloudMix,setShadowCenter:shadow.setCenter,setShadowQuality:shadow.setQuality};
+  return {peaks,forests,sky:skyDome,clouds:cloudDome,update,setSkyQuality,setCloudAmount,setCloudMix,setShadowCenter:shadow.setCenter,setShadowQuality:shadow.setQuality,runShadowPass:shadow.run};
 }
