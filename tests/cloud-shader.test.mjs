@@ -105,3 +105,68 @@ test("passes that draw into their own target run before the scene pass, never in
   // the hook / onBeforeRender paths stay only as the fallback for a renderer without that pipeline
   assert.match(read("ocean.ts"), /if\(prepared\)\{prepared=false;return;\}/);
 });
+
+test("clouds are soft (wide density ramp, gathered when sparse) and the sunset is redder", () => {
+  assert.match(CLOUD_COMMON, /smoothstep\(edge-0\.16,edge\+0\.22,d\)/, "cumulus margin is a long misty fall-off");
+  assert.match(CLOUD_COMMON, /float grp=fbmF\(uv\*0\.30\+41\.0,2,fw\*0\.30\);/, "a sparse sky gathers into a few big masses");
+  assert.match(CLOUD_FRAG, /vec3\(1\.0,0\.46,0\.12\),vec3\(1\.0,0\.09,0\.02\)/, "fiery sunset base colours");
+  // light shafts only at sunrise and sunset: by day they smeared bright clouds into radial smoke
+  assert.match(read("main.ts"), /setRayScale\(Math\.min\(1,liveSky\.sunRays\*liveSky\.twilight\.value\*1\.6\)\)/);
+});
+
+test("sky and ground shadows drift together, downwind, at a visible pace; the sun disc reddens as it sinks", () => {
+  // one line moves every layer, and the sky and the shadow pass both read it through evalLayer
+  assert.match(CLOUD_COMMON, /vec2 uv=\(P-uCloudWind\*LW\[id\]\)\/LS\[id\];/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\],ldir,Q,al\)/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
+  // angular speed of a layer at the default wind (0.48 drift units a second): low layers about a degree a second
+  const H = arrayOf("LH"), W = arrayOf("LW");
+  const degPerSecond = i => (W[i] * 0.48 / H[i]) * 180 / Math.PI;
+  for (const id of [6, 7, 8, 9]) assert.ok(degPerSecond(id) > 0.6, "low layer " + id + " moves visibly: " + degPerSecond(id).toFixed(2));
+  for (let i = 0; i < 10; i++) assert.ok(degPerSecond(i) > 0.2 && degPerSecond(i) < 1.6, "layer " + i + " is neither frozen nor racing: " + degPerSecond(i).toFixed(2));
+  const fjord = read("fjord.ts");
+  assert.match(fjord, /vec3 discHue=mix\(vec3\(1\.0,\.88,\.66\),vec3\(1\.0,\.42,\.10\),\(1\.0-smoothstep\(\.20,\.60,sunSin\)\)\);/);
+  assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),\(1\.0-smoothstep\(\.015,\.16,sunSin\)\)\);/);
+});
+
+// GLSL requires edge0 < edge1. Descending solar-height transitions must invert a
+// conventional smoothstep: reversed parameters produce undefined GPU-specific output.
+test("sunset shader transitions use defined smoothstep order", () => {
+  const fjord = read("fjord.ts");
+  for (const fragment of [
+    "(1.0-smoothstep(.20,.60,sunSin))",
+    "(1.0-smoothstep(.015,.16,sunSin))",
+    "(1.0-smoothstep(.0,.25,sunSin))",
+    "(1.0-smoothstep(.04,.55,sunSin))",
+  ]) assert.ok(fjord.includes(fragment), "fjord must use ordered GLSL smoothstep: " + fragment);
+  for (const fragment of [
+    "(1.0-smoothstep(0.01,0.20,sy))",
+    "(1.0-smoothstep(-0.09,-0.03,sy))",
+    "(1.0-smoothstep(-0.16,-0.09,sy))",
+  ]) assert.ok(CLOUD_FRAG.includes(fragment), "clouds must use ordered GLSL smoothstep: " + fragment);
+  function smooth(low,high,x){ const t=Math.max(0,Math.min(1,(x-low)/(high-low))); return t*t*(3-2*t); }
+  const fade=(low,high,x)=>1-smooth(low,high,x);
+  assert.equal(fade(.2,.6,.7),0);
+  assert.equal(fade(.2,.6,.1),1);
+  assert.ok(fade(.2,.6,.4)>0&&fade(.2,.6,.4)<1);
+});
+
+// GLSL leaves smoothstep undefined when edge0 >= edge1. Guard the whole project, not only the sunset: scan every shader string
+// in src for a smoothstep whose literal edges run downhill.
+test("no GLSL smoothstep in src has descending literal edges", async () => {
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = new URL("../src/", import.meta.url);
+  const walk = dir => readdirSync(new URL(dir, root)).flatMap(name => {
+    const rel = dir + name;
+    return statSync(new URL(rel, root)).isDirectory() ? walk(rel + "/") : [rel];
+  });
+  const num = "(-?\\d*\\.?\\d+)";
+  const re = new RegExp("smoothstep\\(\\s*" + num + "\\s*,\\s*" + num + "\\s*,", "g");
+  const bad = [];
+  for (const rel of walk("").filter(f => /\.(ts|js)$/.test(f) && !f.includes("pixel/textures"))) {   // textures.js is plain JS maths, not GLSL
+    const text = readFileSync(new URL(rel, root), "utf8");
+    for (const m of text.matchAll(re)) if (parseFloat(m[1]) >= parseFloat(m[2])) bad.push(rel + ": smoothstep(" + m[1] + "," + m[2] + ",...)");
+  }
+  assert.deepEqual(bad, []);
+});

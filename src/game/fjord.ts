@@ -124,9 +124,15 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // Sun: warm haze tinted by the sun colour, corona and an HDR disc that feeds bloom and god rays.
         float s=max(0.0,dot(ray,normalize(uSunDirection)));
         float sunUp=smoothstep(-.12,.10,uSunDirection.y)*(1.0-.85*uWeatherDark);
-        col=mix(col,uSunColor*.9,pow(s,3.0)*.55*sunUp);
-        col+=uSunColor*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
-        col=mix(col,uSunColor*vec3(20.0,17.0,13.0),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        // The disc itself reddens as the sun sinks: white-yellow high, orange by about 8 degrees, fiery red at the horizon, and it
+        // dims a little as the haze thickens. The corona follows the same hue.
+        float sunSin=uSunDirection.y;
+        vec3 discHue=mix(vec3(1.0,.88,.66),vec3(1.0,.42,.10),(1.0-smoothstep(.20,.60,sunSin)));
+        discHue=mix(discHue,vec3(1.0,.10,.02),(1.0-smoothstep(.015,.16,sunSin)));
+        vec3 coronaTint=mix(vec3(1.0),vec3(1.0,.66,.52),(1.0-smoothstep(.0,.25,sunSin)));
+        col=mix(col,uSunColor*coronaTint*.9,pow(s,3.0)*.55*sunUp);
+        col+=uSunColor*coronaTint*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
+        col=mix(col,discHue*mix(18.0,2.4,(1.0-smoothstep(.04,.55,sunSin))),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
         // 22-degree halo: sunlight bent by the ice crystals of a cirrostratus veil. A thin ring 21.7 degrees out, sharp and
         // reddish on its inner edge, fading white outside (the inside stays unlit), only while such a veil is up
         if(uHalo>.01){
@@ -167,8 +173,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
             float thresh=k==0?.915-.16*band:k==1?.955-.03*band:.990;
             float dd=length(sp-centre);
             float mag=pow(hs2,k==0?5.0:k==1?3.0:1.5);                                    // power-law magnitudes
-            float dot_=smoothstep(rad,rad*.25,dd);
-            float soft=k==2?smoothstep(rad*2.2,rad*.5,dd)*.25:0.0;                      // only the brightest get a faint skirt
+            float dot_=1.0-smoothstep(rad*.25,rad,dd);
+            float soft=k==2?(1.0-smoothstep(rad*.5,rad*2.2,dd))*.25:0.0;                      // only the brightest get a faint skirt
             vec3 tint=mix(vec3(.80,.88,1.0),vec3(1.0,.95,.88),smoothstep(.3,.7,h31(cell+vec3(4.0))));
             tint=mix(tint,vec3(1.0,.78,.60),smoothstep(.9,1.0,h31(cell+vec3(4.0)))*.6); // a few warm stars
             float tw=.88+.12*sin(uTime*(2.0+hs*5.0)+hs*40.0);
@@ -186,7 +192,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
             vec3 mdir=normalize(cross(mstart,vec3(0.0,1.0,0.3))+vec3(0.0,-.4,0.0));
             vec3 mpos=normalize(mstart+mdir*mf*.35);
             float close=1.0-dot(ray,mpos);
-            float head=smoothstep(.00004,.0,close);
+            float head=1.0-smoothstep(.0,.00004,close);
             starSum+=vec3(.9,.95,1.0)*head*3.0*smoothstep(.0,.08,mf)*(1.0-smoothstep(.55,.62,mf));
           }
           float horizonFade=smoothstep(.0,.16,ray.y);
@@ -210,7 +216,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
           float lit=smoothstep(-.03,.05,dot(nrm,L));
           float maria=smoothstep(.45,.62,fbm3(nrm*2.6+vec3(4.0)));
           vec3 surf=vec3(.90,.93,1.0)*(1.0-.38*maria)*(.9+.1*n3(nrm*30.0));
-          float edge=smoothstep(1.0,.94,r2);
+          float edge=1.0-smoothstep(.94,1.0,r2);
           float vis=moonUp*smoothstep(-.02,.03,ray.y);
           col=mix(col,surf*(2.4+1.6*uNight),edge*lit*vis);                       // only the lit part is opaque ...
           col+=surf*.07*edge*(1.0-lit)*vis*uNight;                               // ... the dark side is sky with a trace of earthshine
@@ -246,7 +252,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       }`,
     fragmentShader:String.raw`precision highp float;uniform float uAlpha;varying float vTwinkle;
       void main(){
-        float d=smoothstep(.5,.15,1.0-length(gl_PointCoord-.5)*2.0+.5)*smoothstep(.5,.1,length(gl_PointCoord-.5));
+        float d=(1.0-smoothstep(.15,.5,1.0-length(gl_PointCoord-.5)*2.0+.5))*(1.0-smoothstep(.1,.5,length(gl_PointCoord-.5)));
         gl_FragColor=vec4(vec3(.75,.85,1.0)*d*vTwinkle*uAlpha*1.6,1.0);
       }`,
   }));
