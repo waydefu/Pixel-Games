@@ -150,3 +150,23 @@ test("sunset shader transitions use defined smoothstep order", () => {
   assert.equal(fade(.2,.6,.1),1);
   assert.ok(fade(.2,.6,.4)>0&&fade(.2,.6,.4)<1);
 });
+
+// GLSL leaves smoothstep undefined when edge0 >= edge1. Guard the whole project, not only the sunset: scan every shader string
+// in src for a smoothstep whose literal edges run downhill.
+test("no GLSL smoothstep in src has descending literal edges", async () => {
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const root = new URL("../src/", import.meta.url);
+  const walk = dir => readdirSync(new URL(dir, root)).flatMap(name => {
+    const rel = dir + name;
+    return statSync(new URL(rel, root)).isDirectory() ? walk(rel + "/") : [rel];
+  });
+  const num = "(-?\\d*\\.?\\d+)";
+  const re = new RegExp("smoothstep\\(\\s*" + num + "\\s*,\\s*" + num + "\\s*,", "g");
+  const bad = [];
+  for (const rel of walk("").filter(f => /\.(ts|js)$/.test(f) && !f.includes("pixel/textures"))) {   // textures.js is plain JS maths, not GLSL
+    const text = readFileSync(new URL(rel, root), "utf8");
+    for (const m of text.matchAll(re)) if (parseFloat(m[1]) >= parseFloat(m[2])) bad.push(rel + ": smoothstep(" + m[1] + "," + m[2] + ",...)");
+  }
+  assert.deepEqual(bad, []);
+});
