@@ -4,7 +4,7 @@ const required=["AGENTS.md","README.md",".github/copilot-instructions.md",
   ".github/pull_request_template.md",".github/ISSUE_TEMPLATE/development-task.yml",
   ".github/ISSUE_TEMPLATE/bug-report.yml","docs/CONTRIBUTING.md","docs/HANDOFF.md",
   "docs/ROADMAP.md","docs/FEATURE-STATUS.json","docs/decisions/DECISION-REGISTER.md",
-  "scripts/pr-governance-core.mjs","scripts/check-pr-collaboration.mjs"];
+  "scripts/pr-governance-core.mjs","scripts/check-pr-collaboration.mjs","scripts/check-gate.mjs"];
 const errors=[];
 for(const path of required)if(!existsSync(path))errors.push("missing "+path);
 if(!errors.length){
@@ -25,7 +25,7 @@ if(!errors.length){
   if(/PR\s*#22.{0,80}(尚未合併|開啟中)|釣魚.{0,40}(尚未實作|尚不是已完成功能)/.test(text("docs/ROADMAP.md")))
     errors.push("ROADMAP contains superseded November 5 claims");
   const tpl=text(".github/pull_request_template.md");
-  for(const part of ["任務:","執行端:","影響模組:","相依 PR:","起始 main:","交集處理:"])
+  for(const part of ["任務:","執行端:","影響模組:","相依 PR:","起始 main:","交集處理:","驗收 Issue:"])
     if(!tpl.includes(part))errors.push("PR template missing "+part);
   if(!text("docs/decisions/DECISION-REGISTER.md").includes("SUPERSEDED"))errors.push("missing decision lifecycle");
 }
