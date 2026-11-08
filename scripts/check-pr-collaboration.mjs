@@ -1,5 +1,5 @@
 import {readFileSync,appendFileSync,existsSync} from "node:fs";
-import {analyzeCollaboration,LEGACY_PR_MAX} from "./pr-governance-core.mjs";
+import {analyzeCollaboration,parseClaim,LEGACY_PR_MAX} from "./pr-governance-core.mjs";
 if(process.env.GITHUB_EVENT_NAME!=="pull_request"){
   console.log("SKIP: GitHub overlap scan is only for pull requests.");
 }else{
@@ -9,10 +9,11 @@ if(process.env.GITHUB_EVENT_NAME!=="pull_request"){
   const root="https://api.github.com/repos/"+repo;
   const headers={"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,
     "X-GitHub-Api-Version":"2022-11-28"};
-  async function request(path){
+  async function request(path,{missingIsNull=false}={}){
     for(let retry=0;retry<3;retry++){
       const response=await fetch(root+path,{headers,signal:AbortSignal.timeout(20000)});
       if(response.ok)return response.json();
+      if(missingIsNull&&response.status===404)return null;
       if(retry<2&&[429,500,502,503,504].includes(response.status))continue;
       throw Error("GitHub API "+response.status+" while checking "+path);
     }
@@ -32,10 +33,13 @@ if(process.env.GITHUB_EVENT_NAME!=="pull_request"){
   const paths=new Map();
   for(const p of [current,...peers])
     paths.set(p.number,(await all("/pulls/"+p.number+"/files")).map(f=>f.filename));
-  const report=analyzeCollaboration(current,peers,paths.get(current.number),paths);
+  // The task Issue the PR claims: it must exist, be an open Issue, and name the same executor.
+  const claimed=parseClaim(current.body).task;
+  const taskIssue=/^#\d+$/.test(claimed)?await request("/issues/"+claimed.slice(1),{missingIsNull:true}):undefined;
+  const report=analyzeCollaboration(current,peers,paths.get(current.number),paths,taskIssue);
   const lines=["### PR 協作治理／重複任務與檔案交集",
     "- PR #"+current.number+"；自 #"+(LEGACY_PR_MAX+1)+" 開始強制協作格式",
-    "- 任務："+(report.claim.task||"未填")+"／執行端："+(report.claim.agent||"未填"),
+    "- 任務："+(report.claim.task||"未填")+"／執行端："+(report.claim.agent||"未填")+"／驗收 Issue："+(report.claim.acceptance||"未填"),
     ...report.overlaps.map(x=>"- 與 #"+x.number+" 共有："+x.files.join(", ")),
     ...report.warnings.map(w=>"- WARNING: "+w),
     ...report.errors.map(e=>"- ERROR: "+e),
