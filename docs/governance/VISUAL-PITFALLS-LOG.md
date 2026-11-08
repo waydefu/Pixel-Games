@@ -1,3 +1,5 @@
+> **HISTORICAL：本檔保存原始踩坑證據，不是即時缺陷清單。** PV-006「尚無 Bloom/DoF」已由 #21 取代；PV-024「禁止重型海水」已由 #29 Water 方案取代；#32 的 28 步體積雲也由 #33 十雲屬分層替換。保留原文供追溯；有效決策看 [DECISION-REGISTER](../decisions/DECISION-REGISTER.md)。
+
 # Pixel-Games｜畫面超進化踩坑紀錄（Pitfalls / Lessons Learned）
 
 > 初版：2026-11-05；適用 G1～G6。**不是待辦總表**：工作順序、責任與授權以 [P1 超進化唯一總計畫](../plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md) 為準。
