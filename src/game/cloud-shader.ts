@@ -154,11 +154,16 @@ vec2 stratiform(vec2 uv,float fw,float breakup,float turb){
 // Filament (cirrus): strokes drawn out along the wind, bent by a slow noise, sparse
 float filament(vec2 uv,float fw){
   float bend=fbmF(uv*vec2(0.30,0.85),3,fw)-0.5;
-  vec2 q=uv+vec2(0.0,bend*1.5);
-  float f=smoothstep(0.46,0.76,fbmF(q*vec2(0.30,3.2),4,fw*3.2));
+  vec2 q=uv+vec2(0.0,bend*2.2);
+  float f=smoothstep(0.44,0.80,fbmF(q*vec2(0.42,1.5),4,fw*1.5));   // drawn out along the wind, but only about 3:1: wisps, not rods
   float sparse=smoothstep(0.32,0.62,fbmF(uv*0.20+13.0,3,fw*0.2));
   return f*sparse;
 }
+
+// A flat layer seen at a low angle is stretched along the view (1/elevation) until every cloud is a thin dash. Real clouds stand
+// up and show their sides, so the stretch is capped: about 3.5x at the horizon instead of 25x. The sky and the ground shadows
+// both use this, so the cloud over your head is still the one whose shadow is on the ground.
+vec2 skyPlane(vec2 dirXZ,float elevation){return dirXZ/(0.28+0.72*max(elevation,0.0));}
 
 // ---- layers: where each genus sits ----
 // H = height of the plane it is drawn on, S = size of one noise cell on it (world units; the island is about 100 across, so a
@@ -233,7 +238,7 @@ void main(){
   gSun=max(0.0,cs);
   float sy=sunDir.y;
   gSunEl=sy;gTw=uTwilight;
-  float mask=smoothstep(0.04,0.17,ray.y)*(1.0-smoothstep(0.86,0.98,ray.y))*(1.0-0.97*uNightC);
+  float mask=smoothstep(0.05,0.20,ray.y)*(1.0-smoothstep(0.86,0.98,ray.y))*(1.0-0.97*uNightC);
   vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
   float toward=dot(rf,sf);
 
@@ -253,7 +258,7 @@ void main(){
 
   int Q=uCloudDetailLevel>1.5?2:(uCloudDetailLevel>0.5?1:0);
   vec2 ldir=normalize(sunDir.xz+vec2(1e-4));
-  vec2 plane=ray.xz/max(ray.y,0.035);              // where the ray meets a plane at unit height; scaled per layer
+  vec2 plane=skyPlane(ray.xz,ray.y);               // where the ray meets a plane at unit height; scaled per layer
   vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
 
   // Layers run low -> high; each is composited over what lies behind it. Unrolled with constant ids so the compiler can drop
@@ -294,7 +299,7 @@ void main(){
   gNeedLit=false;
   vec3 s=normalize(uSunDirection);
   vec2 ground=uShadowCenter+(vUv-0.5)*uShadowSize;
-  vec2 off=s.xz/max(s.y,0.08);            // each plane is met where the ray from the ground toward the sun reaches its height
+  vec2 off=skyPlane(s.xz,s.y);            // each plane is met where the ray from the ground toward the sun reaches its height
   int Q=uCloudDetailLevel>0.5?1:0;
   float T=1.0;
   // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared

@@ -292,6 +292,12 @@ async function start(){
     if(!context){mark("unsupported","WebGL2 不可用");return;}
     const renderer=new THREE.WebGLRenderer({canvas,context,antialias:false,alpha:false,powerPreference:"high-performance"});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
+    // Audit switch for phone GPUs: `?rtt=0` makes three.js resolve multisampled targets with a blit instead of the
+    // WEBGL_multisampled_render_to_texture extension, to tell whether that extension is behind blank frames.
+    if(new URLSearchParams(location.search).get("rtt")==="0"){
+      const has=renderer.extensions.has.bind(renderer.extensions);
+      renderer.extensions.has=(name:string)=>name==="WEBGL_multisampled_render_to_texture"?false:has(name);
+    }
     // Tone mapping, grading and sRGB encoding happen once, in the HD-2D composite pass.
     renderer.toneMapping=THREE.NoToneMapping;
     renderer.toneMappingExposure=1;

@@ -21,7 +21,7 @@ test("the endless outer plane is hidden while the mirror renders (no feedback lo
 test("reflection can be switched off for the basic tier and is wired through the world",()=>{
   assert.match(ocean,/setReflection/);
   assert.match(env,/setSeaReflection/);
-  assert.match(world,/setSeaReflection\(quality!=="basic"&&!softwareGpu\)/);
+  assert.match(world,/setSeaReflection\(quality!=="basic"&&!softwareGpu&&new URLSearchParams\(window\.location\.search\)\.get\("reflect"\)!=="0"\)/);   // ?reflect=0: audit switch
 });
 
 test("rod shaft points forward from the grip (regression: rod looked like a short stump)",()=>{

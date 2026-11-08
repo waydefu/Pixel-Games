@@ -178,7 +178,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     const density=heavy==="basic"?.36:heavy==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
-    environment.setSeaReflection(quality!=="basic"&&!softwareGpu);   // the mirror render is a second pass: not on the basic tier
+    environment.setSeaReflection(quality!=="basic"&&!softwareGpu&&new URLSearchParams(window.location.search).get("reflect")!=="0");   // the mirror render is a second pass: not on the basic tier
     cloudStrength=Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48;
   }
   /** Everything that draws into its own render target is drawn here, BEFORE the frame pipeline's scene pass (see cloud-shadow.ts). */
