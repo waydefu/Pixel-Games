@@ -1,10 +1,10 @@
-# GitHub main 分支保護（2026-11-05）
+# GitHub main 分支保護｜實際 Ruleset
 
-Repo 的 `Protect main` Ruleset 在使用者設定後已確認 **Active**。使用者先前設定了 required PR、必要 CI `Build, typecheck, unit and browser tests`、禁止 force-push 與限制刪除；實際欄位以 [GitHub Rulesets](https://github.com/waydefu/Pixel-Games/settings/rules) 為準。
+> 2026-11-08 GitHub Rulesets API 確認 `Protect main` Active。最新以 [Ruleset](https://github.com/waydefu/Pixel-Games/rules/26524404) 為準。
 
-- 任何遊戲修正、研究恢復或工程清理都走獨立 PR；不直接 push `main`，不自行合併。
-- CODEOWNERS 不等於已強制 reviewer；審查批准數與 required checks 需看 GitHub 現有規則。
-- 不要因為單次 CI 綠燈宣稱真機或美術品質已通過。
-- 若要調整 GitHub Settings、Secrets、Pages Source，必須先取得 Owner 額外批准。
+- 強制 Pull Request、必要 `Build, typecheck, unit and browser tests`、strict 最新分支、禁止刪除和非快進推送。
+- **必要批准 0 人**、沒有強制 CODEOWNERS review、沒有必須解決討論；CI 綠不等於第三方審查。
+- 這次在 CI 新增 `collaboration`，對新 PR（#37 起）檢查任務認領、A/B 執行端與核心檔案交集；原 required gate 也會要求它成功。
+- 若兩個 Agent 共用同一 GitHub 身分，Ruleset 不能區分人。若將來使用不同帳號，可由 Owner 考慮要求 1 人批准、CODEOWNERS 和解決全部 review threads。
 
-原始建立規則的歷史詳見 Git 提交紀錄，避免在此保留過期的「Rulesets 為空」敘述。
+**此 PR 不更動平台 Ruleset，不繞過 main 保護。** 合併仍以 Owner 當次授權為準。

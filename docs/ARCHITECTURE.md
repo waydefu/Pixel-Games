@@ -1,45 +1,28 @@
-# Pixel-Games 架構（2026-11-05）｜唯一玩家入口，研究及工具可獨立保留
+# Pixel-Games｜現行架構導覽
+
+> 核對基準：2026-11-08 main@6056e6c。這是模組導覽，不是即時 PR 或部署狀態。歷史 P1 架構研究保留在 `docs/reviews/`、`docs/plans/` 及 ADR。
+
+## 執行流程
 
 ```text
-index.html / styles.css (唯一玩家入口)
-      ↓
-src/game/main.ts (WASD、手機搖桿、相機、UI 與 RAF)
-      ├── world.ts (目前唯一海岸世界與角色)
-      │     ├── art.ts (原創像素紋理與角色圖集)
-      │     ├── kit.ts (程序建模工具)
-      │     ├── architecture.ts (木構村莊與中世紀道具)
-      │     ├── environment.ts (海洋、岸線、船、植被)
-      │     └── batch.ts (靜態 geometry 合批與資源釋放)
-      ├── input.ts / navigation.js (輸入、碰撞、步行邊界)
-      └── src/rendering/ (renderer-port、hd2d-pipeline、quality、frame-metrics、resource-scope)
-      ↓
-Vite + TypeScript → dist/index.html → GitHub Pages Actions
+index.html / styles.css
+    -> src/game/main.ts (啟動、相機、輸入、UI、幀迴圈、模組串接)
+       -> world.ts (目前單一海岸世界、場景與物件)
+       -> camera.ts / input.ts / navigation.js (三視角、移動、碰撞)
+       -> environment.ts / fjord.ts / architecture.ts / ocean.ts / boats.ts
+       -> sky-live.ts / cloud-shader.ts / cloud-shadow.ts / cloud-genera.js
+       -> time-of-day.js / environment-state.js / wind.js / weather.js
+       -> fishing.ts / fishing-logic.js / boating.ts
+       -> soundscape.ts / audio-mix.js
+       -> src/rendering/renderer-port.js / hd2d-pipeline.js
+    -> Vite dist -> GitHub Pages
 ```
 
-**不屬於玩家 bundle，但屬於可保留的工程資產：**
+- 單一 WebGL2/Three.js HD-2D 渲染生命週期；不能因不同視角建立平行 renderer。
+- `src/game/main.ts` 是最容易產生多端隱性衝突的整合點，PR 交集須人工確認事件／狀態契約。
+- `src/platform/`、`src/integrations/` 與 `.agents/skills/` 是工程資產，不代表瀏覽器具備 MCP 或任意系統權限。
+- `docs/` 保留原研究、授權證據、歷史決策；其「當時未完成」敘述不是現況。
+- GitHub Actions `ci.yml` + `verify.yml`：一次建置驗證、5 個桌面／手機 Playwright 分片及必要總關卡；`deploy-pages.yml` 使用同一驗證流程後才發布。
+- `docs/FEATURE-STATUS.json` 反映已整合功能；`docs/decisions/DECISION-REGISTER.md` 管理決策效力；GitHub Issues / PRs 管理工作生命週期。
 
-- `src/platform/`：clock、scene-controller、viewport、registry 與資產描述，用於後續可測工程共用能力。
-- `src/integrations/tool-registry.js`：進程內 Host adapter 路由，**不是自動 MCP 工具或 OS sandbox**。
-- `src/rendering/renderer-port.js`：目前唯一的渲染生命週期適配層，搭配 `hd2d-pipeline.js` 實作現行畫質流程；舊 `three-host.js` 無執行端引用，已淘汰，不再保留平行封裝。
-- `.agents/skills/`：按需求使用的程式、素材、性能和視覺研究技能；不會進玩家 JS。
-- `docs/`：美術規格、研究來源、ADR、工具與部署治理、歷史審查；舊文標明當時時間，**不拿過去進度當最新狀態**。
-
-只移除確定退場的舊遊戲和技術展示：`src/app.js` 的 Landing Page、`lab/` 第二頁、未使用的舊場景。**移除舊遊戲不等於刪掉研究知識或可重用模組。**
-
-## 遊戲與渲染邊界
-
-- `world.ts` 只組裝當前小型原創中世紀海岸；物件與海域邊界的碰撞資料另由 `navigation.js` 決定。
-- 現行預設斜角採 28° 窄透視相機；經典正交、第一人稱與觀景相機仍可切換。可調效能／解析度不等於多後端引擎。
-- `batch.ts` 只合併共享材質與渲染狀態的靜態 Mesh；合併後原 Geometry 須經 `resource-scope.release()` 釋放且不可影響仍被引用的幾何。
-- `environment.ts` 將船殼、船帆和桅杆放在同一個 Group，再做小幅上下晃動，避免動畫拆散船隻。
-- Vite 只建構單頁，GitHub Pages base 為 `/Pixel-Games/`；研究文件保留不會生成第二張網頁。
-- 真機散熱、GPU time、遮擋、畫質與對照遊戲視覺差距仍需另行驗收。
-
-參見 [現行文件索引](INDEX.md)、[程式審查](reviews/INDEPENDENT-AUDIT-2026-11-05.md) 及 [歷史 Three.js 研究](research/THREEJS-ENGINEERING-2026-11-04.md)。
-
-
-## P1-R2 景觀／鏡頭分離（已合併 PR #10；歷史設計說明）
-
-`src/game/terrain-profile.js` 是可單測的 deterministic 峽灣高度函數。 `fjord.ts` 生成遠景山脈、兩側山壁與天空穹頂，與聚落美術/碰撞互不侵犯。這些**山脈目前不是玩家可步行地形**，不能將透視觀景鏡頭當作登山系統。
-
-`camera.ts` 同時管理正交斜角與透視攝影機，`renderer-port.js` 用 `setCamera()` 更換活動攝影機，避免重建 WebGLRenderer。第一人稱移動跟隨 yaw，碰撞仍走現有 `navigation.js`，視角向量不改變世界碰撞規則。手機的右側拖曳負責環視，左側虛擬搖桿負責移動。觀景模式為獨立高處攝影機，禁止誤讓玩家角色瞬移過去。
+**範圍界線：** 真手機與音訊實聽無法由 SwiftShader CI 證明；全功能存檔與統一背包目前仍屬規劃，不應把漁獲個別記錄誤作完整存檔。
