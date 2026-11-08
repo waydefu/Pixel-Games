@@ -5,6 +5,7 @@ import { buildCatchModel, buildLureKind, LURES } from "./fish-model.js";
 import { createRodModel } from "./rod-model.js";
 import { mulberry32 } from "./wander.js";
 import type { CameraMode } from "./camera.js";
+import { isEditingTarget, matchesActionKey } from "./input.js";
 
 /**
  * First-person lure fishing with a spinning rod. HOLD the button (F) to charge the cast and release to throw; the lure
@@ -160,8 +161,8 @@ export function createFishingView(opts:{
   let held=false,tap=false,pressedNotice=false,lastHold=false;
   const setHeld=(value:boolean)=>{if(value&&!held)tap=true;held=value;};
   window.addEventListener("keydown",event=>{
-    if(opts.isBlocked?.()||event.target instanceof HTMLInputElement||event.target instanceof HTMLSelectElement)return;
-    if(event.key.toLowerCase()==="f"){event.preventDefault();if(!event.repeat)setHeld(true);}
+    if(opts.isBlocked?.()||isEditingTarget(event.target))return;
+    if(matchesActionKey(event,"KeyF","f")){event.preventDefault();if(!event.repeat)setHeld(true);}
     if(event.key.toLowerCase()==="r"&&!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey)cycleLure();
   });
   // the tackle box: only between casts
@@ -174,7 +175,7 @@ export function createFishingView(opts:{
   }
   ui.lure.textContent="餌："+LURES[lureKind].name+"（R 換餌）";
   ui.lure.addEventListener("click",cycleLure);
-  window.addEventListener("keyup",event=>{if(event.key.toLowerCase()==="f")setHeld(false);});
+  window.addEventListener("keyup",event=>{if(matchesActionKey(event,"KeyF","f"))setHeld(false);});
   window.addEventListener("blur",()=>setHeld(false));
   ui.button.addEventListener("pointerdown",event=>{if(opts.isBlocked?.())return;event.preventDefault();ui.button.setPointerCapture(event.pointerId);setHeld(true);});
   for(const type of ["pointerup","pointercancel","lostpointercapture"])ui.button.addEventListener(type,()=>setHeld(false));

@@ -17,11 +17,16 @@ export function movementKey(event: Pick<KeyboardEvent,"key"|"code">): string | n
   const logical = event.key.toLowerCase();
   return logicalMovementKeys.has(logical) ? logical : null;
 }
-function isEditingTarget(target: EventTarget | null): boolean {
+export function isEditingTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable);
+}
+// IMEs can report phonetic characters or "Process" as key while code still
+// identifies the physical control. The key fallback supports virtual keyboards.
+export function matchesActionKey(event: Pick<KeyboardEvent,"key"|"code">, code: string, key: string): boolean {
+  return event.code === code || event.key.toLowerCase() === key;
 }
 export function createMovementInput(joystick: HTMLElement, knob: HTMLElement) {
   const pressed = new Set<string>();

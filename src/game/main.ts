@@ -8,7 +8,7 @@ import { createGpuTimer } from "../rendering/gpu-timer.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
 import { loadVillageKit } from "./village-kit.js";
-import { createMovementInput } from "./input.js";
+import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.js";
 import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
 import { ITEMS, PICKUPS, collect } from "./inventory.js";
 import { readSave, writeSave, validateSave } from "./save.js";
@@ -216,9 +216,9 @@ window.addEventListener("keydown",(e)=>{
   if(e.key==="Escape"&&document.pointerLockElement===canvas){releaseLook();e.preventDefault();return;}
   if(e.key==="Escape"&&!settings.hidden){setMenu(false);e.preventDefault();}
   if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||!settings.hidden)return;
-  if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
+  if(isEditingTarget(e.target))return;
   const map:Record<string,CameraMode>={"1":"quarter","2":"first","3":"vista"};
-  if(e.key.toLowerCase()==="c")setCameraMode(rig.cycle());
+  if(matchesActionKey(e,"KeyC","c"))setCameraMode(rig.cycle());
   else if(map[e.key])setCameraMode(map[e.key]);
 });
 cameraPicker.addEventListener("change",()=>setCameraMode(cameraPicker.value as CameraMode));
