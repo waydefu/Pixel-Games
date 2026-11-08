@@ -61,8 +61,13 @@ vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
   float billow=Q>=2?(fbmF(q*11.0+5.0,3,fw*11.0)-0.5)*0.30:0.0;
   float field=(base*0.54+det*0.46-0.5)*2.2+0.5+billow;
   float d=mix(field,lump,0.45);
+  // a sparse sky is a few big masses, not scattered bits: a slow field lifts whole regions together, so the peaks inside one
+  // region merge into one body and the rest stays blue
+  float grp=fbmF(uv*0.30+41.0,2,fw*0.30);
+  d+=(grp-0.5)*mix(1.15,0.30,cov);
   float edge=mix(0.84,0.52,cov);
-  float den=smoothstep(edge-0.01,edge+0.07,d);
+  // a wide ramp: dense core, then a long misty fall-off (smoke, not a cut-out)
+  float den=smoothstep(edge-0.16,edge+0.22,d);
   if(den<=0.0)return vec3(0.0);
   float lit=0.0;
   if(Q>=1){
@@ -70,16 +75,16 @@ vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
     float lumpL=0.28+smoothstep(0.35,0.80,vn(R15*ql*0.9+31.7))*0.85;
     float baseL=fbmF(ql,Q>=2?4:3,fw);
     float dl=mix((baseL*0.54+det*0.46-0.5)*2.2+0.5+billow,lumpL,0.45);
-    lit=clamp((d-dl)*5.5,-1.0,1.0);
+    lit=clamp((d-dl)*3.6,-1.0,1.0);
     if(Q>=2){
       // High: a second, farther tap toward the sun, so the side away from it sinks deeper into shade (self-shadowing)
       vec2 q2=q+ldir*0.40;
       float lump2=0.28+smoothstep(0.35,0.80,vn(R15*q2*0.9+31.7))*0.85;
       float d2=mix((fbmF(q2,4,fw)*0.54+det*0.46-0.5)*2.2+0.5+billow,lump2,0.45);
-      lit=clamp(mix(lit,(d-d2)*3.4,0.5)*1.25,-1.0,1.0);
+      lit=clamp(mix(lit,(d-d2)*2.4,0.5)*1.15,-1.0,1.0);
     }
   }
-  return vec3(den,lit,smoothstep(edge,edge+0.38,d));
+  return vec3(den,lit,smoothstep(edge,edge+0.50,d));
 }
 
 // Granular (stratocumulus): rolls and mottled masses. One octave cut narrowly: one grain size, irregularly placed
@@ -90,7 +95,7 @@ vec3 granularForm(vec2 uv,float fw,float pack,float roll,float flockiness,vec2 l
   float fineN=Q>=1?fbmF(q*5.0,Q>=2?3:2,fw*5.0):0.47;
   n+=(fineN-0.47)*0.17;
   float e0=0.62-pack*0.24;
-  float cell=smoothstep(e0,e0+0.11,n);
+  float cell=smoothstep(e0-0.05,e0+0.24,n);
   if(cell<=0.0)return vec3(0.0);
   float f=fbmF(uv*0.16+21.0,3,fw*0.16);
   cell*=smoothstep(mix(0.34,0.02,flockiness),mix(0.68,0.38,flockiness),f);
@@ -172,7 +177,7 @@ vec2 skyPlane(vec2 dirXZ,float elevation){return dirXZ/(0.28+0.72*max(elevation,
 // Index = cloud-genera.js order: Ci Cs Cc As Ac Ns St Sc Cu Cb. They are drawn low (nearest) to high (farthest):
 // St Cu Cb Sc Ns As Ac Cs Cc Ci = 6 8 9 7 5 3 4 1 2 0.
 const float LH[10]=float[10](1600.0,1400.0,1500.0,900.0,1000.0,600.0,96.0,280.0,210.0,210.0);
-const float LS[10]=float[10](500.0,640.0,83.0,500.0,111.0,400.0,80.0,70.0,70.0,70.0);
+const float LS[10]=float[10](500.0,640.0,83.0,500.0,111.0,400.0,80.0,70.0,95.0,95.0);
 const float LW[10]=float[10](0.4,0.5,0.4,0.7,0.6,0.8,1.0,0.9,1.0,1.0);      // wind: low layers move faster
 const float LALT[10]=float[10](1.0,0.9,0.95,0.45,0.55,0.3,0.05,0.15,0.1,0.1);   // 0 low .. 1 high: how long the sun lasts on it
 const float LRIM[10]=float[10](1.0,0.6,0.8,0.1,0.9,0.0,0.2,0.8,1.0,1.0);        // how strongly its margin burns toward the sun
@@ -218,12 +223,13 @@ float gSunEl,gTw,gDay,gSun,gDiffuse;
 // keeps the sun after a low one has lost it (alt01: 0 low .. 1 high); rimK burns the thin margin toward the sun
 vec3 paintCloud(float lit,float thick,float alt01,float rimK){
   float sunUp=smoothstep(-0.035-0.07*alt01,0.015-0.015*alt01,gSunEl);
-  vec3 glow=vec3(0.26,0.12,0.07)*gTw*(1.0-gDay)*(1.0-sunUp*0.7);     // the afterglow once the direct sun is gone
+  vec3 glow=vec3(0.32,0.09,0.04)*gTw*(1.0-gDay)*(1.0-sunUp*0.7);     // the afterglow once the direct sun is gone
   float litE=clamp(0.5+0.5*lit,0.0,1.0);
   vec3 sunC=gDirect*sunUp;
-  vec3 litCol=gAmb*(0.40+0.60*(1.0-litE))+glow+sunC*(0.42+0.55*litE);
+  vec3 amb=gAmb*mix(vec3(1.0),vec3(1.0,0.74,0.66),gTw);          // at sunset the blue sky light no longer washes the red out
+  vec3 litCol=amb*(0.40+0.60*(1.0-litE))+glow+sunC*(0.42+0.55*litE);
   vec3 shadeCol=((gAmb+glow)*vec3(0.50,0.54,0.64)+vec3(0.02,0.03,0.05))*(1.0-0.42*gTw)+gBounce;
-  float sh=thick*(0.80-gDiffuse*0.36)+(1.0-litE)*0.42*(1.0-gDiffuse*0.6);
+  float sh=thick*(0.62-gDiffuse*0.30)+(1.0-litE)*0.30*(1.0-gDiffuse*0.6);
   vec3 c=mix(litCol,shadeCol,clamp(sh,0.0,0.85));
   c+=sunC*(1.0-thick)*pow(gSun,4.0)*rimK*litE*1.6;
   return c;
@@ -243,7 +249,7 @@ void main(){
   float toward=dot(rf,sf);
 
   // direct light is the sun's colour (the fiery walk at twilight); shadow is sky light: zenith blue and the violet band
-  vec3 fieryBase=mix(vec3(1.0,0.55,0.18),vec3(1.0,0.16,0.04),smoothstep(0.13,-0.02,sy));
+  vec3 fieryBase=mix(vec3(1.0,0.46,0.12),vec3(1.0,0.09,0.02),smoothstep(0.20,0.01,sy));
   fieryBase=mix(fieryBase,vec3(0.80,0.14,0.38),smoothstep(-0.03,-0.09,sy));
   fieryBase=mix(fieryBase,vec3(0.38,0.24,0.80),smoothstep(-0.09,-0.16,sy));
   vec3 fiery=fieryBase*1.7;

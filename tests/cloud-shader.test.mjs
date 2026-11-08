@@ -105,3 +105,11 @@ test("passes that draw into their own target run before the scene pass, never in
   // the hook / onBeforeRender paths stay only as the fallback for a renderer without that pipeline
   assert.match(read("ocean.ts"), /if\(prepared\)\{prepared=false;return;\}/);
 });
+
+test("clouds are soft (wide density ramp, gathered when sparse) and the sunset is redder", () => {
+  assert.match(CLOUD_COMMON, /smoothstep\(edge-0\.16,edge\+0\.22,d\)/, "cumulus margin is a long misty fall-off");
+  assert.match(CLOUD_COMMON, /float grp=fbmF\(uv\*0\.30\+41\.0,2,fw\*0\.30\);/, "a sparse sky gathers into a few big masses");
+  assert.match(CLOUD_FRAG, /vec3\(1\.0,0\.46,0\.12\),vec3\(1\.0,0\.09,0\.02\)/, "fiery sunset base colours");
+  // light shafts only at sunrise and sunset: by day they smeared bright clouds into radial smoke
+  assert.match(read("main.ts"), /setRayScale\(Math\.min\(1,liveSky\.sunRays\*liveSky\.twilight\.value\*1\.6\)\)/);
+});
