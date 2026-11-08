@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canOccupy, stepOnGround, groundHeight, PIER } from "../src/game/navigation.js";
+import { canOccupy, stepOnGround, stepWalkingByElapsedTime, MAX_WALK_CATCHUP_SECONDS, WALK_COLLISION_STEP_SECONDS, groundHeight, PIER } from "../src/game/navigation.js";
 test("spawn and main road remain walkable, water blocked except pier",()=>{
   assert.equal(canOccupy(2,2),true);
   assert.equal(canOccupy(18,0),false);
@@ -44,4 +44,28 @@ test("shared walk-surface height matches pier plank top and player reachability"
   assert.equal(groundHeight(13.49,8),0);
   assert.throws(()=>groundHeight(NaN,8),RangeError);
   assert.throws(()=>groundHeight(8,Infinity),RangeError);
+});
+
+test("walking uses real elapsed time at 2 FPS, not one capped 50ms frame",()=>{
+  const speed=4.35;
+  const step=dt=>({x:speed*dt,z:0});
+  const result=stepWalkingByElapsedTime({x:0,z:0},step,[],0.5);
+  assert.ok(Math.abs(result.x-speed*0.5)<1e-6, "must travel ~2.175m in half a second");
+  assert.equal(result.z,0);
+});
+test("large frame gaps are bounded and split into collision-safe steps",()=>{
+  const steps=[];
+  const start={x:0,z:0};
+  const next=stepWalkingByElapsedTime(start,dt=>{steps.push(dt);return{x:4.35*dt,z:0};},[],5);
+  assert.ok(Math.abs(next.x-4.35*MAX_WALK_CATCHUP_SECONDS)<1e-6);
+  assert.ok(steps.every(dt=>dt>0&&dt<=WALK_COLLISION_STEP_SECONDS+1e-8));
+  assert.ok(steps.length>1);
+  assert.deepEqual(start,{x:0,z:0});
+  assert.deepEqual(stepWalkingByElapsedTime(start,()=>{throw Error("must not move");},[],0),start);
+});
+test("walking collision sweep cannot cross narrow obstacles at low FPS",()=>{
+  const barrier=[{x:0.7,z:0,halfX:0.03,halfZ:0.7}];
+  const next=stepWalkingByElapsedTime({x:0,z:0},dt=>({x:4.35*dt,z:0}),barrier,0.5);
+  assert.ok(next.x<0.7-0.03, "blocked before the thin barrier");
+  assert.equal(canOccupy(next.x,next.z,barrier),true);
 });

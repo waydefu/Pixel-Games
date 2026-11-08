@@ -9,7 +9,7 @@ import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
 import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput } from "./input.js";
-import { stepOnGround } from "./navigation.js";
+import { stepWalkingByElapsedTime } from "./navigation.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
 import { createBoating } from "./boating.js";
@@ -336,13 +336,14 @@ function resize(){
   const buffer=host.resize(width,height,window.devicePixelRatio||1);
   diagnostics.bufferWidth=buffer.width;diagnostics.bufferHeight=buffer.height;
 }
-function update(dt:number){
+function update(dt:number,walkingElapsed=dt){
   if(!settings.hidden)return;
   const values=input.read();
-  if(boating.update(dt,boatDrive??values,elapsed))return;   // in a boat the oars move the player, not the walking rules
+  if(boating.update(dt,boatDrive??values,elapsed))return;   // boat physics retains its bounded timestep
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
-  const delta=rig.movement(values,dt);
-  const point=stepOnGround(world.player,delta,world.colliders);
+  // The render loop awaits GPU drawing, so a 50ms frame clamp alone slows walking
+  // 10x at 2 FPS. Catch up from real elapsed time in collision-safe substeps.
+  const point=stepWalkingByElapsedTime(world.player,seconds=>rig.movement(values,seconds),world.colliders,walkingElapsed);
   world.movePlayer(point.x,point.z,elapsed);
 }
 async function start(){
@@ -436,7 +437,7 @@ async function start(){
       const measureCpu=!!perfSamples&&now>=perfStarted;
       if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
       let cpuTime=measureCpu?performance.now():0;
-      update(dt);
+      update(dt,document.visibilityState==='visible'?wallDt:0);
       const movementMs=measureCpu?performance.now()-cpuTime:0;
       if(measureCpu)cpuTime=performance.now();
       const camera=rig.tick(dt);

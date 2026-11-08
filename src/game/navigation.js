@@ -28,3 +28,25 @@ export function stepOnGround(position, delta, colliders = []) {
   if (canOccupy(x,proposedZ,colliders)) z=proposedZ;
   return {x,z};
 }
+
+// Movement advances by real elapsed time even when GPU rendering takes >50ms.
+// Simulate small collision-safe steps, but cap catch-up to 0.5s to avoid jumping
+// across the map after a suspended tab or a multi-second graphics stall.
+export const MAX_WALK_CATCHUP_SECONDS = 0.5;
+export const WALK_COLLISION_STEP_SECONDS = 0.05;
+/**
+ * @param {{x:number,z:number}} position
+ * @param {(seconds:number)=>{x:number,z:number}} movement
+ * @param {Array<{x:number,z:number,halfX?:number,halfZ?:number}>} colliders
+ * @param {number} elapsedSeconds
+ */
+export function stepWalkingByElapsedTime(position, movement, colliders, elapsedSeconds) {
+  let remaining=Number.isFinite(elapsedSeconds)?Math.max(0,Math.min(elapsedSeconds,MAX_WALK_CATCHUP_SECONDS)):0;
+  let next={x:position.x,z:position.z};
+  while(remaining>1e-7){
+    const seconds=Math.min(remaining,WALK_COLLISION_STEP_SECONDS);
+    next=stepOnGround(next,movement(seconds),colliders);
+    remaining-=seconds;
+  }
+  return next;
+}
