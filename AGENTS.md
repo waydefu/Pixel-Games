@@ -1,22 +1,28 @@
-# Pixel-Games 工程代理
+# Pixel-Games｜所有 Agent 的共同工作契約
 
-> **2026-11-05 Owner 最新授權（優先於下方舊限制）**：Owner 授權全專案視覺／渲染／工程重構、替換及**刪除**不合格程式、重複模組、無用素材，並要求持續自評與截圖比較。詳見 [Owner 全面重構授權與邊界](docs/governance/OWNER-VISUAL-REBUILD-AUTHORITY-2026-11-05.md)。下方舊「只能小修／保留舊模組」等限制，現在僅在資料與功能尚未可驗證遷移、或經明確保留的資安／授權／效能邊界時適用。
+本 repo **已經有一款獲准開發的中世紀海岸 HD-2D 遊戲**。此檔與 \`.github/copilot-instructions.md\` 必須指向同一套協作原則。
 
+## 每次啟動必做（不論上次讀過什麼）
 
+1. 讀當前 main HEAD、開啟中的 Issues、PR 與 CI；**不可**把 README、歷史計畫、前次對話或其他 Agent 的回報當即時狀態。
+2. 讀 \`docs/CONTRIBUTING.md\`、\`docs/HANDOFF.md\`、\`docs/FEATURE-STATUS.json\`、\`docs/decisions/DECISION-REGISTER.md\`。
+3. 先認領單一 Issue 與執行端 A/B；列出預計修改路徑，檢查是否與其他開啟中的 PR 重疊。如是 hotfix，使用唯一的 HOTFIX-ID。
+4. 從最新 main 建立自己的分支；不直接改 main，不沿用另一 Agent 的工作分支。
+5. 開 PR 時填滿協作欄位、範圍、風險、相依 PR、驗收與回退。共同檔案衝突要記錄整合方式，不以 Git 自動合併成功代表功能整合完成。
 
-**現行進度與工作入口：** [ROADMAP](docs/ROADMAP.md) 是本 repo 最新的已合併／待驗收狀態入口（每次開工仍須核對 GitHub）；[G1～G6 初版計畫](docs/plans/P1-VISUAL-SUPER-EVOLUTION-MASTER-PLAN-2026-11-05.md)保留技術設計及歷史分包，不能把「尚未開始」的舊快照當真；[踩坑紀錄](docs/governance/VISUAL-PITFALLS-LOG.md) 記缺陷、風險與回退。不得自動合併。
+## 權威來源與資料保存
 
-此儲存庫只有一款原創中世紀海岸 HD-2D 探索遊戲。根目錄 `index.html` 直接進入全畫面；不要增加 landing page、舊地城、平行 prototype、V1/V2 並存目錄。
+- **即時事實**：GitHub main / Issues / PRs / CI / Pages；靜態進度表是有日期的快照。
+- **功能狀態**：\`docs/FEATURE-STATUS.json\`；新增或移除功能的 PR 必須同步更新。
+- **工作分配與交接**：Issues 和 PR 描述；不建立第二份手寫「最新 PR 清單」。
+- **決策效力**：\`docs/decisions/DECISION-REGISTER.md\`；舊計畫、研究與授權紀錄保留，但被取代的條款不得重新施行。
+- 任何 \`CURRENT\` 與 \`SUPERSEDED\` 衝突，先核對新 PR、Owner 決定及現行程式；有疑義標 BLOCKED，不猜測。
 
-- 先讀 [README](README.md)、[文件索引](docs/INDEX.md)、[美術規範](docs/ART-DIRECTION.md) 與 [架構](docs/ARCHITECTURE.md)。**舊研究須標註時點與已被取代的決策，不應直接刪除。**
-- 以 Bells of Evermere 的品質和 HD-2D 技術為參考，不複製其素材、故事、模型、程式。
-- 美術與玩法分層：`src/game/art.ts`、`kit.ts`、`architecture.ts`、`environment.ts`、`world.ts`。不要改用大量互不相關的硬編碼方塊。
-- 不使用不符中世紀設定的球形電燈／現代燈柱，照明採日光、燭光、壁燈與窗光。
-- `src/game/main.ts` 控制唯一玩家入口；`src/rendering/` 為渲染基礎。可重用的 `src/platform/` 與 `src/integrations/`、研究文件與 `.agents/skills/` **可以依最新 Owner 授權作精確遷移、合併與刪除**；需有可回退 commit、引用／授權紀錄與對應測試，不可無證據直接丟失有用資料。它們不會自動載入遊戲或取得任何 MCP 權限。
-- 改動保留獨立可回退 PR；Owner 已授權深度重構與刪檔，但**不代表跳過 CI、畫面驗收或可擅自花費／讀取 Secrets**。未具可追溯驗收時不直接推 main、修改 Pages Source 或保護規則。
-- `npm ci && npm run validate && npm run test:e2e`；真機測試和人眼美術驗收不能以 CI 通過替代。
+## 安全與品質
 
-
-## 峽灣／第一人稱模組規則
-
-新地形不要塞回 `environment.ts` 的單一平面；高度函數置於 `src/game/terrain-profile.js`，山體生成在 `fjord.ts`。切換視角要透過 `camera.ts` 和 Renderer Port 的 `setCamera()`，不可為每種視角重新初始化 WebGLRenderer。第一人稱移動必須沿既有碰撞規則；右側觸控環視和左側搖桿不可互相搶 pointer。觀景鏡頭與玩家角色位置獨立，不得偷渡自由飛行或未做的山區碰撞。研究資料、ADR 與 Skills 仍需保留。
+- 唯一根遊戲入口；視覺／玩法修改不得製造第二份平行遊戲。
+- \`src/game/main.ts\`、\`world.ts\`、渲染管線、CI 與資料存檔格式屬高整合風險區；交疊工作需額外相容性驗收。
+- \`npm ci && npm run validate && npm run test:e2e\`；真機 FPS、GPU、音效實聽與人工美術另行驗收。修 CI 須修根因，不得跳過測試或以提高逾時取代證據。
+- 僅採合法可追溯素材；不暴露機密，不擅自修改 Pages Source、Ruleset 或花費付費資源。
+- **Owner 保留合併決策**；歷史重構授權不是永久免審核通行證。只有當次明確授權才合併。
+- 文件和程式可以精確重構與清理；研究、ADR、來源、歷史證據以標記生命週期為優先，不隨便刪除。

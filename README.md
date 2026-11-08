@@ -1,75 +1,51 @@
-# Pixel-Games — 原創中世紀海岸 HD-2D
+# Pixel-Games｜原創中世紀海岸 HD-2D 遊戲
 
-只有一個網站入口：**https://waydefu.github.io/Pixel-Games/** 。開啟就進入滿版遊戲，沒有首頁、作品列表、額外 demo 或舊地城版本。
+**唯一遊戲入口：** https://waydefu.github.io/Pixel-Games/
 
-已合併的 **P1-R1 美術重製版（PR #7）**：原創像素角色、手作質感材質、木構石牆聚落、瓦片斜屋頂、海岸碼頭、布帆、船隻、林木與暖色黃昏。沒有任何現代式街燈；光源來自日光、壁掛燭燈及窗戶。視角為固定的 Three.js 3/4 Quarter View，WASD／方向鍵與手機虛擬搖桿自由移動。
+自由探索的中世紀海岸小鎮，沒有強制任務。桌面與手機均可進入遊戲；實際手機 GPU、熱降頻與美術品質仍需真機驗收，不能由 CI 模擬器的綠燈代替。
 
-目前仍是 **小型可探索視覺切片，不是完整開放世界**；房屋內部、NPC 作息、建造、職業、存檔尚未實作。美術以使用者指定的 [Bells of Evermere](https://lumina-static-584822.gitlab.io/game.html?campaign=bells-of-evermere) 作為品質標竿，但**沒有複製其程式、貼圖、角色、劇情或其他作品資產**。來源與美術技術界線見 [ART-DIRECTION](docs/ART-DIRECTION.md)。
+## 遊戲現況與驗證界線
 
-## 開發和測試
+截至 2026-11-08 的 **main@6056e6c（PR #34）**，程式已具備斜角／第一人稱／風景視角、海岸與村莊、日夜與動態天氣、程序雲影、合成環境音、路亞釣魚及划船。部分功能仍可能有已知問題；**已合併不等於真機與視覺驗收完成**。
 
-需要 Node.js 26 LTS（CI；本機 Node >=24）、`npm ci`：
+**尚未完成完整玩法：** 統一背包系統、多存檔、自動／手動保存與存檔匯入匯出、完整 NPC 作息、職業及大世界串流。現有漁獲記錄不等同完整遊戲存檔。
 
-```sh
+狀態來源：
+- [功能台帳](docs/FEATURE-STATUS.json) — 功能是否已進入 main 及對應原始碼／PR，隨功能 PR 維護。
+- [目前路線與風險](docs/ROADMAP.md) — 已證實的範圍與未來工作方向；**待辦以 GitHub Issues、未合併工作以 Pull Requests 為準**。
+- [協作與交接](docs/CONTRIBUTING.md) / [無同步交接入口](docs/HANDOFF.md)。
+- [決策效力表](docs/decisions/DECISION-REGISTER.md) — 最新有效／被取代／歷史決策；不要用 11/5 的舊計畫壓過新決策。
+
+**即時入口：** [Issues](https://github.com/waydefu/Pixel-Games/issues) · [Open PRs](https://github.com/waydefu/Pixel-Games/pulls) · [Actions](https://github.com/waydefu/Pixel-Games/actions) · [main](https://github.com/waydefu/Pixel-Games/tree/main)
+
+## 本機開發
+
+Node.js >=24（CI 使用 26）：
+
+\`\`\`sh
 npm ci
 npm run dev
-npm run validate     # JS syntax + assets + Node tests + TS7 + Vite8 + size budget
-npm run test:e2e     # Chromium desktop / mobile viewport；需先 install Playwright browser
-npm run graphics:matrix  # 渲染 buffer 預算試算，不是 FPS benchmark
-```
+npm run validate       # repo / 治理資料 / 資產 / 單測 / TypeScript / 建置 / 預算
+npm run test:e2e       # Playwright desktop + mobile viewport，非真機
+npm run graphics:matrix
+\`\`\`
 
-GitHub Pages 由 `.github/workflows/deploy-pages.yml` 在經審核合併後進行 `dist/` 部署；不會自動更改 Pages Settings。
+GitHub Pages 僅由 \`.github/workflows/deploy-pages.yml\` 在 main 更新時發布，與 CI 共用 \`verify.yml\` 的建置及五個 Chromium E2E 分片。合併成功後仍須確認 Pages Actions 成功與瀏覽器快取。
 
-## 現行程式結構
+## 目錄
 
-```text
-index.html / styles.css   # 玩家唯一入口與 HUD
-src/game/
-  main.ts                 # 啟動／渲染迴圈／相機／設定
-  world.ts                # 單一原創遊戲場景、角色移動
-  art.ts                  # 程式原創像素材質與角色圖集
-  kit.ts / batch.ts       # 共用建模／靜態物件合批
-  architecture.ts         # 砌石、木構建築、屋瓦與生活道具
-  environment.ts          # 地形、海岸、海水、自然、碼頭、船
-  input.ts / navigation.js# 觸控／鍵盤與可測的碰撞
-src/rendering/             # renderer-port／畫質／資源追蹤
-src/platform/              # 共用 clock / registry / scene / viewport / asset metadata
-src/integrations/           # 可信 Host 使用的工具契約（非瀏覽器自動接入）
-.agents/skills/             # 按需的開發／素材／驗收 Skills
-scripts/                   # 靜態／資產／建置驗證
-tests/ + e2e/             # Unit／Playwright
-.github/workflows/         # CI／Pages deployment
-docs/                     # 現行規範／研究／歷史 ADR／部署治理
-```
+- \`index.html\`、\`styles.css\`：單一遊戲入口和 HUD。
+- \`src/game/main.ts\`：啟動、操作、UI、環境更新的整合點；更改前需檢查其他開啟中的 PR。
+- \`src/game/world.ts\`：場景組裝；其他 \`src/game/\` 模組處理相機、海洋、天空、天氣、釣魚、划船、音訊與美術。
+- \`src/rendering/\`：單一 HD-2D 後製及渲染生命週期。
+- \`tests/\`、\`e2e/\`、\`scripts/\`：回歸與建置檢查；\`.github/workflows/\`：CI/Pages。
+- \`docs/\`：現行規範與**保留原文**的研究／ADR／歷史紀錄。
+- \`.agents/skills/\`：按需載入的開發技能，不是遊戲執行端自動授權。
 
-已淘汰的**遊戲首頁、舊地城場景與 lab 技術展示頁**不再存在。原本誤刪的研究紀錄、架構 ADR、部署治理、Agent Skills 與通用工程模組已恢復；它們歸在 `docs/`、`.agents/skills/`、`src/platform/`、`src/integrations/`，**不會變成第二個遊戲入口**。請見 [文件索引](docs/INDEX.md)。
+## 操作與驗收
 
-## 操作
+WASD／方向鍵移動、Shift 加速、C 或 1/2/3 切換視角；手機使用搖桿及觸控環視。靠近可釣魚區時以 F（手機操作鈕）蓄力拋竿／收線；E 可操作小船。時間、天氣、畫質、音量等從遊戲選單調整。
 
-WASD／方向鍵移動，Shift 加速。手機使用左下角搖桿。右上角選單能選擇基本／平衡／高畫質，以及請求瀏覽器全螢幕（瀏覽器不能在頁面載入時自動強制隱藏工具列）。
+所有玩法 PR 需要程式驗證；天空／海面／材質 PR 還需固定鏡頭對照與裝置觀察。Playwright 的 mobile viewport **不是** POCO F8 Ultra 的實測。
 
-P1-R2 將峽灣遠景、可切換的斜角／第一人稱／高處觀景三模式整合到同一個遊戲入口；鍵盤 `C`／`1`／`2`／`3` 或右上角按鈕切換視角，第一人稱可用滑鼠／觸控拖曳環視。峽灣山脈目前是遠景，並非已完成可登山地形。
-
-**驗證邊界：** 桌機／手機 viewport Chromium 成功不等於 Android/iOS 真機及 GPU/熱降頻測試已通過。
-
-海港漁船另由 `src/game/boats.ts` 建立具有收尖船首、木船舷、內部甲板、桅杆、帆布與繩索的原創模型；不再用壓扁球體假裝船體。
-
-
-## P1-R3｜峽灣視覺品質重建（已合併 PR #11；歷史階段）
-
-本輪不改單一遊戲入口，也不刪除研究、ADR、Agent Skills 或工程工具；聚焦第一人稱實際可見的近景與山海背景。
-
-- 房屋 **真正的內凹窗**：`facade-geometry.js` 依門／窗孔洞分割外牆，窗框、玻璃與木條退進牆內，屋頂山牆採具開口的 `ShapeGeometry`；原本整面實心牆貼凸玻璃的做法已替換。
-- **十雲屬天空**：`cloud-genera.js` 登記 WMO 十種雲屬（卷雲、卷積雲、卷層雲、高積雲、高層雲、雨層雲、層積雲、層雲、積雲、積雨雲），依天氣狀態決定各屬占比；`cloud-shader.ts` 把它們畫成九層分高度的 2D 雲（積雲是分開的雲塊、受光面朝太陽），`cloud-shadow.ts` 用同一組雲層從太陽方向畫出小張雲影圖給地面讀取。不是真體積雲；積雨雲目前只有暗而厚的雲塊，砧狀雲塔尚未做。
-- **海洋新基線**：`ocean.ts` 在分段網格上做方向性波面位移、解析式法線、Fresnel 與天空近似反射及非規律海岸泡沫，替代原本整片重複的條紋貼片。**目前沒有宣稱已實作 SSR、FFT、真實折射或高品質環境反射探針。**
-- **柔化峽灣與碼頭**：山麓坡形、分海拔岩草材質色彩及連續法線；排除碼頭上的大型礁石；陰影視域跟隨玩家。
-
-官方與研究依據／未完成事項詳見 [P1-R3 美術與渲染審查](docs/reviews/P1-R3-RENDERING-REVIEW-2026-11-05.md)。正式畫面、POCO F8 Ultra GPU 時間及長時間熱測試，仍以人工與真機驗收為準。
-
-海岸邊界由 `coastal-outline.js` 和 `coastline.ts` 產生**有自然收尖弧度的草地／沙灘地形**，不再是一張突然中斷的矩形平面；峽灣東端改為有水深的出海水道，避免山壁直接封死海平線。
-
-## 最新 HD-2D 狀態（2026-11-05）
-
-- **已合併 [PR #21](https://github.com/waydefu/Pixel-Games/pull/21)**：統一 `src/rendering/hd2d-pipeline.js`（取代先前單獨的 `cinematic-post.js`、`effects-on-demand.js`）、HD-2D 像素材質、開放海灣、漁夫角色、日夜循環、Polyfork 合法授權資產與近城鎮樹木。作者自評約 **5～6/10**，仍有山體材質、遠山植被及曝光缺口，真機 GPU/FPS/熱測試 **NOT RUN**。
-- **待合併 [PR #22](https://github.com/waydefu/Pixel-Games/pull/22)**：修正非窗戶物件錯誤發光、增加火把／掛燈實際光照、房屋比例一致性。本次核對 CI 已通過，但人工與真機畫面尚未驗收，**不視為 main 已有功能**。
-- 目前**唯一現行狀態入口**：[docs/ROADMAP.md](docs/ROADMAP.md)。G1～G6 初版技術規劃保留為歷史背景，不能據此推定新版尚未開工。
+**專案規則：** 一個正式遊戲入口、不復活舊地城或平行原型、不使用未授權素材、不繞過 main ruleset；研究和舊決策需標記狀態而非盲目刪掉。
