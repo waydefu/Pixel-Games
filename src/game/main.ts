@@ -46,6 +46,20 @@ const lookHint=element<HTMLElement>("#look-hint");
 const villageKit=await loadVillageKit().catch(error=>{console.warn("Village kit unavailable; using procedural village",error);return null;});
 const world=createCoastalWorld(villageKit);
 const rig=createCameraRig(world.player,world.avatar,world.shadow);
+let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
+let lockFailed=false,lockPending=false;
+function updateLookHint(){
+  hint.textContent=rig.mode==="quarter"?"WASD／方向鍵移動 · C 切換視角":
+    rig.mode==="vista"?"風景觀賞 · 拖曳調整視線 · C 切換":
+    window.matchMedia("(pointer: coarse)").matches?"WASD 移動 · 右側拖曳環視 · C 切換":
+    lockFailed?"滑鼠鎖定不可用 · 拖曳環視 · C 切換":
+    document.pointerLockElement===canvas?"滑鼠環視 · Esc 顯示游標 · C 切換":
+    "點擊畫面開始環視 · C 切換";
+}
+function releaseLook(){
+  lookPointer=null;
+  if(document.pointerLockElement===canvas)document.exitPointerLock();
+}
 type VisualShot={id:string;mode:CameraMode;x:number;z:number;yaw:number;pitch:number;time:number;hour:number;viewport:string};
 const visualShot=getVisualShot(new URLSearchParams(window.location.search).get("visualShot")) as VisualShot|null;
 // Time of day: ?hour=19.5 fixes it; visual-audit shots carry their own hour; otherwise the day flows.
@@ -119,16 +133,15 @@ if(visualShot){
 }
 const modeNames:Record<CameraMode,string>={quarter:"斜角",first:"第一人稱",vista:"風景"};
 function setCameraMode(mode:CameraMode){
+  if(mode!=="first")releaseLook();
+  if(mode!==rig.mode)lockFailed=false;
   rig.setMode(mode);
   cameraPicker.value=mode;
   viewToggle.textContent=modeNames[mode];
   viewToggle.setAttribute("aria-label","切換視角，目前："+modeNames[mode]);
   joystick.hidden=mode==="vista";
   lookHint.hidden=mode==="quarter";
-  // Drag-look never holds a global pointer lock; HUD remains interactive.
-  hint.textContent=mode==="quarter"?"WASD／方向鍵移動 · C 切換視角":
-    mode==="first"?"WASD 移動 · 滑鼠／右側拖曳環視 · C 切換":
-    "風景觀賞 · 拖曳調整視線 · C 切換";
+  updateLookHint();
   if(host)host.setCamera(rig.camera);
   resize();
 }
@@ -158,6 +171,7 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
+  if(open)releaseLook();
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -230,26 +244,42 @@ if(visualShot){
     if(q.get("row")==="1")boatDrive={x:Number.isFinite(num("steer"))?num("steer"):0,y:-1,sprint:false};
   }
 }
-let lookPointer:number|null=null,lastLookX=0,lastLookY=0;
 canvas.addEventListener("pointerdown",e=>{
   if(!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
   // Touch users use the LEFT joystick and drag on the RIGHT of the canvas.
   if(e.pointerType==="touch"&&e.clientX<canvas.clientWidth*.36)return;
   lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
   if(e.pointerType!=="mouse")canvas.setPointerCapture(e.pointerId);
-  // Deliberately use drag-look rather than automatic Pointer Lock:
-  // locking sends clicks to the canvas and blocks HUD mode buttons.
+  if(e.pointerType==="mouse"&&e.button===0&&rig.mode==="first"&&!lockFailed&&document.pointerLockElement!==canvas&&!lockPending){
+    if(typeof canvas.requestPointerLock!=="function"){
+      lockFailed=true;updateLookHint();
+    }else{
+      lockPending=true;
+      try{
+        const request=canvas.requestPointerLock();
+        if(request)void request.catch(()=>{lockPending=false;lockFailed=true;updateLookHint();});
+      }catch{lockPending=false;lockFailed=true;updateLookHint();}
+    }
+  }
   e.preventDefault();
 });
 window.addEventListener("pointermove",e=>{
   if(rig.mode==="quarter"||!settings.hidden)return;
+  if(e.pointerType==="mouse"&&document.pointerLockElement===canvas){rig.look(e.movementX,e.movementY);return;}
+  if(e.pointerType==="mouse"&&rig.mode==="first"&&!lockFailed)return;
   if(e.pointerId!==lookPointer)return;
   rig.look(e.clientX-lastLookX,e.clientY-lastLookY);
   lastLookX=e.clientX;lastLookY=e.clientY;
 });
 const endLook=(e:PointerEvent)=>{if(e.pointerId===lookPointer)lookPointer=null;};
 canvas.addEventListener("pointerup",endLook);canvas.addEventListener("pointercancel",endLook);
-window.addEventListener("blur",()=>{lookPointer=null;});
+document.addEventListener("pointerlockchange",()=>{
+  lockPending=false;lookPointer=null;
+  if(document.pointerLockElement===canvas&&(rig.mode!=="first"||!settings.hidden||!document.hasFocus()))releaseLook();
+  updateLookHint();
+});
+document.addEventListener("pointerlockerror",()=>{lockPending=false;lockFailed=true;updateLookHint();});
+window.addEventListener("blur",releaseLook);
 
 fullButton.addEventListener("click",async()=>{
   try{

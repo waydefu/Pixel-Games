@@ -92,6 +92,10 @@ test("three camera modes retain safe movement, perspective and settings",async({
   after=await page.evaluate(()=>window.__pixelGame.read());
   expect(after.camera).toBe("first");
   expect(after.yaw).not.toBe(before.yaw);
+  if(await page.evaluate(()=>document.pointerLockElement!==null)){
+    await page.keyboard.press("Escape");
+    await expect.poll(()=>page.evaluate(()=>document.pointerLockElement===null)).toBe(true);
+  }
   // A real hit-test catches Canvas occluding the HUD after dragging, not just a synthetic click.
   const switchBounds=await page.locator("#view-toggle").boundingBox();
   expect(switchBounds).not.toBeNull();
