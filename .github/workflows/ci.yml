@@ -19,13 +19,36 @@ jobs:
     uses: ./.github/workflows/verify.yml
 
   # Keep the branch protection's existing required check name. The gate fails unless the build and *every* browser shard pass.
+  collaboration:
+    name: Async collaboration claims and overlaps
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout pinned v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node 26 LTS
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "26"
+      - name: Check duplicate task claims and active PR file overlap
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-pr-collaboration.mjs
   required:
     name: Build, typecheck, unit and browser tests
-    needs: verify
+    needs: [verify, collaboration]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:
       - name: Require build, desktop and mobile verification
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
-        run: test "$VERIFY_RESULT" = "success"
+          COLLAB_RESULT: ${{ needs.collaboration.result }}
+        run: |
+          test "$VERIFY_RESULT" = "success"
+          test "$COLLAB_RESULT" = "success" || test "$COLLAB_RESULT" = "skipped"

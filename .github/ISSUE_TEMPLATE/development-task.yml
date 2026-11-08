@@ -1,0 +1,56 @@
+name: 開發任務（雙端協作）
+description: 每項工作一張 Issue；兩個 Agent 用 GitHub 訊息認領，避免無溝通重工
+title: "[Task] "
+labels: []
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先級
+      options:
+        - P0 - 阻塞或資料安全
+        - P1 - 主要功能／品質
+        - P2 - 治理整理／長期改善
+    validations:
+      required: true
+  - type: dropdown
+    id: executor
+    attributes:
+      label: 執行端（認領前維持未認領）
+      options:
+        - 未認領
+        - A
+        - B
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: 預計影響模組／檔案
+      placeholder: "game/input, src/game/main.ts"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 目標與不做範圍
+      description: 完成要有可驗證的結果，不用通話即可讓另一端理解
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 驗收條件
+      description: 單測、E2E、實際畫面及真機分別註明
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: 相依 Issue／PR
+      placeholder: "無，或 #123"
+  - type: textarea
+    id: handoff
+    attributes:
+      label: 交接與共用模組注意事項
+      description: 若另一開發端有相同模組 PR，請列整合順序和風險

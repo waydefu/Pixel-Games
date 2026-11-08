@@ -1,5 +1,7 @@
 # Pixel-Games 文件索引｜現行與歷史分開
 
+> 2026-11-08：先核對 GitHub main、Issues、PR、CI，再使用 [協作規範](CONTRIBUTING.md)、[交接入口](HANDOFF.md)、[功能台帳](FEATURE-STATUS.json) 和 [決策效力表](decisions/DECISION-REGISTER.md)。下方 11/5 研究與授權是歷史快照，不是即時任務清單。
+
 這個 Repo 只有**一個正式遊戲入口**，但研究、技術決策、Agent Skills 與工程模組可以獨立保留。
 
 > **2026-11-05 最新 Owner 授權**：本專案可做全範圍工程／美術重構與刪除低品質程式；開工前參閱 [全面重構授權紀錄](governance/OWNER-VISUAL-REBUILD-AUTHORITY-2026-11-05.md)，評估以實際截圖而非 PR 次數。此授權更新了早期 P1 文檔的保守範圍限制。
@@ -8,6 +10,10 @@
 
 | 類型 | 文件 |
 | --- | --- |
+| **雙人協作與任務認領** | [CONTRIBUTING](CONTRIBUTING.md) |
+| **動態交接入口** | [HANDOFF](HANDOFF.md) |
+| **機器可讀功能狀態** | [FEATURE-STATUS](FEATURE-STATUS.json) |
+| **決策有效性與被取代紀錄** | [DECISION-REGISTER](decisions/DECISION-REGISTER.md) |
 | 玩法狀態、執行命令、檔案入口 | [README](../README.md) |
 | 遊戲與共用技術架構 | [ARCHITECTURE](ARCHITECTURE.md) |
 | HD-2D 美術與授權邊界 | [ART-DIRECTION](ART-DIRECTION.md) |

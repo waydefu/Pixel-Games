@@ -38,7 +38,7 @@ export function addVegetationWind(
       // the traveller pushes the blades aside and flattens them where they step
       vec2 pushDir=windOrigin-uPlayerPos.xz;
       float pushDist=length(pushDir);
-      float push=smoothstep(1.5,.15,pushDist)*step(abs(uPlayerPos.y),50.0);
+      float push=(1.0-smoothstep(.15,1.5,pushDist))*step(abs(uPlayerPos.y),50.0);
       transformed.xz+=(pushDist>.001?pushDir/pushDist:vec2(1.0,0.0))*push*.55*windTip;
       transformed.y*=1.0-.45*push*windTip;`);
   };

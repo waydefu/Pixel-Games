@@ -1,3 +1,5 @@
+> **HISTORICAL：2026-11-05 工具快照**。現行套件／CI／功能請核對 `package.json`、`.github/workflows/verify.yml`、[FEATURE-STATUS](FEATURE-STATUS.json) 與 main；勿以此頁的「未接入」推斷 11/8 後狀態。
+
 # 工程工具與技術狀態（2026-11-05）
 
 此頁描述 2026-11-05 `main` 的工程配置；新 PR 及部署仍須查 GitHub 實際狀態。原 2026-11-04 工具盤點保留於 [歷史快照](history/TOOLING-2026-11-04.md)，不可拿當作今天的實作證據。

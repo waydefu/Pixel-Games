@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "lastVerified": "2026-11-08",
+  "baseline": {
+    "branch": "main",
+    "commit": "6056e6c99a708eac3c6318ebae671dcaf2ecb421",
+    "note": "歷史可核對基準；不宣稱是永遠最新的 main HEAD"
+  },
+  "features": [
+    {
+      "id": "exploration",
+      "name": "斜角／第一人稱／風景視角",
+      "status": "implemented",
+      "pr": [
+        10,
+        21
+      ],
+      "paths": [
+        "src/game/camera.ts"
+      ]
+    },
+    {
+      "id": "day-night",
+      "name": "日夜與時間控制",
+      "status": "implemented",
+      "pr": [
+        21,
+        31,
+        32
+      ],
+      "paths": [
+        "src/game/time-of-day.js"
+      ]
+    },
+    {
+      "id": "fishing",
+      "name": "路亞釣魚",
+      "status": "implemented",
+      "pr": [
+        27,
+        29,
+        30
+      ],
+      "paths": [
+        "src/game/fishing.ts",
+        "src/game/fishing-logic.js"
+      ]
+    },
+    {
+      "id": "rowing",
+      "name": "划船",
+      "status": "implemented",
+      "pr": [
+        29
+      ],
+      "paths": [
+        "src/game/boating.ts"
+      ]
+    },
+    {
+      "id": "weather",
+      "name": "動態天氣",
+      "status": "implemented",
+      "pr": [
+        32
+      ],
+      "paths": [
+        "src/game/weather.js"
+      ]
+    },
+    {
+      "id": "audio",
+      "name": "合成環境音效",
+      "status": "implemented",
+      "pr": [
+        32
+      ],
+      "paths": [
+        "src/game/soundscape.ts"
+      ]
+    },
+    {
+      "id": "clouds",
+      "name": "十雲屬、地面雲影",
+      "status": "implemented",
+      "pr": [
+        33,
+        34
+      ],
+      "paths": [
+        "src/game/cloud-shader.ts"
+      ]
+    },
+    {
+      "id": "inventory",
+      "name": "統一背包與物品管理",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    },
+    {
+      "id": "save-export",
+      "name": "完整存檔／自動保存／匯入匯出",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    },
+    {
+      "id": "npc-schedule",
+      "name": "NPC 完整作息與職業系統",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    },
+    {
+      "id": "world-streaming",
+      "name": "大世界串流",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    }
+  ],
+  "verificationBoundary": "implemented=已合併可辨識程式，不等於真機或完整遊戲品質驗收；釣魚紀錄不等於完整進度存檔"
+}

@@ -420,7 +420,8 @@ async function start(){
       if(timeAuto.checked&&!reduceMotion){const before=hour;hour=wrapHour(hour+wallDt*HOURS_PER_SECOND);if(hour<before&&!Number.isFinite(phaseParam)){moonPhase=(moonPhase+1/8)%1;setMoonPhase(moonPhase);}if(now-uiTime>1200||!uiTime)showHour();}
       world.setHour(hour);
       diagnostics.hour=hour;diagnostics.phase=describeHour(hour).phase;diagnostics.sunElevation=liveSky.elevation;
-      host.setSun(liveSky.sunDir);host.setRayScale(liveSky.sunRays*(1+1.4*liveSky.twilight.value));host.setGrade({uExposure:liveSky.exposure});
+      host.setSun(liveSky.sunDir);host.setRayScale(Math.min(1,liveSky.sunRays*liveSky.twilight.value*1.6));   // light shafts only at sunrise and sunset: by day they smeared the bright clouds into radial smoke
+      host.setGrade({uExposure:liveSky.exposure});
       if(!reduceMotion || visualShot)world.update(visualShot?.time??elapsed);
       try{
         if(rig.mode==='quarter')focusPipeline(camera.position.distanceTo(rig.focusPoint),true);
