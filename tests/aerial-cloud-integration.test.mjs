@@ -57,6 +57,14 @@ test("mobile budget remains bounded and all water prohibitions hold",()=>{
   assert.match(shadow,/quality==="high"\?256:quality==="balanced"\?128:64/);
   assert.match(shadow,/if\(frame===lastFrame\)return/);
   assert.match(world,/fjord\.setShadowQuality\(quality,!softwareGpu\)/);
+  // a software rasteriser renders at a fixed reduced scale (smaller on High), also on ?visualShot= pages (the browser tests
+  // use them); only ?fullres=1 (audit PNGs) and ?mirror=1 keep full resolution
+  const main=src("main.ts");
+  assert.match(main,/const lowPower=softwareGpu&&new URLSearchParams\(location\.search\)\.get\("fullres"\)!=="1"/);
+  assert.match(main,/quality\.value==="high"\?\.45:\.55/);
+  assert.doesNotMatch(main,/const lowPower=softwareGpu&&!visualShot/);
+  assert.match(main,/if\(lowPower\)host\.setRenderScale\(lowScale\(\)\);\n      resize\(\);/,"the scale follows a quality change");
+  assert.match(readFileSync(new URL("../e2e/visual-audit.spec.mjs",import.meta.url),"utf8"),/&fullres=1/,"audit PNGs stay full resolution");
   assert.doesNotMatch(aerial,/new THREE\.WebGLRenderTarget|sampler2D/);
   assert.doesNotMatch(ocean,/new THREE\.WebGLRenderTarget|FFTCompute|uFftSpectrum/);
   assert.match(ocean,/uSunDirection/);
