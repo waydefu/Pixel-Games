@@ -1,3 +1,5 @@
+> **2026-11-08 現行補充**：CI 共用 `verify.yml` 一次建置與五個 Chromium 分片，`npm run check:governance` 驗證功能台帳與文件；PR 協作驗證則檢查任務及檔案交集。下方 P1/G2 所寫的 `UNSUPPORTED` 或 `NOT RUN` 是歷史里程碑狀態，不能取代最新 main 的證據。真機與人工驗收另做。
+
 # 品質門檻
 
 **Pipeline**：`npm run check` → `npm run assets` → `npm test` → `npm run typecheck` → `npm run build` → `npm run check:build` → `npm run test:e2e`，CI 成功才可提交合併審查。
