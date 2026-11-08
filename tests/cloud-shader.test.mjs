@@ -24,15 +24,18 @@ test("the sky and the ground shadow draw the same layers: one shared block, one 
   assert.ok(CLOUD_FRAG.includes(CLOUD_COMMON), "the sky includes the shared block");
   assert.ok(CLOUD_SHADOW_FRAG.includes(CLOUD_COMMON), "the shadow includes the shared block");
   assert.match(CLOUD_COMMON, /vec2 evalLayer\(int id,vec2 P,vec2 ldir,int Q,out float alpha\)/);
-  assert.match(CLOUD_FRAG, /evalLayer\(id,cameraPosition\.xz\+plane\*LH\[id\]/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(id,ground\+off\*LH\[id\]/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\]/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
   // the shadow has no lighting and no sky uniforms
   assert.match(CLOUD_SHADOW_FRAG, /gNeedLit=false/);
   assert.doesNotMatch(CLOUD_SHADOW_FRAG, /uTwilight|uWeatherDark|paintCloud\(/);
 });
 
 test("the layer tables cover all ten genera, in cloud-genera order, with sensible heights and cell sizes", () => {
-  const order = arrayOf("ORDER");
+  // both shaders draw every genus once, unrolled with constant ids, lowest layer first
+  const unrolled = (src, macro) => [...src.matchAll(new RegExp("\\b" + macro + "\\((\\d)\\)", "g"))].map(m => Number(m[1])).filter((_, i, a) => i >= a.length - 10);
+  const order = unrolled(CLOUD_FRAG, "SKY_LAYER");
+  assert.deepEqual(order, unrolled(CLOUD_SHADOW_FRAG, "SHADOW_LAYER"), "sky and shadow draw the same order");
   assert.deepEqual([...order].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "every genus is drawn once");
   const H = arrayOf("LH"), S = arrayOf("LS"), W = arrayOf("LW"), A = arrayOf("LALT"), R = arrayOf("LRIM");
   for (const t of [H, S, W, A, R]) assert.equal(t.length, 10);

@@ -150,8 +150,8 @@ float filament(vec2 uv,float fw){
 // H = height of the plane it is drawn on, S = size of one noise cell on it (world units; the island is about 100 across, so a
 // cumulus lump is a few tens of units and its shadow is a patch you can walk in and out of). A cloud is a point on that plane,
 // so the sky and the ground shadows read the SAME world position: the shadow of the cloud overhead lands where it should.
-// Index = cloud-genera.js order: Ci Cs Cc As Ac Ns St Sc Cu Cb. ORDER is low (nearest) to high (farthest).
-const int ORDER[10]=int[10](6,8,9,7,5,3,4,1,2,0);
+// Index = cloud-genera.js order: Ci Cs Cc As Ac Ns St Sc Cu Cb. They are drawn low (nearest) to high (farthest):
+// St Cu Cb Sc Ns As Ac Cs Cc Ci = 6 8 9 7 5 3 4 1 2 0.
 const float LH[10]=float[10](1600.0,1400.0,1500.0,900.0,1000.0,600.0,96.0,280.0,210.0,210.0);
 const float LS[10]=float[10](500.0,640.0,83.0,500.0,111.0,400.0,80.0,70.0,70.0,70.0);
 const float LW[10]=float[10](0.4,0.5,0.4,0.7,0.6,0.8,1.0,0.9,1.0,1.0);      // wind: low layers move faster
@@ -242,16 +242,16 @@ void main(){
   vec2 plane=ray.xz/max(ray.y,0.035);              // where the ray meets a plane at unit height; scaled per layer
   vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
 
-  // Layers run low -> high; each is composited over what lies behind it
-  for(int k=0;k<10;k++){
-    int id=ORDER[k];
-    if(uGen[id]<=0.01||!shown(id))continue;
-    if(Q==0&&LALT[id]>0.85)continue;       // the cheapest tier leaves out the thin high veils
-    float al;
-    vec2 lt=evalLayer(id,cameraPosition.xz+plane*LH[id],ldir,Q,al);
-    float a=clamp(al*mask,0.0,0.97);
-    if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[id],LRIM[id]);thickAcc+=T*a*lt.y;T*=1.0-a;}
+  // Layers run low -> high; each is composited over what lies behind it. Unrolled with constant ids so the compiler can drop
+  // the branches of every form but one (a loop over a runtime id compiled to one huge function and was twice as slow).
+#define SKY_LAYER(ID) if(uGen[ID]>0.01&&shown(ID)&&!(Q==0&&LALT[ID]>0.85)){\
+    float al;\
+    vec2 lt=evalLayer(ID,cameraPosition.xz+plane*LH[ID],ldir,Q,al);\
+    float a=clamp(al*mask,0.0,0.97);\
+    if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);thickAcc+=T*a*lt.y;T*=1.0-a;}\
   }
+  SKY_LAYER(6) SKY_LAYER(8) SKY_LAYER(9) SKY_LAYER(7) SKY_LAYER(5)
+  SKY_LAYER(3) SKY_LAYER(4) SKY_LAYER(1) SKY_LAYER(2) SKY_LAYER(0)
 
   float amount=clamp(1.0-T,0.0,0.97);
   vec3 cloud=amount>0.001?col/max(amount,0.02):vec3(0.0);
@@ -283,14 +283,13 @@ void main(){
   vec2 off=s.xz/max(s.y,0.08);            // each plane is met where the ray from the ground toward the sun reaches its height
   int Q=uCloudDetailLevel>0.5?1:0;
   float T=1.0;
-  for(int k=0;k<10;k++){
-    int id=ORDER[k];
-    if(uGen[id]<=0.01)continue;
-    if(Q==0&&LALT[id]>0.85)continue;
-    float al;
-    evalLayer(id,ground+off*LH[id],vec2(0.0),Q,al);
-    // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
-    T*=1.0-clamp(al*al*1.1,0.0,0.97);
+  // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
+#define SHADOW_LAYER(ID) if(uGen[ID]>0.01&&!(Q==0&&LALT[ID]>0.85)){\
+    float al;\
+    evalLayer(ID,ground+off*LH[ID],vec2(0.0),Q,al);\
+    T*=1.0-clamp(al*al*1.1,0.0,0.97);\
   }
+  SHADOW_LAYER(6) SHADOW_LAYER(8) SHADOW_LAYER(9) SHADOW_LAYER(7) SHADOW_LAYER(5)
+  SHADOW_LAYER(3) SHADOW_LAYER(4) SHADOW_LAYER(1) SHADOW_LAYER(2) SHADOW_LAYER(0)
   gl_FragColor=vec4(smoothstep(0.08,0.85,1.0-T),0.0,0.0,1.0);
 }`;
