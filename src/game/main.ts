@@ -180,6 +180,7 @@ function setMenu(open:boolean){
 menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden")));
 menuClose.addEventListener("click",()=>setMenu(false));
 window.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape"&&document.pointerLockElement===canvas){releaseLook();e.preventDefault();return;}
   if(e.key==="Escape"&&!settings.hidden){setMenu(false);e.preventDefault();}
   if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||!settings.hidden)return;
   if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;

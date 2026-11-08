@@ -24,7 +24,6 @@ test("desktop mouse look responds to simulated lock transitions",async({page})=>
     HTMLCanvasElement.prototype.requestPointerLock=function(){
       locked=this;document.dispatchEvent(new Event("pointerlockchange"));return Promise.resolve();
     };
-    window.addEventListener("keydown",e=>{if(e.key==="Escape"&&locked)document.exitPointerLock();});
   });
   await startFirstPerson(page);
   await lockCanvas(page);
