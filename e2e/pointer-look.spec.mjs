@@ -59,7 +59,19 @@ test("real browser pointer lock",async({page})=>{
   await page.locator("#stage").click({position:{x:400,y:350}});
   await expect.poll(()=>page.evaluate(()=>document.pointerLockElement?.id||window.__lockError)).toBeTruthy();
   const result=await page.evaluate(()=>({locked:document.pointerLockElement?.id,error:window.__lockError}));
-  test.skip(result.error==="WrongDocumentError","Chromium test environment cannot acquire pointer lock");
+  if(result.error==="WrongDocumentError"){
+    // Headless Chromium may reject native pointer lock. Verify the real rejection
+    // follows the tested fallback path instead of silently skipping validation.
+    await expect(page.locator("#hint")).toContainText("拖曳環視");
+    const before=await page.evaluate(()=>window.__pixelGame.read().yaw);
+    await page.mouse.move(400,350);
+    await page.mouse.down();
+    await page.mouse.move(500,350,{steps:3});
+    await page.mouse.up();
+    await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().yaw)).not.toBe(before);
+    return;
+  }
+  expect(result.error).toBeFalsy();
   expect(result.locked).toBe("stage");
   await page.keyboard.press("Escape");
   await expect.poll(()=>page.evaluate(()=>document.pointerLockElement)).toBeNull();
