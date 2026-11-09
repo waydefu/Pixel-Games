@@ -4,6 +4,7 @@ import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
 import { liveSky, setMoonPhase } from "./sky-live.js";
 import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
+import { makePerformanceSnapshot } from "./performance-report.js";
 import { createGpuTimer } from "../rendering/gpu-timer.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -161,6 +162,10 @@ const inventoryOverlay=element<HTMLElement>("#inventory-overlay");
 const inventoryOpen=()=>!inventoryOverlay.hidden;
 if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
+// Separate from the short rolling on-screen diagnostic: gather at least 15 seconds
+// at up to 200 FPS, rather than assuming 60 frames represent 15 seconds.
+const phoneFrameMetrics=createFrameMetrics({capacity:3000});
+let gameplayFrameAtMenu:ReturnType<typeof phoneFrameMetrics.summary>|null=null;
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
 const diagnostics={
   status:"starting" as GameState,
@@ -204,7 +209,8 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open){releaseLook();input.reset();fishing.release();boating.resetRequest();}
+  if(open){gameplayFrameAtMenu=phoneFrameMetrics.summary();releaseLook();input.reset();fishing.release();boating.resetRequest();}
+  else{phoneFrameMetrics.reset();gameplayFrameAtMenu=null;}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -212,6 +218,27 @@ function setMenu(open:boolean){
 }
 menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden")));
 menuClose.addEventListener("click",()=>setMenu(false));
+element<HTMLButtonElement>("#perf-report").addEventListener("click",()=>{
+  const frame=gameplayFrameAtMenu??{count:0,p50Ms:null,p95Ms:null,meanMs:null};
+  const params=new URLSearchParams(location.search);
+  const report=makePerformanceSnapshot({
+    capturedAt:new Date().toISOString(),frame,
+    device:{userAgent:navigator.userAgent,viewportWidth:innerWidth,viewportHeight:innerHeight,devicePixelRatio:devicePixelRatio},
+    run:{quality:quality.value,camera:rig.mode,weather:weatherPicker.value,weatherActual:world.weather.state.preset,hour,timeAuto:timeAuto.checked,
+      reflect:params.get("reflect")??"default",rtt:params.get("rtt")??"default",
+      mirror:params.get("mirror")??"default",fullres:params.get("fullres")??"default"},
+    renderer:{drawCalls:diagnostics.drawCalls,bufferWidth:diagnostics.bufferWidth,
+      bufferHeight:diagnostics.bufferHeight,renderScale:host?.scale??null}
+  });
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="coastal-performance-"+quality.value+"-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  element<HTMLElement>("#perf-report-status").textContent=report.validity.usable
+    ?"已匯出幀間隔資料；這不是真 GPU 耗時。"
+    :"測量不足：需在遊戲畫面持續至少 15 秒、累積 10 個以上影格。關閉設定重新測試。";
+});
 window.addEventListener("keydown",(e)=>{
   if(inventoryOpen())return;
   if(e.key==="Escape"&&document.pointerLockElement===canvas){releaseLook();e.preventDefault();return;}
@@ -326,6 +353,7 @@ if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave
 renderInventory();
 function setInventory(open:boolean){
   if(open){setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
+  else{phoneFrameMetrics.reset();gameplayFrameAtMenu=null;}
   inventoryOverlay.hidden=!open;inventoryToggle.setAttribute("aria-expanded",String(open));
   if(open)inventoryClose.focus();else inventoryToggle.focus();
 }
@@ -526,12 +554,13 @@ async function start(){
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
       if(!host)return;
+      frameMetrics.reset();phoneFrameMetrics.reset();gameplayFrameAtMenu=null;
       host.setQuality(quality.value);
       applyQuality();
       if(lowPower)host.setRenderScale(lowScale());
       resize();
     });
-    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();});
+    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();phoneFrameMetrics.reset();gameplayFrameAtMenu=null;});
     const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     async function frame(now:number){
       if(!host||closed)return;
@@ -543,6 +572,7 @@ async function start(){
         if(frameMs>0){
           if(perfSamples&&now>=perfStarted)perfSamples.push({atMs:now-perfStarted,frameMs});
           frameMetrics.record(frameMs);
+          if(settings.hidden&&!inventoryOpen())phoneFrameMetrics.record(frameMs);
           if(!visualShot&&!lowPower){
             const next=adaptive.observe(frameMs);
             if(Math.abs(host.scale-next)>.001){host.setRenderScale(next);resize();}
@@ -601,7 +631,7 @@ async function start(){
       }
       if(now-uiTime>1200){
         const m=frameMetrics.summary();diagnostics.p95Ms=m.p95Ms;
-        metrics.textContent="p95 "+(m.p95Ms?.toFixed(1)??"—")+"ms · "+
+        metrics.textContent="p50 "+(m.p50Ms?.toFixed(1)??"—")+"ms · p95 "+(m.p95Ms?.toFixed(1)??"—")+"ms · "+
           diagnostics.drawCalls+" draw calls · "+diagnostics.bufferWidth+"×"+diagnostics.bufferHeight;
         uiTime=now;
       }

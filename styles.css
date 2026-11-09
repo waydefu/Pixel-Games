@@ -89,3 +89,27 @@
 
 /* Landed fish and crabs share a legible catch icon in the inventory. */
 .icon-mackerel, .icon-herring, .icon-cod, .icon-flounder, .icon-salmon, .icon-crab { border-radius: 50% 35% 35% 50%; background: #87aeb3; }
+
+/* Phone portrait: keep fishing actions within a narrow right-hand dock, clear
+   of the left joystick and the lower-right look hint. Desktop/landscape unchanged. */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:600px){
+  .fish-hud{
+    right:calc(env(safe-area-inset-right,0px) + 8px);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 86px);
+    max-width:min(42vw,160px);
+    gap:5px;
+  }
+  .fish-hud .fish-button{
+    min-width:0;
+    width:min(120px,100%);
+    min-height:48px;
+    padding:9px 8px;
+    font-size:14px;
+    line-height:1.2;
+    white-space:normal;
+  }
+  .fish-hud .fish-lure{max-width:100%;padding:6px 8px;font-size:11px;line-height:1.3}
+  .fish-hud .fish-meter{width:min(160px,42vw);padding:7px 8px}
+  .fish-hud .fish-status{max-width:100%;padding:5px 8px;font-size:12px}
+  .fish-hud .fish-count{font-size:11px}
+}

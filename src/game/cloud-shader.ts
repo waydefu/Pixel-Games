@@ -15,8 +15,10 @@
  */
 export const CLOUD_VERT=String.raw`varying vec3 vRay;
 void main(){
-  vRay=position;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+  vec4 worldPoint=modelMatrix*vec4(position,1.0);
+  // Camera-relative world ray: the sphere is at the world origin, not at the player.
+  vRay=worldPoint.xyz-cameraPosition;
+  gl_Position=projectionMatrix*viewMatrix*worldPoint;
 }`;
 
 export const CLOUD_COMMON=String.raw`uniform float uTime;
@@ -156,13 +158,22 @@ vec2 stratiform(vec2 uv,float fw,float breakup,float turb){
   return vec2(mix(1.0,smoothstep(0.34,0.70,d),breakup),smoothstep(0.34,0.68,d));
 }
 
-// Filament (cirrus): strokes drawn out along the wind, bent by a slow noise, sparse
+// Filament (cirrus): keep wisps attached to an upwind tuft or trailing head.
+// MIT reference: takustaqu/atmosphere sky.ts filament() head/tail model.
+// Two coarse, rotated one-tap value-noise reads limit the additional mobile cost.
 float filament(vec2 uv,float fw){
   float bend=fbmF(uv*vec2(0.30,0.85),3,fw)-0.5;
-  vec2 q=uv+vec2(0.0,bend*2.2);
-  float f=smoothstep(0.44,0.80,fbmF(q*vec2(0.42,1.5),4,fw*1.5));   // drawn out along the wind, but only about 3:1: wisps, not rods
+  vec2 q=uv+vec2(0.0,bend*1.5);
+  float f=smoothstep(0.44,0.80,fbmF(q*vec2(0.42,1.5),4,fw*1.5));   // short, wind-aligned ice filaments
   float sparse=smoothstep(0.32,0.62,fbmF(uv*0.20+13.0,3,fw*0.2));
-  return f*sparse;
+  // The previous f*sparse returned a long stroke at every dense pixel, even
+  // when no cloud head produced it. Gate fibres by a coherent tuft and its
+  // upwind precursor; a few faint strands remain where there is no head.
+  vec2 headUv=R15*(uv*0.42+7.0);
+  float head=smoothstep(0.56,0.74,vn(headUv));
+  float tail=smoothstep(0.42,0.64,vn(headUv+R15*vec2(0.462,0.0)));
+  float strands=f*sparse*(0.30+0.70*max(head,tail*0.8));
+  return min(strands+head*sparse*(0.45+0.35*f),1.0);
 }
 
 // A flat layer seen at a low angle is stretched along the view (1/elevation) until every cloud is a thin dash. Real clouds stand
@@ -246,7 +257,8 @@ void main(){
   gSun=max(0.0,cs);
   float sy=sunDir.y;
   gSunEl=sy;gTw=uTwilight;
-  float mask=smoothstep(0.05,0.20,ray.y)*(1.0-smoothstep(0.86,0.98,ray.y))*(1.0-0.97*uNightC);
+  // Horizon haze only. Fading again near zenith produced an artificial clear hole.
+  float mask=smoothstep(0.0,0.20,ray.y)*(1.0-0.97*uNightC);
   vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
   float toward=dot(rf,sf);
 
