@@ -100,6 +100,25 @@ test('storage failure during import does not change active game state',async({pa
   expect(await page.locator('#time-auto').isChecked()).toBe(before.timeAuto);
 });
 
+test('fish inventory survives import, export and reload',async({page})=>{
+  await page.goto('./');
+  await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
+  await page.locator('#inventory-toggle').click();
+  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('pixel-games.save.v1')),{timeout:15000}).not.toBeNull();
+  const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('pixel-games.save.v1')));
+  save.inventory.mackerel=2;save.fishing={count:2,best:{name:'鯖魚',length:30}};
+  await page.locator('#save-file').setInputFiles({name:'fish.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(save))});
+  await expect(page.locator('#save-message')).toContainText('存檔已匯入');
+  await expect(page.locator('#inventory-list')).toContainText('鯖魚');
+  await expect(page.locator('#inventory-list')).toContainText('數量 × 2');
+  const download=page.waitForEvent('download');await page.locator('#save-export').click();const backup=await download;
+  await page.reload();await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
+  await page.locator('#inventory-toggle').click();await expect(page.locator('#inventory-list')).toContainText('鯖魚');
+  await page.locator('#save-file').setInputFiles(await backup.path());
+  await expect(page.locator('#save-message')).toContainText('存檔已匯入');
+  await expect(page.locator('#inventory-list')).toContainText('數量 × 2');
+});
+
 test('settings export a diagnostic JSON with frame samples and active quality',async({page})=>{
   await page.goto('./');
   await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
