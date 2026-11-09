@@ -16,7 +16,8 @@
         21
       ],
       "paths": [
-        "src/game/camera.ts"
+        "src/game/camera.ts",
+        "src/game/navigation.js"
       ]
     },
     {
