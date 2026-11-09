@@ -103,6 +103,29 @@ test("Cu horizon repair pairs a 0.03 ray-plane floor with a 0.03-0.12 fade and a
   assert.ok(1/Math.max(.01,.03)>30,"new bound applies only in opt-in slab path");
 });
 
+test("High Cu flank lighting reuses slab geometry, is opt-in and leaves cloud shadows unchanged", () => {
+  const fjord=read("fjord.ts");
+  assert.match(fjord,/const cuLighting=auditQuery\.get\("cuLighting"\)==="volume"\?1:0;/);
+  assert.match(fjord,/uCuLighting:\{value:cuLighting\}/);
+  assert.match(CLOUD_FRAG,/uniform float uCuLighting/);
+  assert.doesNotMatch(CLOUD_SHADOW_FRAG,/uCuLighting/,"sky-only lighting must not enter the shadow pass");
+  assert.match(CLOUD_COMMON,/gCuHit=uHit;/,"height data comes from the existing slab");
+  assert.match(CLOUD_FRAG,/ID==8&&uCuProjection>0\.5&&Q>=2&&uCuLighting>0\.5/);
+  assert.match(CLOUD_FRAG,/float cuSide=\(1\.0-smoothstep\(0\.35,0\.85,sy\)\)\*\(1\.0-smoothstep\(0\.15,0\.65,ray\.y\)\)/);
+  assert.match(CLOUD_FRAG,/float cuCrown=smoothstep\(0\.08,0\.70,gCuHit\);/);
+  assert.match(CLOUD_FRAG,/lit=clamp\(lit\+cuFlank,-1\.0,1\.0\);/);
+  assert.match(CLOUD_FRAG,/cuRimBoost=0\.12\*cuBack\*cuEdge;/);
+  assert.match(CLOUD_FRAG,/layerColor=mix\(layerColor,uHorizon,cuAir\)/,"#109 Cu aerial haze remains after lighting");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const flank=(sunY,viewY,az,hit)=>(1-smooth(.35,.85,sunY))*(1-smooth(.15,.65,viewY))*
+    (-.24*az+.12*(1-az*az)*(2*smooth(.08,.70,hit)-1));
+  assert.ok(flank(.15,.1,-.9,.7)>0,"sun from behind brightens the flank");
+  assert.ok(flank(.15,.1,.9,.7)<0,"viewing toward sun darkens the solid core");
+  assert.ok(Math.abs(flank(.9,.1,.9,.7))<1e-12,"high sun avoids artificial side illumination");
+  for(const h of [0,.1,.5,1])for(const az of [-1,-.5,0,.5,1])
+    assert.ok(Math.abs(flank(.1,.1,az,h))<=.36,"bounded directional lighting");
+});
+
 test("High Cu slab uses one four-height envelope, not two overlaid cloud pictures", () => {
   const s=CLOUD_COMMON;
   assert.match(s,/vec4 cuField\(vec2 uv,float fw,float cov,vec2 ldir,int Q,out vec2 q\)/);

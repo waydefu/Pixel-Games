@@ -100,6 +100,8 @@ vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
   float edge=mix(0.84,0.52,cov);
   return vec3(smoothstep(edge-0.16,edge+0.22,v.x),v.y,v.z);
 }
+// Reuse the slab's existing entry height for optional sky lighting; no extra density samples.
+float gCuHit=0.0;
 // High-only, opt-in proof of concept. Four height samples form ONE convex
 // Cu silhouette; the top never renders as a second translucent cloud layer.
 // The common base field is still sampled by the cloud-shadow pass.
@@ -118,6 +120,7 @@ vec3 cumulusSlab(vec2 uv,float fw,float cov,vec2 ldir,int Q,vec2 span){
   }
   float den=smoothstep(-0.16,0.22,hmax);
   float uHit=clamp(-h0/max(hmax-h0,0.02),0.0,1.0);
+  gCuHit=uHit;
   // Below a flat base the underside stays blue-grey; the body above it
   // catches the directional sunlight. The hit is a continuous interpolation,
   // not an abrupt step across one of the four sampled heights.
@@ -262,6 +265,7 @@ vec2 evalLayer(int id,vec2 P,vec2 ldir,int Q,out float alpha){
 export const CLOUD_FRAG="precision highp float;\nprecision highp sampler2D;\n"+String.raw`precision highp float;
 varying vec3 vRay;
 uniform float uOnly;
+uniform float uCuLighting;
 uniform vec3 uSunDirection;
 uniform vec3 uHorizon;
 uniform vec3 uZenith;
@@ -341,7 +345,20 @@ void main(){
     if(ID==8&&uCuProjection>0.5&&Q>=2&&uCuHorizon>0.5)cloudMask=smoothstep(0.03,0.12,ray.y)*(1.0-0.97*uNightC);\
     float a=clamp(al*cloudMask,0.0,0.97);\
     if(a>0.002){\
-      vec3 layerColor=paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);\
+      float lit=lt.x,cuRimBoost=0.0;\
+      if(ID==8&&uCuProjection>0.5&&Q>=2&&uCuLighting>0.5){\
+        /* MIT Atmosphere-inspired: view angle, sun azimuth, and existing slab entry height; no extra texture or pass. */\
+        float cuSide=(1.0-smoothstep(0.35,0.85,sy))*(1.0-smoothstep(0.15,0.65,ray.y));\
+        float cuAz=dot(rf,sf);\
+        float cuCrown=smoothstep(0.08,0.70,gCuHit);\
+        float cuFlank=cuSide*(-0.24*cuAz+0.12*(1.0-cuAz*cuAz)*(2.0*cuCrown-1.0));\
+        lit=clamp(lit+cuFlank,-1.0,1.0);\
+        float cuBack=smoothstep(0.70,0.96,cs)*smoothstep(-0.01,0.08,sy);\
+        float cuEdge=1.0-smoothstep(0.24,0.72,lt.y);\
+        cuRimBoost=0.12*cuBack*cuEdge;\
+      }\
+      vec3 layerColor=paintCloud(lit,lt.y,LALT[ID],LRIM[ID]);\
+      layerColor+=gDirect*cuRimBoost;\
       if(ID==8&&uCuProjection>0.5&&Q>=2&&uCuHorizon>0.5){\
         float cuAir=1.0-exp(-0.35*0.05/max(ray.y,0.03));\
         layerColor=mix(layerColor,uHorizon,cuAir);\
