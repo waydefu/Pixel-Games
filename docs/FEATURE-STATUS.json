@@ -145,8 +145,10 @@
     {
       "id": "farming",
       "name": "農田種植、生長與收割入包",
-      "status": "in-progress",
-      "pr": [],
+      "status": "implemented",
+      "pr": [
+        108
+      ],
       "paths": [
         "src/game/farming.js",
         "src/game/main.ts"
