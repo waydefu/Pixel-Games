@@ -92,7 +92,11 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
       uHalo:{value:0},uMoonPhase:liveSky.moonPhase,uSkyHour:liveSky.skyHour,uTime:skyUniforms.uTime,uSkyDetail:skyUniforms.uCloudDetailLevel,uWeatherDark:liveSky.weatherDark,uWeatherFlash:liveSky.weatherFlash,
     },
     vertexShader:String.raw`varying vec3 vRay;
-      void main(){vRay=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      void main(){
+        vec4 worldPoint=modelMatrix*vec4(position,1.0);
+        vRay=worldPoint.xyz-cameraPosition;
+        gl_Position=projectionMatrix*viewMatrix*worldPoint;
+      }`,
     fragmentShader:String.raw`precision highp float;
       varying vec3 vRay;
       uniform vec3 uZenith;uniform vec3 uMid;uniform vec3 uHorizon;uniform vec3 uSunDirection;uniform float uHalo;

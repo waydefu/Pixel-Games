@@ -15,8 +15,10 @@
  */
 export const CLOUD_VERT=String.raw`varying vec3 vRay;
 void main(){
-  vRay=position;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+  vec4 worldPoint=modelMatrix*vec4(position,1.0);
+  // Camera-relative world ray: the sphere is at the world origin, not at the player.
+  vRay=worldPoint.xyz-cameraPosition;
+  gl_Position=projectionMatrix*viewMatrix*worldPoint;
 }`;
 
 export const CLOUD_COMMON=String.raw`uniform float uTime;
@@ -246,7 +248,8 @@ void main(){
   gSun=max(0.0,cs);
   float sy=sunDir.y;
   gSunEl=sy;gTw=uTwilight;
-  float mask=smoothstep(0.05,0.20,ray.y)*(1.0-smoothstep(0.86,0.98,ray.y))*(1.0-0.97*uNightC);
+  // Horizon haze only. Fading again near zenith produced an artificial clear hole.
+  float mask=smoothstep(0.0,0.20,ray.y)*(1.0-0.97*uNightC);
   vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
   float toward=dot(rf,sf);
 
