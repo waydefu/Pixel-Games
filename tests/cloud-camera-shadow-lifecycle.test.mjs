@@ -70,7 +70,7 @@ function harness(){
     clear:()=>{stats.clear++;},
     readRenderTargetPixelsAsync:(_target,_x,_y,_w,_h,bytes)=>new Promise(resolve=>pending.push({resolve,bytes}))
   };
-  return {field,cloudField,gen,renderer,stats,prev,occ,pending};
+  return {field,cloudField,gen,renderer,stats,prev,occ,pending,tracked:textures};
 }
 
 test("cloud-shadow disabled/clear frames skip redundant target clears and restore renderer state",()=>{
@@ -115,6 +115,19 @@ test("late shadow-map GPU readbacks cannot restore stale sun occlusion after qua
   h.pending[1].bytes[0]=128;h.pending[1].resolve();
   await Promise.resolve();
   assert.ok(Math.abs(h.occ.at(-1)-128/255)<1e-9);
+});
+
+test("disposing the cloud render target invalidates an in-flight async readback",async()=>{
+  const h=harness();
+  h.gen.value[8]=1;h.field.setQuality("balanced",true);
+  for(let i=0;i<12;i++){h.field.tick();h.field.run(h.renderer);}
+  assert.equal(h.pending.length,1);
+  h.pending[0].bytes[0]=255;
+  h.tracked[0].dispose();
+  assert.equal(h.occ.at(-1),0);
+  h.pending[0].resolve();
+  await Promise.resolve();
+  assert.equal(h.occ.at(-1),0,"disposed GPU results must not revive cloud dimming");
 });
 
 test("renderer state restores even if the cloud-shadow pass throws",()=>{
