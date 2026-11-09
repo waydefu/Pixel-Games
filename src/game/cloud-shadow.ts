@@ -18,6 +18,9 @@ export function createCloudShadow(opts:{
 }){
   const {scene,scope,cloudField,gen}=opts;
   let size=256,enabled=true,frame=0,lastFrame=-1,readPending=false,readClock=0;
+  // GPU readbacks may finish after a quality switch, a resize or cloud removal.
+  let generation=0,cleared=false;
+  const invalidate=()=>{generation++;readPending=false;cloudField.setSunOcclusion(0);};
   const target=scope.track(new THREE.WebGLRenderTarget(size,size,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false}));
   target.texture.wrapS=target.texture.wrapT=THREE.ClampToEdgeWrapping;
   cloudField.uniforms.uCloudShadowMap.value=target.texture;
@@ -29,26 +32,45 @@ export function createCloudShadow(opts:{
   const camera=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
   const quad=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(2,2)),material);
   quad.frustumCulled=false;shadowScene.add(quad);
-  const probe=new Uint8Array(4);
   const hook=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(.01,.01)),scope.track(new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false})));
   hook.frustumCulled=false;hook.renderOrder=-1000;hook.userData.dynamic=true;hook.name="cloud-shadow-hook";
   function run(renderer:THREE.WebGLRenderer){
-    if(frame===lastFrame)return;                         // the scene is drawn several times a frame: the map once
+    if(frame===lastFrame)return;                         // only one cloud-shadow update per game frame
     lastFrame=frame;
     let any=enabled;
     if(any){any=false;for(let i=0;i<gen.value.length;i++)if(gen.value[i]>.01){any=true;break;}}
+    // A disabled or empty cloud field requires ONE zero clear, not a render-target
+    // switch and framebuffer clear on every frame.
+    if(!any&&cleared)return;
     const previous=renderer.getRenderTarget(),autoClear=renderer.autoClear;
-    renderer.setRenderTarget(target);renderer.autoClear=true;
-    if(any)renderer.render(shadowScene,camera);else renderer.clear();
-    renderer.setRenderTarget(previous);renderer.autoClear=autoClear;
-    // how much of the sun the cloud over the player hides: the centre texel, read back a few times a second
-    readClock++;
-    if(any&&!readPending&&readClock%12===0&&typeof renderer.readRenderTargetPixelsAsync==="function"){
-      readPending=true;
-      renderer.readRenderTargetPixelsAsync(target,size>>1,size>>1,1,1,probe)
-        .then(()=>{cloudField.setSunOcclusion(probe[0]/255);readPending=false;}).catch(()=>{readPending=false;});
+    try{
+      renderer.setRenderTarget(target);renderer.autoClear=true;
+      if(any)renderer.render(shadowScene,camera);else renderer.clear();
+    }finally{
+      renderer.setRenderTarget(previous);renderer.autoClear=autoClear;
     }
-    if(!any)cloudField.setSunOcclusion(0);
+    if(!any){
+      invalidate();cleared=true;
+      return;
+    }
+    cleared=false;
+    // Readbacks are async. Never let an old result darken the scene after
+    // disable, resize or a new cloud generation.
+    readClock++;
+    if(!readPending&&readClock%12===0&&typeof renderer.readRenderTargetPixelsAsync==="function"){
+      const ticket=generation;
+      const sample=new Uint8Array(4);  // own buffer: late reads must not overwrite a newer result
+      readPending=true;
+      try{
+        renderer.readRenderTargetPixelsAsync(target,size>>1,size>>1,1,1,sample)
+          .then(()=>{
+            if(ticket===generation){cloudField.setSunOcclusion(sample[0]/255);readPending=false;}
+          })
+          .catch(()=>{if(ticket===generation)readPending=false;});
+      }catch{
+        if(ticket===generation)readPending=false;
+      }
+    }
   }
   hook.onBeforeRender=run;
   scene.add(hook);
@@ -59,9 +81,12 @@ export function createCloudShadow(opts:{
     run,
     /** The map's cost follows the quality tier; a software rasteriser has no cloud shadows at all. */
     setQuality(quality:"basic"|"balanced"|"high",on=true){
-      enabled=on;
       const next=quality==="high"?256:quality==="balanced"?128:64;
-      if(next!==size){size=next;target.setSize(next,next);}
+      if(enabled!==on||next!==size)invalidate();
+      enabled=on;
+      if(next!==size){size=next;target.setSize(next,next);cleared=false;}
+      // The next pre-pass clears an inactive target exactly once.
+      if(!on)cleared=false;
     },
     /** Centre the map on the player, snapped to its texels so the shadows do not swim. */
     setCenter(x:number,z:number){
