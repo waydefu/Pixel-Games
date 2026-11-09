@@ -26,8 +26,8 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   assert.doesNotMatch(sky,/new Sky\(\)/,"physical Preetham sky was replaced by the art-directed gradient");
   assert.match(clouds,/uniform float uCloudDetailLevel/);
   // each layer is a point on a plane at its own height, so the sky and the ground shadows read one world position
-  assert.match(clouds,/cameraPosition\.xz\+plane\*LH\[ID\]/);
-  assert.match(clouds,/ground\+off\*LH\[ID\]/);
+  assert.match(clouds,/cameraPosition\.xz\+layerPlane\*LH\[ID\]/);
+  assert.match(clouds,/ground\+layerOff\*LH\[ID\]/);
   // Regress the verified old shader bug: a .11 ray clamp with an active
   // cloud horizon band formed tall rectangular cloud curtains in G4 snapshots.
   // The stretch of a flat layer at a low angle is capped (it drew every cloud as a thin rod), and the sky and the shadows share it.
