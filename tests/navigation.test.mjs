@@ -24,6 +24,23 @@ test("the western quarter is reachable and the sea edge is not a shortcut",()=>{
   assert.equal(canOccupy(28.8,8),true);
   assert.equal(canOccupy(29,8),false);
 });
+test("the farm is reachable beyond the old western limit without opening the rest of the map",()=>{
+  const fence=[
+    {x:-49,z:-25.5,halfX:.2,halfZ:7.5},
+    {x:-39,z:-33,halfX:10,halfZ:.2},
+    {x:-39,z:-18,halfX:10,halfZ:.2},
+  ];
+  let player={x:-39,z:-25.7};
+  for(let i=0;i<100;i++) player=stepOnGround(player,{x:-.1,z:0},fence);
+  assert.ok(player.x < -48 && player.x > -49, `stopped at the fence: ${player.x}`);
+  assert.equal(canOccupy(-45,-22,fence),true);
+  assert.equal(canOccupy(-45,-29,fence),true);
+  assert.equal(canOccupy(-49,-25.7,fence),false);
+  assert.equal(canOccupy(-41,-17.9),false);
+  assert.equal(canOccupy(-49.1,-25.7),false);
+  assert.equal(canOccupy(-45,-33,fence),false);
+  assert.equal(canOccupy(-45,-18,fence),false);
+});
 test("medieval props block player movement at their authored footprints",()=>{
   const barrel={x:4,z:8,halfX:.41,halfZ:.41};
   const stall={x:8,z:10.6,halfX:1.55,halfZ:.62};

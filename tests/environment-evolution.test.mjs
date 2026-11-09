@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fjordHeight,fjordSurfaceHeight,fjordMeshHeight } from "../src/game/terrain-profile.js";
+import { fjordHeight,fjordSurfaceHeight,fjordMeshHeight,FJORD_EXTENTS } from "../src/game/terrain-profile.js";
+import { FARM_BOUNDS } from "../src/game/navigation.js";
+
+test("interpolated mainland terrain stays below the farm floor",()=>{
+  const e=FJORD_EXTENTS.mainland;
+  for(let x=FARM_BOUNDS.x0;x<=-43;x+=.5)
+    for(let z=FARM_BOUNDS.z0;z<=FARM_BOUNDS.z1;z+=.5)
+      assert.ok(fjordMeshHeight(x,z,"mainland",e)<=-.187, `terrain intrudes at ${x},${z}`);
+});
 
 const read=(file)=>readFileSync(new URL("../src/game/"+file,import.meta.url),"utf8");
 
