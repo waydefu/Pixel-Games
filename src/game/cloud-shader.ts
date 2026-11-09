@@ -249,7 +249,7 @@ void main(){
   float sy=sunDir.y;
   gSunEl=sy;gTw=uTwilight;
   // Horizon haze only. Fading again near zenith produced an artificial clear hole.
-  float mask=smoothstep(0.0,0.10,ray.y)*(1.0-0.97*uNightC);
+  float mask=smoothstep(0.0,0.20,ray.y)*(1.0-0.97*uNightC);
   vec2 sf=normalize(sunDir.xz+vec2(1e-5)),rf=normalize(ray.xz+vec2(1e-5));
   float toward=dot(rf,sf);
 
