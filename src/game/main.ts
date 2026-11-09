@@ -162,7 +162,10 @@ const inventoryOverlay=element<HTMLElement>("#inventory-overlay");
 const inventoryOpen=()=>!inventoryOverlay.hidden;
 if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
-let gameplayFrameAtMenu:ReturnType<typeof frameMetrics.summary>|null=null;
+// Separate from the short rolling on-screen diagnostic: gather at least 15 seconds
+// at up to 200 FPS, rather than assuming 60 frames represent 15 seconds.
+const phoneFrameMetrics=createFrameMetrics({capacity:3000});
+let gameplayFrameAtMenu:ReturnType<typeof phoneFrameMetrics.summary>|null=null;
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
 const diagnostics={
   status:"starting" as GameState,
@@ -206,7 +209,8 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open){gameplayFrameAtMenu=frameMetrics.summary();releaseLook();input.reset();fishing.release();boating.resetRequest();}
+  if(open){gameplayFrameAtMenu=phoneFrameMetrics.summary();releaseLook();input.reset();fishing.release();boating.resetRequest();}
+  else{phoneFrameMetrics.reset();gameplayFrameAtMenu=null;}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -220,7 +224,7 @@ element<HTMLButtonElement>("#perf-report").addEventListener("click",()=>{
   const report=makePerformanceSnapshot({
     capturedAt:new Date().toISOString(),frame,
     device:{userAgent:navigator.userAgent,viewportWidth:innerWidth,viewportHeight:innerHeight,devicePixelRatio:devicePixelRatio},
-    run:{quality:quality.value,camera:rig.mode,weather:weatherPicker.value,hour,
+    run:{quality:quality.value,camera:rig.mode,weather:weatherPicker.value,weatherActual:world.weather.state.preset,hour,timeAuto:timeAuto.checked,
       reflect:params.get("reflect")??"default",rtt:params.get("rtt")??"default",
       mirror:params.get("mirror")??"default",fullres:params.get("fullres")??"default"},
     renderer:{drawCalls:diagnostics.drawCalls,bufferWidth:diagnostics.bufferWidth,
@@ -228,11 +232,12 @@ element<HTMLButtonElement>("#perf-report").addEventListener("click",()=>{
   });
   const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
-  a.href=url;a.download="coastal-performance-"+quality.value+"-"+new Date().toISOString().slice(0,10)+".json";a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  a.href=url;a.download="coastal-performance-"+quality.value+"-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
   element<HTMLElement>("#perf-report-status").textContent=report.validity.usable
     ?"已匯出幀間隔資料；這不是真 GPU 耗時。"
-    :"樣本不足（少於 60 幀）。請關閉設定，在遊戲操作至少 15 秒，再開啟設定匯出。";
+    :"測量不足：需在遊戲畫面持續至少 15 秒、累積 10 個以上影格。關閉設定重新測試。";
 });
 window.addEventListener("keydown",(e)=>{
   if(inventoryOpen())return;
@@ -347,6 +352,7 @@ if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave
 renderInventory();
 function setInventory(open:boolean){
   if(open){setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
+  else{phoneFrameMetrics.reset();gameplayFrameAtMenu=null;}
   inventoryOverlay.hidden=!open;inventoryToggle.setAttribute("aria-expanded",String(open));
   if(open)inventoryClose.focus();else inventoryToggle.focus();
 }
@@ -547,13 +553,13 @@ async function start(){
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
       if(!host)return;
-      frameMetrics.reset();gameplayFrameAtMenu=null;
+      frameMetrics.reset();phoneFrameMetrics.reset();gameplayFrameAtMenu=null;
       host.setQuality(quality.value);
       applyQuality();
       if(lowPower)host.setRenderScale(lowScale());
       resize();
     });
-    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();gameplayFrameAtMenu=null;});
+    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();phoneFrameMetrics.reset();gameplayFrameAtMenu=null;});
     const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     async function frame(now:number){
       if(!host||closed)return;
@@ -565,6 +571,7 @@ async function start(){
         if(frameMs>0){
           if(perfSamples&&now>=perfStarted)perfSamples.push({atMs:now-perfStarted,frameMs});
           frameMetrics.record(frameMs);
+          if(settings.hidden&&!inventoryOpen())phoneFrameMetrics.record(frameMs);
           if(!visualShot&&!lowPower){
             const next=adaptive.observe(frameMs);
             if(Math.abs(host.scale-next)>.001){host.setRenderScale(next);resize();}
