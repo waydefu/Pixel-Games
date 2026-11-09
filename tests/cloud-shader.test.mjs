@@ -140,7 +140,7 @@ test("low sun has a bright fiery disc with a separate core and a tight horizon f
   assert.match(fjord, /float discMask=smoothstep\(\.99957,\.99972,s\)\*discVisible;/);
   assert.match(fjord, /float hotCore=smoothstep\(\.99986,\.999965,s\);/);
   assert.match(fjord, /vec3 coreHue=mix\(discHue,vec3\(1\.0,\.43,\.12\),hotCore\*sunsetRed\*\.57\);/);
-  assert.match(fjord, /col=mix\\(col,coreHue\\*discRadiance\\*\\(1\\.0\\+\\.18\\*hotCore\\),discMask\\);/);
+  assert.match(fjord, /col=mix\(col,coreHue\*discRadiance\*\(1\.0\+\.18\*hotCore\),discMask\);/);
   // The HDR core can be hotter without losing its distinctive red outer rim.
   const emberGreen=.10+(.43-.10)*.57;
   const emberBlue=.02+(.12-.02)*.57;
