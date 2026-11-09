@@ -17,7 +17,8 @@
 | `.agents/skills/` | 按需的程式、研究、素材、WebGL QA 操作指引 | 已恢復；不等於自動執行 |
 | GitHub Pages | Actions 透過 `dist/` 發布 `/Pixel-Games/` | GitHub Actions 單入口發布；最新部署 SHA 另行查證，不以合併成功代替部署驗收 |
 | WebGPU+TSL、glTF-Transform、Tiled | 候選研究 | **未接入** |
-| Serena MCP（**開發用工具，不屬於遊戲**） | repo 根目錄 `.mcp.json` 以 `uvx` 啟動，**釘版 `serena-agent==2.1.0`**（`--context claude-code --project-from-cwd`）；Issue #79。`.serena/` 不進版控。停用：移除 `.mcp.json` 的 `serena` 項。雲端 session 只在啟動時載入 MCP，合併後要開新 session | 已設定；**新 session 實際載入與工具集：NOT RUN**。Ponytail（Claude Code 外掛，非 MCP）**未啟用**，待 Owner 決定 |
+| Serena MCP（**開發用工具，不屬於遊戲**） | repo 根目錄 `.mcp.json` 以 `uvx` 啟動，**釘版 `serena-agent==2.1.0`**（`--context claude-code --project-from-cwd`）；Issue #79。`.serena/` 不進版控。停用：移除 `.mcp.json` 的 `serena` 項。雲端 session 只在啟動時載入 MCP，合併後要開新 session | 已設定；**新 session 實際載入與工具集：NOT RUN** |
+| Ponytail skill（**開發用工具，不屬於遊戲**） | 來自 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) **v5.3.3（commit `7801d06`）** 的 `skills/ponytail/SKILL.md`，**逐字複製**到 `.claude/skills/ponytail/`，並保留其 MIT 授權（同目錄 `LICENSE`）。只帶入 skill 本體：**外掛與 hook 不帶入**（官方文件：repo 設定中的外掛不會在雲端 session 安裝）。規則為「最小完整改動、回覆結尾說明跳過與風險」；描述寫「任何寫程式的工作都套用」。停用：刪除 `.claude/skills/ponytail/`，或在對話中說 `/ponytail off`；規則與 `AGENTS.md` 衝突時以 `AGENTS.md` 為準。升級需另開 PR 並更新 `tests/vendored-skill.test.mjs` 的雜湊。Issue #81 | 已帶入；**新 session 實際載入與行為差異：NOT RUN** |
 | 真 Android／iOS、溫度、耗電與長時間 GPU 時間 | 真機 QA | **未驗收** |
 
 ```sh
