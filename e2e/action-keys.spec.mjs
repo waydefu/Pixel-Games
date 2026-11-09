@@ -21,6 +21,22 @@ test('physical C and F work with an IME and after closing inventory',async({page
   await expect(page.locator('#fish-meter')).toBeHidden();
   expect(await page.evaluate(()=>window.__pixelGame.read().camera)).toBe('first');
   await page.evaluate(()=>document.querySelector('#test-editing-target').remove());
+  const shortcut=await page.evaluate(()=>{
+    const event=new KeyboardEvent('keydown',{key:'f',code:'KeyF',ctrlKey:true,bubbles:true,cancelable:true});
+    window.dispatchEvent(event);return event.defaultPrevented;
+  });
+  expect(shortcut).toBe(false);
+  await expect(page.locator('#fish-meter')).toBeHidden();
+  await page.evaluate(()=>{
+    const editable=document.createElement('div');
+    editable.id='test-contenteditable';editable.contentEditable='true';
+    document.body.append(editable);editable.focus();
+    for(const [code,key] of [['KeyB','b'],['KeyG','g'],['KeyE','e']])
+      editable.dispatchEvent(new KeyboardEvent('keydown',{code,key,bubbles:true}));
+  });
+  await expect(page.getByRole('dialog',{name:'海岸行囊'})).toBeHidden();
+  expect(await page.evaluate(()=>window.__pixelGame.read().boat)).toBeNull();
+  await page.evaluate(()=>document.querySelector('#test-contenteditable').remove());
   await key(page,'keydown','KeyF','Process');
   await expect(page.locator('#fish-meter')).toBeVisible();
   await expect(page.locator('#fish-button')).toHaveText('放開拋竿！');
