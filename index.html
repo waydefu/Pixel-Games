@@ -17,6 +17,7 @@
       <div class="hud-mark"><span class="hud-dot" aria-hidden="true"></span><span>海岸漫遊 <small>/ COASTAL WANDER</small></span></div>
       <div class="hud-controls">
         <button id="view-toggle" class="hud-button view-button" aria-label="切換視角，目前：斜角" type="button">斜角</button>
+        <button id="inventory-toggle" class="hud-button" aria-label="開啟背包" aria-expanded="false" aria-controls="inventory" type="button">背包</button>
         <button id="menu-toggle" class="hud-button" aria-label="開啟遊戲設定" aria-expanded="false" aria-controls="settings" type="button"><span aria-hidden="true">☰</span></button>
       </div>
     </div>
@@ -61,11 +62,20 @@
       <input id="vol-sfx" type="range" min="0" max="1" step="0.05" value="1" aria-label="音效音量">
       <label class="check"><input id="audio-mute" type="checkbox"> 靜音（點一下畫面或按任意鍵後才會有聲音）</label>
       <button id="fullscreen" type="button">進入全螢幕</button>
-      <p>按 C 或右上方按鈕切換三種視角（1／2／3 也可切換）。<br>第一人稱：WASD／手機左搖桿移動；電腦點畫面後移動滑鼠環視，按 Esc 顯示游標；手機在右側拖曳環視。<br>路亞釣魚：走到海邊或碼頭，面向海面，按住 F（手機按住按鈕）蓄力，放開拋竿；按住收線，魚上鉤時點一下提竿；按 R（或「餌」按鈕）從釣具箱換餌：米諾、亮片湯匙、雷蛙、鉛頭鉤軟蟲；搏魚時按住收線、放開放線，讓張力維持在綠色區。<br>划船：走近碼頭或海灘旁的小船，按 E（手機按「上船」鈕）上船；W 划槳、S 倒划、A／D 轉向，靠近碼頭或岸邊再按 E 下船；船上也能釣魚。<br>風景：固定山坡觀景台，可自由環視。Shift 加速。</p>
+      <p>背包：按 B 或右上「背包」；靠近海岸物品後按 G 或點「拾取」。背包內可匯出或匯入本機備份。<br>按 C 或右上方按鈕切換三種視角（1／2／3 也可切換）。<br>第一人稱：WASD／手機左搖桿移動；電腦點畫面後移動滑鼠環視，按 Esc 顯示游標；手機在右側拖曳環視。<br>路亞釣魚：走到海邊或碼頭，面向海面，按住 F（手機按住按鈕）蓄力，放開拋竿；按住收線，魚上鉤時點一下提竿；按 R（或「餌」按鈕）從釣具箱換餌：米諾、亮片湯匙、雷蛙、鉛頭鉤軟蟲；搏魚時按住收線、放開放線，讓張力維持在綠色區。<br>划船：走近碼頭或海灘旁的小船，按 E（手機按「上船」鈕）上船；W 划槳、S 倒划、A／D 轉向，靠近碼頭或岸邊再按 E 下船；船上也能釣魚。<br>風景：固定山坡觀景台，可自由環視。Shift 加速。</p>
       <p class="technical">畫質統計：<span id="metrics">尚未取得資料</span></p>
       <p class="technical">慢慢走，看看海。這裡沒有必須完成的任務。</p>
           <p class="credit">模型：<a href="https://polyfork.dev" target="_blank" rel="noopener">Polyfork</a> 村莊套組（CC BY 4.0）· <a href="https://github.com/waydefu/Pixel-Games/blob/main/docs/ASSET-CREDITS.md" target="_blank" rel="noopener">署名與修改說明</a></p>
     </section>
+    <button id="pickup-button" class="pickup-button" type="button" hidden></button>
+    <div id="inventory-overlay" class="inventory-overlay" hidden>
+      <section id="inventory" class="inventory-panel" role="dialog" aria-modal="true" aria-labelledby="inventory-title">
+        <div class="settings-title"><strong id="inventory-title">海岸行囊</strong><button id="inventory-close" class="close" aria-label="關閉背包" type="button">✕</button></div>
+        <p>一路撿拾的小寶物，會自動收在這裡。</p><div id="inventory-list" class="inventory-list"></div>
+        <div class="inventory-actions"><button id="save-export" type="button">匯出存檔</button><button id="save-import" type="button">匯入存檔</button><input id="save-file" type="file" accept="application/json,.json" hidden></div>
+        <p id="save-message" role="status" aria-live="polite"></p>
+      </section>
+    </div>
     <div id="joystick" class="joystick" aria-label="移動搖桿" role="group">
       <div class="joystick-ring" aria-hidden="true"><div id="joystick-knob" class="joystick-knob"></div></div>
       <span class="joystick-caption">MOVE</span>

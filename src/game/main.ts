@@ -8,8 +8,10 @@ import { createGpuTimer } from "../rendering/gpu-timer.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
 import { loadVillageKit } from "./village-kit.js";
-import { createMovementInput } from "./input.js";
-import { stepWalkingByElapsedTime } from "./navigation.js";
+import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.js";
+import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
+import { ITEMS, PICKUPS, collect } from "./inventory.js";
+import { readSave, writeSave, validateSave } from "./save.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
 import { createBoating } from "./boating.js";
@@ -154,6 +156,8 @@ const weatherPicker=element<HTMLSelectElement>("#weather");
 {const initial=new URLSearchParams(window.location.search).get("weather");if(initial&&[...weatherPicker.options].some(o=>o.value===initial))weatherPicker.value=initial;}
 weatherPicker.addEventListener("change",()=>world.setWeather(weatherPicker.value==="auto"?null:weatherPicker.value));
 const input=createMovementInput(joystick,knob);
+const inventoryOverlay=element<HTMLElement>("#inventory-overlay");
+const inventoryOpen=()=>!inventoryOverlay.hidden;
 if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
@@ -199,7 +203,7 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open)releaseLook();
+  if(open){releaseLook();input.reset();}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -208,12 +212,13 @@ function setMenu(open:boolean){
 menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden")));
 menuClose.addEventListener("click",()=>setMenu(false));
 window.addEventListener("keydown",(e)=>{
+  if(inventoryOpen())return;
   if(e.key==="Escape"&&document.pointerLockElement===canvas){releaseLook();e.preventDefault();return;}
   if(e.key==="Escape"&&!settings.hidden){setMenu(false);e.preventDefault();}
   if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||!settings.hidden)return;
-  if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
+  if(isEditingTarget(e.target))return;
   const map:Record<string,CameraMode>={"1":"quarter","2":"first","3":"vista"};
-  if(e.key.toLowerCase()==="c")setCameraMode(rig.cycle());
+  if(matchesActionKey(e,"KeyC","c"))setCameraMode(rig.cycle());
   else if(map[e.key])setCameraMode(map[e.key]);
 });
 cameraPicker.addEventListener("change",()=>setCameraMode(cameraPicker.value as CameraMode));
@@ -251,15 +256,84 @@ function startAudio(){
 for(const type of ["pointerdown","keydown","touchstart"])window.addEventListener(type,()=>{startAudio();if(soundCtx&&soundCtx.state==="suspended")void soundCtx.resume();},{passive:true});
 document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(document.visibilityState==="hidden")void soundCtx.suspend();else void soundCtx.resume();});
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,isAboard:()=>boating.aboard,audio:()=>sound,
+  scene:world.scene,scope:world.scope,player:world.player,isBlocked:inventoryOpen,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
   scene:world.scene,scope:world.scope,boats:world.boats,movable:world.boatsMovable,blockers:world.seaBlockers,colliders:world.colliders,
-  player:world.player,audio:()=>sound,world,rig,getMode:()=>rig.mode,setCameraMode,
+  player:world.player,audio:()=>sound,world,rig,isBlocked:inventoryOpen,getMode:()=>rig.mode,setCameraMode,
   ui:{hud:element<HTMLElement>("#boat-hud"),status:element<HTMLElement>("#boat-status"),button:element<HTMLButtonElement>("#boat-button")},
 });
+// Pickups and saves are independent of the renderer and share stable identifiers.
+const inventory:Record<string,number>={};
+let collected:string[]=[];
+const pickupButton=element<HTMLButtonElement>("#pickup-button"),inventoryToggle=element<HTMLButtonElement>("#inventory-toggle");
+const inventoryClose=element<HTMLButtonElement>("#inventory-close"),inventoryList=element<HTMLElement>("#inventory-list"),saveMessage=element<HTMLElement>("#save-message");
+const saveFile=element<HTMLInputElement>("#save-file");
+const pickupMeshes=PICKUPS.map(p=>{
+  const geometry=world.scope.track(new THREE.IcosahedronGeometry(p.item==="driftwood"?.28:.22,0));
+  const material=world.scope.track(new THREE.MeshStandardMaterial({color:p.item==="shell"?0xe8cda6:p.item==="stone"?0x98aaa1:0x9a7048,roughness:.85}));
+  const mesh=new THREE.Mesh(geometry,material);mesh.position.set(p.x,groundHeight(p.x,p.z)+.18,p.z);
+  if(p.item==="driftwood")mesh.scale.set(2,.45,.5);if(p.item==="shell")mesh.scale.set(1,.45,.8);
+  world.scene.add(mesh);return mesh;
+});
+function renderInventory(){
+  inventoryList.replaceChildren();
+  for(const [id,count] of Object.entries(inventory)){
+    const item=ITEMS[id as keyof typeof ITEMS];if(!item)continue;
+    const card=document.createElement("div");card.className="inventory-item";
+    const icon=document.createElement("span");icon.className="inventory-icon icon-"+id;icon.setAttribute("aria-hidden","true");
+    const name=document.createElement("strong");name.textContent=item.name;
+    const amount=document.createElement("span");amount.textContent="數量 × "+count;
+    card.append(icon,name,amount);inventoryList.append(card);
+  }
+  if(!inventoryList.childElementCount)inventoryList.textContent="行囊還是空的。到海邊走走吧。";
+  pickupMeshes.forEach((mesh,i)=>{mesh.visible=!collected.includes(PICKUPS[i].id);});
+}
+function saveSnapshot(){return {version:1,player:{...world.player},hour,timeAuto:timeAuto.checked,inventory:{...inventory},collected:[...collected],fishing:fishing.tally(),boatsMovable:world.boatsMovable,boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),aboard:boating.index};}
+function checkWorldSave(value:ReturnType<typeof saveSnapshot>){
+  validateSave(value);
+  if(value.boats.length!==boating.sims.length || (value.aboard>=0&&(!world.boatsMovable||!value.boatsMovable)) || (value.aboard>=0&&Math.hypot(value.player.x-value.boats[value.aboard].x,value.player.z-value.boats[value.aboard].z)>5) || (value.aboard<0&&!canOccupy(value.player.x,value.player.z,world.colliders)))throw Error("存檔位置或船隻與目前世界不相容");
+  return value;
+}
+function applySave(value:ReturnType<typeof saveSnapshot>){
+  checkWorldSave(value);Object.keys(inventory).forEach(k=>delete inventory[k]);Object.assign(inventory,value.inventory);collected=[...value.collected];
+  hour=value.hour;timeAuto.checked=value.timeAuto;showHour();world.setHour(hour);fishing.setTally(value.fishing);
+  if(world.boatsMovable)boating.restore(value.boatsMovable?value.boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),value.aboard);world.movePlayer(value.player.x,value.player.z,0);renderInventory();
+}
+let saveBlocked=false;
+function saveProgress(){
+  if(visualShot||saveBlocked)return;
+  try{writeSave(window.localStorage,checkWorldSave(saveSnapshot()));saveMessage.textContent="已保存到這個瀏覽器。";}
+  catch{saveMessage.textContent="無法保存進度，請檢查瀏覽器儲存空間或權限。";}
+}
+if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave(checkWorldSave(saved));}catch{saveBlocked=true;saveMessage.textContent="現有存檔無法讀取，已保留原資料；可匯入備份。";}}
+renderInventory();
+function setInventory(open:boolean){
+  if(open){setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
+  inventoryOverlay.hidden=!open;inventoryToggle.setAttribute("aria-expanded",String(open));
+  if(open)inventoryClose.focus();else inventoryToggle.focus();
+}
+inventoryToggle.addEventListener("click",()=>setInventory(!inventoryOpen()));inventoryClose.addEventListener("click",()=>setInventory(false));
+window.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&inventoryOpen()){e.preventDefault();setInventory(false);return;}
+  if((e.code==="KeyB"||e.key.toLowerCase()==="b")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLSelectElement)&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();setInventory(!inventoryOpen());}
+  if(inventoryOpen()&&e.key==="Tab"){
+    const controls=[...inventoryOverlay.querySelectorAll<HTMLElement>('button:not([disabled])')];const i=controls.indexOf(document.activeElement as HTMLElement);
+    if(controls.length&&(e.shiftKey&&i<=0||!e.shiftKey&&i===controls.length-1)){e.preventDefault();controls[e.shiftKey?controls.length-1:0].focus();}
+  }
+});
+function nearPickup(){return !boating.aboard&&rig.mode!=="vista"?PICKUPS.find(p=>!collected.includes(p.id)&&Math.hypot(world.player.x-p.x,world.player.z-p.z)<2):undefined;}
+function takePickup(){const p=nearPickup();if(!p||inventoryOpen()||!settings.hidden)return;if(collect(inventory,collected,p.id)){renderInventory();saveProgress();}}
+window.addEventListener("keydown",e=>{if((e.code==="KeyG"||e.key.toLowerCase()==="g")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!(e.target instanceof HTMLInputElement))takePickup();});
+pickupButton.addEventListener("click",takePickup);
+element<HTMLButtonElement>("#save-export").addEventListener("click",()=>{try{const blob=new Blob([JSON.stringify(checkWorldSave(saveSnapshot()),null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="coastal-wander-save.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{saveMessage.textContent="無法匯出存檔。";}});
+element<HTMLButtonElement>("#save-import").addEventListener("click",()=>saveFile.click());
+saveFile.addEventListener("change",async()=>{try{const file=saveFile.files?.[0];if(!file)return;if(file.size>1000000)throw Error("檔案過大");const value=checkWorldSave(JSON.parse(await file.text()));writeSave(window.localStorage,value);applySave(value);saveBlocked=false;saveMessage.textContent="存檔已匯入。";}catch(error){saveMessage.textContent="匯入失敗："+(error instanceof Error?error.message:"無法讀取檔案");}finally{saveFile.value="";}});
+window.addEventListener("pagehide",saveProgress);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")saveProgress();});
+let lastSaveAt=0;
 // Audit only (?visualShot=...&boat=1&bx=&bz=&bh=&row=1): start aboard a boat at a given place, optionally rowing.
 let boatDrive:{x:number;y:number;sprint:boolean}|null=null;
 if(visualShot){
@@ -274,7 +348,7 @@ if(visualShot){
   }
 }
 canvas.addEventListener("pointerdown",e=>{
-  if(!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
+  if(inventoryOpen()||!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
   // Touch users use the LEFT joystick and drag on the RIGHT of the canvas.
   if(e.pointerType==="touch"&&e.clientX<canvas.clientWidth*.36)return;
   lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
@@ -293,7 +367,7 @@ canvas.addEventListener("pointerdown",e=>{
   e.preventDefault();
 });
 window.addEventListener("pointermove",e=>{
-  if(rig.mode==="quarter"||!settings.hidden)return;
+  if(inventoryOpen()||rig.mode==="quarter"||!settings.hidden)return;
   if(e.pointerType==="mouse"&&document.pointerLockElement===canvas){rig.look(e.movementX,e.movementY);return;}
   if(e.pointerType==="mouse"&&rig.mode==="first"&&!lockFailed)return;
   if(e.pointerId!==lookPointer)return;
@@ -304,7 +378,7 @@ const endLook=(e:PointerEvent)=>{if(e.pointerId===lookPointer)lookPointer=null;}
 canvas.addEventListener("pointerup",endLook);canvas.addEventListener("pointercancel",endLook);
 document.addEventListener("pointerlockchange",()=>{
   lockPending=false;lookPointer=null;
-  if(document.pointerLockElement===canvas&&(rig.mode!=="first"||!settings.hidden||!document.hasFocus()))releaseLook();
+  if(document.pointerLockElement===canvas&&(rig.mode!=="first"||inventoryOpen()||!settings.hidden||!document.hasFocus()))releaseLook();
   updateLookHint();
 });
 document.addEventListener("pointerlockerror",()=>{lockPending=false;lockFailed=true;updateLookHint();});
@@ -337,7 +411,7 @@ function resize(){
   diagnostics.bufferWidth=buffer.width;diagnostics.bufferHeight=buffer.height;
 }
 function update(dt:number,walkingElapsed=dt){
-  if(!settings.hidden)return;
+  if(!settings.hidden||inventoryOpen())return;
   const values=input.read();
   if(boating.update(dt,boatDrive??values,elapsed))return;   // boat physics retains its bounded timestep
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
@@ -438,6 +512,8 @@ async function start(){
       if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
       let cpuTime=measureCpu?performance.now():0;
       update(dt,document.visibilityState==='visible'?wallDt:0);
+      const pickup=nearPickup();pickupButton.hidden=!pickup||inventoryOpen()||!settings.hidden;pickupButton.textContent=pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
+      if(now-lastSaveAt>5000){lastSaveAt=now;saveProgress();}
       const movementMs=measureCpu?performance.now()-cpuTime:0;
       if(measureCpu)cpuTime=performance.now();
       const camera=rig.tick(dt);
