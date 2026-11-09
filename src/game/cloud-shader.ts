@@ -334,7 +334,7 @@ void main(){
   // the branches of every form but one (a loop over a runtime id compiled to one huge function and was twice as slow).
 #define SKY_LAYER(ID) if(uGen[ID]>0.01&&shown(ID)&&!(Q==0&&LALT[ID]>0.85)){\
     float al;\
-    vec2 layerPlane=ID==8&&uCuProjection>0.5?cuPlane(ray.xz,ray.y):plane;\
+    vec2 layerPlane=ID==8&&uCuProjection>0.5&&Q>=2?cuPlane(ray.xz,ray.y):plane;\
     vec2 lt=evalLayer(ID,cameraPosition.xz+layerPlane*LH[ID],ldir,Q,al);\
     float a=clamp(al*mask,0.0,0.97);\
     if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);thickAcc+=T*a*lt.y;T*=1.0-a;}\
@@ -375,7 +375,7 @@ void main(){
   // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
 #define SHADOW_LAYER(ID) if(uGen[ID]>0.01&&!(Q==0&&LALT[ID]>0.85)){\
     float al;\
-    vec2 layerOff=ID==8&&uCuProjection>0.5?cuPlane(s.xz,s.y):off;\
+    vec2 layerOff=ID==8&&uCuProjection>0.5&&uCloudDetailLevel>1.5?cuPlane(s.xz,s.y):off;\
     evalLayer(ID,ground+layerOff*LH[ID],vec2(0.0),Q,al);\
     T*=1.0-clamp(al*al*1.1,0.0,0.97);\
   }
