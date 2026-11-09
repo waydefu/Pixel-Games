@@ -1,9 +1,7 @@
-# Pixel-Games｜AI 協作入口
+# Pixel-Games｜GitHub Copilot 最小入口
 
-這個 repo **已核准並實作**中世紀海岸 HD-2D 遊戲；不要依舊快照誤判「尚未批准任何遊戲」。
+先遵守根目錄 `AGENTS.md` 的單一遊戲入口、Issue 認領（A＝Waydefu／B＝cooby19）、獨立 PR／Owner 合併授權、安全與驗收界線；不要在此複製整份規範。
 
-1. 先讀 `AGENTS.md`、`docs/CONTRIBUTING.md`、`docs/HANDOFF.md`，再核對最新 main、open Issues、PRs、Actions。
-2. 所有 Agent 必須選擇 A 或 B 執行端、認領獨立任務；不靠 GitHub 帳號辨識兩個 Agent。開工前查看其他 PR 的修改路徑。
-3. 單獨分支、單獨 PR；填任務與交集處理、測試證據、風險及回退。不直接 push main、不在未獲 Owner 授權下合併。
-4. 當前功能以程式、`docs/FEATURE-STATUS.json` 和已合併 PR 為準；舊研究與計畫先查 `docs/decisions/DECISION-REGISTER.md` 的有效性。
-5. 僅繁體中文對外說明；保留單一遊戲入口、已授權資產與 CI／真機驗收邊界。CI 綠燈不等於真機畫面合格。
+依任務需要從 `docs/INDEX.md` 路由到特定模組或規範，先搜尋符號／精確行數，**不在啟動時無條件讀完整套文件**。GitHub main、Issues、PR、CI 是即時狀態來源。功能或決策有變更時才對應讀功能台帳與決策效力表。
+
+Copilot 若支援 `.github/instructions/*.instructions.md`，依 `applyTo` 只套用相符路徑指引；這些指引不得推翻根目錄安全規則。對外溝通預設繁體中文。
