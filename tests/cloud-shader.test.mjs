@@ -70,7 +70,7 @@ test("Cu cloud base uses the same bounded horizon ray-plane projection in sky an
   assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(ray\.xz,ray\.y\):plane/);
   assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(s\.xz,s\.y\):off/);
   const fjord=read("fjord.ts");
-  assert.match(fjord, /cuProjection:auditQuery\.get\("cuProjection"\)===?"legacy"/);
+  assert.match(fjord, /const cuProjection=auditQuery\.get\("cuProjection"\)==="legacy"\?0:1;/);
   assert.match(fjord, /uCuProjection:cloudUniforms\.uCuProjection/,"sky and ground shadow use same A/B switch");
   // As in a ray/flat-plane intersection, low view angles intersect the
   // cloud base farther away; the numeric near-zero bound avoids singularities.
