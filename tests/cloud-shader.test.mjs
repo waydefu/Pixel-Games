@@ -65,6 +65,24 @@ test("clouds are built the way the failure modes taught: separate lumps, rotated
   for (const form of ["cumulusForm", "granularForm", "flockForm", "stratiform", "filament"]) assert.match(CLOUD_COMMON, new RegExp(form + "\\("));
 });
 
+test("cirrus strands have a coherent head and trailing tuft instead of an unbroken streak", () => {
+  const src = CLOUD_COMMON.slice(CLOUD_COMMON.indexOf("float filament("), CLOUD_COMMON.indexOf("vec2 skyPlane("));
+  assert.match(src, /float head=smoothstep\(0\.56,0\.74,vn\(headUv\)\);/);
+  assert.match(src, /float tail=smoothstep\(0\.42,0\.64,vn\(headUv\+R15\*vec2\(0\.462,0\.0\)\)\);/);
+  assert.match(src, /float strands=f\*sparse\*\(0\.30\+0\.70\*max\(head,tail\*0\.8\)\);/);
+  assert.match(src, /return min\(strands\+head\*sparse\*\(0\.45\+0\.35\*f\),1\.0\);/);
+  assert.doesNotMatch(src, /return f\*sparse;/, "uncapped full-length strands must not return directly");
+  // A fibre unsupported by a tuft carries at most 30% of its previous coverage.
+  const alpha = (f,sparse,head,tail) =>
+    Math.min(f*sparse*(0.30+0.70*Math.max(head,tail*0.8))+head*sparse*(0.45+0.35*f),1);
+  assert.equal(alpha(1,1,0,0),0.30);
+  assert.ok(alpha(1,1,1,0)>0.95, "visible tuft stays opaque");
+  assert.ok(alpha(1,1,0,1)>alpha(1,1,0,0), "trailing tuft supports a fibre");
+  // Keep every cloud genus on the existing shared evaluator: no new sky-only layer.
+  assert.match(CLOUD_COMMON, /float f=filament\(uv,fw\);alpha=/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
+});
+
 test("light: the sun's own colour on the lit side, sky light in shade, high layers keep the sun longest, with an afterglow", () => {
   assert.match(CLOUD_FRAG, /smoothstep\(-0\.035-0\.07\*alt01,0\.015-0\.015\*alt01,gSunEl\)/);
   assert.match(CLOUD_FRAG, /vec3 shadeCol=/);
