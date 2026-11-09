@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TIER_FEATURES, getTierFeatures, linearDepth, circleOfConfusion } from "../src/rendering/hd2d-pipeline.js";
+import { TIER_FEATURES, getTierFeatures, linearDepth, circleOfConfusion, projectedSunVisibility } from "../src/rendering/hd2d-pipeline.js";
 
 test("every quality tier uses the same linear pipeline and only differs in cost", () => {
   assert.deepEqual(Object.keys(TIER_FEATURES), ["basic", "balanced", "high"]);
@@ -31,4 +31,18 @@ test("circle of confusion is zero in focus, grows linearly and saturates", () =>
   assert.equal(circleOfConfusion(500, 30, 2, 10), 1);
   assert.equal(circleOfConfusion(5, 30, 2, 10), 1);
   assert.equal(circleOfConfusion(33, 30, 2, 0), 1); // zero span must not divide by zero
+});
+
+test("radial sun shafts fade before the emitter goes offscreen or out of clip depth", () => {
+  const v = (x, y, z = 0.5) => projectedSunVisibility({ x, y, z });
+  assert.equal(v(0, 0), 1, "sun at screen centre is unaffected");
+  assert.equal(v(0.75, 0), 1, "ordinary visible sun keeps normal ray strength");
+  assert.ok(Math.abs(v(0.9, 0) - 0.5) < 1e-12, "sun fades smoothly near horizontal edge");
+  assert.ok(Math.abs(v(0, -0.9) - 0.5) < 1e-12, "vertical edges use the same fade");
+  assert.equal(v(1, 0), 0);
+  assert.equal(v(1.5, 0), 0, "do not create rays with a source already beyond the view");
+  assert.equal(v(-1.5, -1.5), 0);
+  assert.equal(v(0, 0, 1.1), 0, "outside far clip volume");
+  assert.equal(v(0, 0, -1.1), 0, "outside near clip volume");
+  assert.equal(v(Number.NaN, 0), 0);
 });
