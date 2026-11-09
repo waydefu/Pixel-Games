@@ -37,12 +37,12 @@ test("clouds and atmosphere share actual world-space camera rays",()=>{
 });
 
 test("cloud horizon fades without an artificial clear zenith cap",()=>{
-  assert.match(CLOUD_FRAG,/float mask=smoothstep\(0\.0,0\.10,ray\.y\)\*\(1\.0-0\.97\*uNightC\);/);
+  assert.match(CLOUD_FRAG,/float mask=smoothstep\(0\.0,0\.20,ray\.y\)\*\(1\.0-0\.97\*uNightC\);/);
   assert.doesNotMatch(CLOUD_FRAG,/1\.0-smoothstep\(0\.86,0\.98,ray\.y\)/);
-  const mask=y=>{const t=Math.min(1,Math.max(0,y/.1));return t*t*(3-2*t);};
+  const mask=y=>{const t=Math.min(1,Math.max(0,y/.2));return t*t*(3-2*t);};
   assert.equal(mask(0),0);
   assert.ok(mask(.03)>0,"low-elevation cloud fade begins immediately above horizon");
-  assert.equal(mask(.10),1);
+  assert.equal(mask(.20),1);
   assert.equal(mask(1),1,"no cloudless zenith hole");
 });
 
