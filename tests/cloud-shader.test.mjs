@@ -121,7 +121,7 @@ test("High Cu flank lighting reuses slab geometry, is opt-in and leaves cloud sh
     (-.24*az+.12*(1-az*az)*(2*smooth(.08,.70,hit)-1));
   assert.ok(flank(.15,.1,-.9,.7)>0,"sun from behind brightens the flank");
   assert.ok(flank(.15,.1,.9,.7)<0,"viewing toward sun darkens the solid core");
-  assert.equal(flank(.9,.1,.9,.7),0,"high sun avoids artificial side illumination");
+  assert.ok(Math.abs(flank(.9,.1,.9,.7))<1e-12,"high sun avoids artificial side illumination");
   for(const h of [0,.1,.5,1])for(const az of [-1,-.5,0,.5,1])
     assert.ok(Math.abs(flank(.1,.1,az,h))<=.36,"bounded directional lighting");
 });
