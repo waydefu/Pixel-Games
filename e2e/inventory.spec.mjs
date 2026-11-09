@@ -76,7 +76,7 @@ test('corrupt local save stays intact until a raw backup is requested and reset 
   await page.locator('#save-reset').click();
   await expect(page.locator('#save-recovery')).toBeHidden();
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('pixel-games.save.v1')));
-  expect(saved.version).toBe(1);
+  expect(saved.version).toBe(2);
   expect(saved.inventory).toEqual({});
 });
 

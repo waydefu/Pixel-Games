@@ -1,5 +1,5 @@
 // Stable identifiers are shared by pickups, inventory and save files.
-export const ITEMS = Object.freeze({shell:{name:'貝殼'}, driftwood:{name:'漂流木'}, stone:{name:'海石'}});
+export const ITEMS = Object.freeze({shell:{name:'貝殼'}, driftwood:{name:'漂流木'}, stone:{name:'海石'}, wheat:{name:'小麥'}, cabbage:{name:'甘藍'}, pumpkin:{name:'南瓜'}, leek:{name:'韭蔥'}});
 export const PICKUPS = Object.freeze([
   {id:'shell-1',item:'shell',x:12,z:1}, {id:'shell-2',item:'shell',x:12,z:-4},
   {id:'wood-1',item:'driftwood',x:12,z:12}, {id:'stone-1',item:'stone',x:12,z:-10},
