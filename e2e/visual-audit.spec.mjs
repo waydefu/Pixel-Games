@@ -27,6 +27,29 @@ test("canonical visual audit URL uses the real game and a fixed camera pose",asy
   expect(shaderErrors).toEqual([]);
 });
 
+// The opt-in Cu slab is deliberately not the default: exercise its actual
+// High-tier WebGL shader path in browser CI before accepting any visual PR.
+test("opt-in High Cu slab renders after switching quality without a shader error",async({page})=>{
+  test.setTimeout(105_000);
+  const shaderErrors=[];
+  page.on("console",msg=>{
+    if(msg.type()==="error"&&/Shader Error|WebGLProgram|COMPILE_STATUS|VALIDATE_STATUS/i.test(msg.text()))
+      shaderErrors.push(msg.text());
+  });
+  await page.goto("./?visualShot=shot-02-first-wall&hour=12&cloudMix=Cu:0.7&cuProjection=slab");
+  await page.waitForFunction(()=>["ready","unsupported","failed"].includes(window.__pixelGame?.read().status),null,{timeout:30000});
+  const status=await page.evaluate(()=>window.__pixelGame.read().status);
+  if(status==="unsupported")return;
+  expect(status).toBe("ready");
+  await page.locator("#menu-toggle").click();
+  await page.locator("#quality").selectOption("high");
+  await page.locator("#menu-close").click();
+  const first=await page.evaluate(()=>window.__pixelGame.read().frames);
+  await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames),{timeout:80000}).toBeGreaterThan(first+1);
+  expect(await page.evaluate(()=>window.__pixelGame.read().grade)).toBe("high");
+  expect(shaderErrors).toEqual([]);
+});
+
 // Do not register six heavy screenshot tests during normal CI smoke.
 // They are created only by the explicit npm run visual:audit command.
 for(const shot of (process.env.VISUAL_AUDIT==="1" ? VISUAL_SHOTS.filter(s=>s.status==="supported") : [])){
