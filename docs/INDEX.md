@@ -1,6 +1,6 @@
 # Pixel-Games 文件索引｜現行與歷史分開
 
-> 2026-11-08：先核對 GitHub main、Issues、PR、CI，再使用 [協作規範](CONTRIBUTING.md)、[交接入口](HANDOFF.md)、[功能台帳](FEATURE-STATUS.json) 和 [決策效力表](decisions/DECISION-REGISTER.md)。下方 11/5 研究與授權是歷史快照，不是即時任務清單。
+> 本索引是**任務導覽，不是開工必讀清單**。2026-11-09 核對時，專案即時狀態以 GitHub main／Issues／PR／CI 為準；以下各文件依工作類型按需閱讀。11/5 研究與授權是歷史快照，不是即時任務清單。
 
 這個 Repo 只有**一個正式遊戲入口**，但研究、技術決策、Agent Skills 與工程模組可以獨立保留。
 
