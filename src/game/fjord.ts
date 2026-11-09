@@ -285,8 +285,8 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // audit: ?cloudOnly=Cu shows one genus; ?cloudMix=Cu:.7,Sc:.5 forces the mix (see cloud-genera.js for the codes)
   const auditQuery=new URLSearchParams(typeof location!=="undefined"?location.search:"");
   const cloudOnly=(()=>{const c=auditQuery.get("cloudOnly");const i=GENERA.findIndex(g=>g.code.toLowerCase()===(c??"").toLowerCase());return i;})();
-  // Same-build A/B: ?cuProjection=legacy restores the old Cu sky AND shadow projection.
-  const cuProjection=auditQuery.get("cuProjection")==="legacy"?0:1;
+  // Explicit High-only PoC: ?cuProjection=slab. The validated legacy sky/shadow stay the default.
+  const cuProjection=auditQuery.get("cuProjection")==="slab"?1:0;
   const forcedMix=(()=>{const m=auditQuery.get("cloudMix");if(!m)return null;const out=new Array(10).fill(0);for(const part of m.split(",")){const [code,v]=part.split(":");const i=GENERA.findIndex(g=>g.code.toLowerCase()===code.trim().toLowerCase());if(i>=0)out[i]=Math.min(1,Math.max(0,Number(v)||0));}return out;})();
   const cloudUniforms={
     uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
