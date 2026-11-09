@@ -24,6 +24,7 @@ void main(){
 export const CLOUD_COMMON=String.raw`uniform float uTime;
 uniform float uCloudAmount;
 uniform float uCloudDetailLevel;
+uniform float uCuProjection;
 uniform vec2 uCloudWind;
 uniform sampler2D uNoise;
 uniform float uGen[10];
@@ -180,6 +181,12 @@ float filament(vec2 uv,float fw){
 // up and show their sides, so the stretch is capped: about 3.5x at the horizon instead of 25x. The sky and the ground shadows
 // both use this, so the cloud over your head is still the one whose shadow is on the ground.
 vec2 skyPlane(vec2 dirXZ,float elevation){return dirXZ/(0.28+0.72*max(elevation,0.0));}
+// Low Cu near the horizon: use the ray's intersection with the horizontal
+// cloud-base plane, as in takustaqu/atmosphere planeUV(). The old artistic
+// shared projection stretched near-horizon Cu into angled brushstrokes.
+// Clamp only the near-zero elevation to avoid unbounded texture derivatives;
+// the existing atmospheric horizon fade hides that safety band.
+vec2 cuPlane(vec2 dirXZ,float elevation){return dirXZ/max(elevation,0.10);}
 
 // ---- layers: where each genus sits ----
 // H = height of the plane it is drawn on, S = size of one noise cell on it (world units; the island is about 100 across, so a
@@ -285,7 +292,8 @@ void main(){
   // the branches of every form but one (a loop over a runtime id compiled to one huge function and was twice as slow).
 #define SKY_LAYER(ID) if(uGen[ID]>0.01&&shown(ID)&&!(Q==0&&LALT[ID]>0.85)){\
     float al;\
-    vec2 lt=evalLayer(ID,cameraPosition.xz+plane*LH[ID],ldir,Q,al);\
+    vec2 layerPlane=ID==8&&uCuProjection>0.5?cuPlane(ray.xz,ray.y):plane;\
+    vec2 lt=evalLayer(ID,cameraPosition.xz+layerPlane*LH[ID],ldir,Q,al);\
     float a=clamp(al*mask,0.0,0.97);\
     if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);thickAcc+=T*a*lt.y;T*=1.0-a;}\
   }
@@ -325,7 +333,8 @@ void main(){
   // only a dense cloud throws a real shadow: a thin veil's is faint, so the shadow follows the density squared
 #define SHADOW_LAYER(ID) if(uGen[ID]>0.01&&!(Q==0&&LALT[ID]>0.85)){\
     float al;\
-    evalLayer(ID,ground+off*LH[ID],vec2(0.0),Q,al);\
+    vec2 layerOff=ID==8&&uCuProjection>0.5?cuPlane(s.xz,s.y):off;\
+    evalLayer(ID,ground+layerOff*LH[ID],vec2(0.0),Q,al);\
     T*=1.0-clamp(al*al*1.1,0.0,0.97);\
   }
   SHADOW_LAYER(6) SHADOW_LAYER(8) SHADOW_LAYER(9) SHADOW_LAYER(7) SHADOW_LAYER(5)
