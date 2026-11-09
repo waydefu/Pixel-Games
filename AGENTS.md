@@ -1,28 +1,19 @@
-# Pixel-Games｜所有 Agent 的共同工作契約
+# Pixel-Games｜Agent 共同契約
 
-本 repo **已經有一款獲准開發的中世紀海岸 HD-2D 遊戲**。此檔與 `.github/copilot-instructions.md` 必須指向同一套協作原則。
+本 Repo 僅有一個正式的中世紀海岸遊戲入口；本檔是**最小常駐規則**，不是要求每次讀完整個專案。
 
-## 每次啟動必做（不論上次讀過什麼）
+## 按需定位（Progressive Disclosure）
+- 不熟悉模組時先看 `docs/INDEX.md` 的「任務路由」，再搜尋**相關符號／檔案／局部行數**；不要先整庫掃描、展開所有文件或載入全部 Skills。
+- `docs/ARCHITECTURE.md` 用於跨模組變更；`docs/QUALITY-GATES.md` 用於測試／渲染驗收；`.agents/skills/*/SKILL.md` 僅在任務符合其描述時讀取。
+- 對既有專案狀態有疑問，以即時 GitHub main／Issues／PR／Actions／Pages 為準；README、研究及前次回報不能取代即時查證。
 
-1. 讀當前 main HEAD、開啟中的 Issues、PR 與 CI；**不可**把 README、歷史計畫、前次對話或其他 Agent 的回報當即時狀態。
-2. 讀 `docs/CONTRIBUTING.md`、`docs/HANDOFF.md`、`docs/FEATURE-STATUS.json`、`docs/decisions/DECISION-REGISTER.md`。
-3. 先認領單一 Issue 與執行端 A/B；列出預計修改路徑，檢查是否與其他開啟中的 PR 重疊。如是 hotfix，使用唯一的 HOTFIX-ID。
-4. 從最新 main 建立自己的分支；不直接改 main，不沿用另一 Agent 的工作分支。
-5. 開 PR 時填滿協作欄位、範圍、風險、相依 PR、驗收與回退。共同檔案衝突要記錄整合方式，不以 Git 自動合併成功代表功能整合完成。
+## 有實作或 PR 時必守
+1. 開工前核對最新 main HEAD、open Issue／PR、相關 CI；查重、列修改路徑和相依工作，避免與別人的 PR 衝突。
+2. 一張工作 Issue 對應明確驗收；自行認領並註明執行端 A＝Waydefu、B＝cooby19。緊急修復可用唯一 HOTFIX-ID，但仍須 PR／驗收；認領及協作依 `docs/CONTRIBUTING.md`，交接依 `docs/HANDOFF.md`。
+3. 從最新 main 開自己的分支；只透過 PR 整合，不直接改 main 或覆寫他人分支。PR 記錄範圍、關聯 Issue、重疊檔案、測試 PASS／FAIL／NOT RUN、風險與回退；**Owner 當次授權後**才可合併。
+4. 改**已實作功能**才核對並更新 `docs/FEATURE-STATUS.json`；改**有效設計決策**才核對 `docs/decisions/DECISION-REGISTER.md`。保留舊研究、ADR、素材來源和歷史決策；SUPERSEDED／HISTORICAL 不作現行需求。
 
-## 權威來源與資料保存
-
-- **即時事實**：GitHub main / Issues / PRs / CI / Pages；靜態進度表是有日期的快照。
-- **功能狀態**：`docs/FEATURE-STATUS.json`；新增或移除功能的 PR 必須同步更新。
-- **工作分配與交接**：Issues 和 PR 描述；不建立第二份手寫「最新 PR 清單」。
-- **決策效力**：`docs/decisions/DECISION-REGISTER.md`；舊計畫、研究與授權紀錄保留，但被取代的條款不得重新施行。
-- 任何 `CURRENT` 與 `SUPERSEDED` 衝突，先核對新 PR、Owner 決定及現行程式；有疑義標 BLOCKED，不猜測。
-
-## 安全與品質
-
-- 唯一根遊戲入口；視覺／玩法修改不得製造第二份平行遊戲。
-- `src/game/main.ts`、`world.ts`、渲染管線、CI 與資料存檔格式屬高整合風險區；交疊工作需額外相容性驗收。
-- `npm ci && npm run validate && npm run test:e2e`；真機 FPS、GPU、音效實聽與人工美術另行驗收。修 CI 須修根因，不得跳過測試或以提高逾時取代證據。
-- 僅採合法可追溯素材；不暴露機密，不擅自修改 Pages Source、Ruleset 或花費付費資源。
-- **Owner 保留合併決策**；歷史重構授權不是永久免審核通行證。只有當次明確授權才合併。
-- 文件和程式可以精確重構與清理；研究、ADR、來源、歷史證據以標記生命週期為優先，不隨便刪除。
+## 不可放寬
+- 單一遊戲入口；`src/game/main.ts`、`world.ts`、渲染、輸入、存檔與 CI 是高交集區，修改時須做跨模組回歸。
+- 原始碼／授權素材合法可追溯；不暴露機密、不擅自修改 Ruleset、Pages Source 或付費資源。
+- 程式 PR 須驗證 `npm run validate` 與相關 E2E；完整驗收依風險執行。CI／SwiftShader 綠燈**不代表**真手機 FPS、GPU、聲音或美術合格；不得靠略過測試或盲目加 Timeout 偽造綠燈。

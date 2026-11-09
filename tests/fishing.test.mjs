@@ -124,7 +124,7 @@ test("only open water takes a cast", () => {
 
 test("fishing is wired into the game: hold F or the button, with a tension gauge", () => {
   const view = read("src/game/fishing.ts");
-  assert.match(view, /toLowerCase\(\)==="f"/);
+  assert.match(view, /matchesActionKey\(event,"KeyF","f"\)/);
   assert.match(view, /keyup/, "holding the key matters: a release is an input");
   assert.match(view, /setCameraMode\("first"\)/);
   const html = read("index.html");

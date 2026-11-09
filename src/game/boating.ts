@@ -22,7 +22,7 @@ export function createBoating(opts:{
   player:{x:number;z:number};audio?:()=>import("./soundscape.js").Soundscape|null;
   world:{movePlayer:(x:number,z:number,t:number)=>void;setSeat:(lift:number)=>void;setBoatFoam:(p:Pose[])=>void};
   rig:{turn:(d:number)=>void;setEyeLift:(v:number)=>void;faceHeading:(h:number)=>void};
-  getMode:()=>string;setCameraMode:(m:"quarter"|"first"|"vista")=>void;
+  isBlocked?:()=>boolean;getMode:()=>string;setCameraMode:(m:"quarter"|"first"|"vista")=>void;
   ui:{hud:HTMLElement;status:HTMLElement;button:HTMLButtonElement};
 }){
   const {scene,boats,player,world,rig,ui}=opts;
@@ -44,11 +44,11 @@ export function createBoating(opts:{
   let aboard=-1,request=false,message="",messageUntil=0,landingHint:string|null=null,previousHeading=0,wakeClock=0,time=0;
   const say=(text:string,seconds=2.2)=>{message=text;messageUntil=time+seconds;};
   window.addEventListener("keydown",e=>{
-    if(e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;
+    if(opts.isBlocked?.()||e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;
     if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
     if(e.key.toLowerCase()==="e")request=true;
   });
-  ui.button.addEventListener("click",()=>{request=true;});
+  ui.button.addEventListener("click",()=>{if(!opts.isBlocked?.())request=true;});
 
   // ---- two oars: wooden shaft, flat blade, leather collar ----
   const rig3=new THREE.Group();rig3.visible=false;rig3.userData.dynamic=true;scene.add(rig3);
@@ -182,6 +182,11 @@ export function createBoating(opts:{
     return true;
   }
   return {update,get aboard(){return aboard>=0;},get index(){return aboard;},get landingHint(){return landingHint;},sims,rowing:ROWING,board,leave,
-    boat:(i:number)=>sims[i].state};
+    boat:(i:number)=>sims[i].state, resetRequest:()=>{request=false;}, restore:(poses:{x:number;z:number;heading:number}[],index:number)=>{
+      if(aboard>=0){for(const o of (boats[aboard].userData.ownOars as THREE.Object3D[]|undefined)??[])o.visible=true;}
+      aboard=-1;world.setSeat(0);rig.setEyeLift(0);rig3.visible=false;
+      poses.forEach((p,i)=>{sims[i].place(p.x,p.z,p.heading);applyPose(i);});
+      if(index>=0)board(index);
+    }};
 }
 export type Boating=ReturnType<typeof createBoating>;
