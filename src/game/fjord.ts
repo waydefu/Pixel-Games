@@ -124,15 +124,27 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         // Sun: warm haze tinted by the sun colour, corona and an HDR disc that feeds bloom and god rays.
         float s=max(0.0,dot(ray,normalize(uSunDirection)));
         float sunUp=smoothstep(-.12,.10,uSunDirection.y)*(1.0-.85*uWeatherDark);
-        // The disc itself reddens as the sun sinks: white-yellow high, orange by about 8 degrees, fiery red at the horizon, and it
-        // dims a little as the haze thickens. The corona follows the same hue.
+        // Keep the PR #36 white-yellow -> orange -> fiery-red transition, but do not
+        // let the wide atmospheric sunUp fade turn a visible setting sun into a dim fog ball.
         float sunSin=uSunDirection.y;
         vec3 discHue=mix(vec3(1.0,.88,.66),vec3(1.0,.42,.10),(1.0-smoothstep(.20,.60,sunSin)));
         discHue=mix(discHue,vec3(1.0,.10,.02),(1.0-smoothstep(.015,.16,sunSin)));
         vec3 coronaTint=mix(vec3(1.0),vec3(1.0,.66,.52),(1.0-smoothstep(.0,.25,sunSin)));
         col=mix(col,uSunColor*coronaTint*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*coronaTint*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
-        col=mix(col,discHue*mix(18.0,2.4,(1.0-smoothstep(.04,.55,sunSin))),smoothstep(.99955,.99978,s)*sunUp*smoothstep(-.02,.03,ray.y));
+        // Like the official Three.js Sky, define the solar disc by view/sun angle.
+        // Clip each visible ray at the horizon, NOT the sun's centre altitude:
+        // otherwise the upper limb vanishes before it finishes setting.
+        // The atmospheric corona continues to use sunUp separately.
+        float discVisible=smoothstep(-.003,.001,ray.y)*(1.0-.65*uWeatherDark);
+        float discMask=smoothstep(.99957,.99972,s)*discVisible;
+        float sunsetRed=1.0-smoothstep(.02,.18,sunSin);
+        float discRadiance=mix(18.0,5.6,(1.0-smoothstep(.04,.55,sunSin)));
+        // The edge stays saturated ember-red; a smaller hotter orange heart gives
+        // the sun a bright centre without bleaching the entire disc or the sky.
+        float hotCore=smoothstep(.99986,.999965,s);
+        vec3 coreHue=mix(discHue,vec3(1.0,.43,.12),hotCore*sunsetRed*.57);
+        col=mix(col,coreHue*discRadiance*(1.0+.18*hotCore),discMask);
         // 22-degree halo: sunlight bent by the ice crystals of a cirrostratus veil. A thin ring 21.7 degrees out, sharp and
         // reddish on its inner edge, fading white outside (the inside stays unlit), only while such a veil is up
         if(uHalo>.01){
