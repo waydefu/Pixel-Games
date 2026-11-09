@@ -14,3 +14,6 @@ playwright-report/
 # Generated PNGs and JSON manifests from optional visual inspection
 visual-audit-output/
 performance-output/
+
+# Serena (development-only MCP, see docs/TOOLING.md): its project settings, memories and cache stay local, so they never become a second hand-written source of truth
+.serena/
