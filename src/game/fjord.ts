@@ -132,9 +132,11 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
         vec3 coronaTint=mix(vec3(1.0),vec3(1.0,.66,.52),(1.0-smoothstep(.0,.25,sunSin)));
         col=mix(col,uSunColor*coronaTint*.9,pow(s,3.0)*.55*sunUp);
         col+=uSunColor*coronaTint*(pow(s,22.0)*.5+pow(s,170.0)*2.0)*sunUp;
-        // Only the disc gets a tight horizon visibility mask; the atmospheric corona
-        // continues to use sunUp. Slightly sharpen the rim without a hard pixel edge.
-        float discVisible=smoothstep(-.014,.002,sunSin)*smoothstep(-.012,.003,ray.y)*(1.0-.65*uWeatherDark);
+        // Like the official Three.js Sky, define the solar disc by view/sun angle.
+        // Clip each visible ray at the horizon, NOT the sun's centre altitude:
+        // otherwise the upper limb vanishes before it finishes setting.
+        // The atmospheric corona continues to use sunUp separately.
+        float discVisible=smoothstep(-.003,.001,ray.y)*(1.0-.65*uWeatherDark);
         float discMask=smoothstep(.99957,.99972,s)*discVisible;
         float sunsetRed=1.0-smoothstep(.02,.18,sunSin);
         float discRadiance=mix(18.0,5.6,(1.0-smoothstep(.04,.55,sunSin)));
