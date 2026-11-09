@@ -11,7 +11,7 @@ import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.js";
 import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
 import { hullClear } from "./rowing.js";
-import { ITEMS, PICKUPS, collect } from "./inventory.js";
+import { ITEMS, PICKUPS, collect, addCatch } from "./inventory.js";
 import { readSave, writeSave, validateSave, commitImportedSave, SAVE_KEY } from "./save.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
@@ -259,6 +259,7 @@ document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(documen
 const fishing=createFishingView({
   scene:world.scene,scope:world.scope,player:world.player,isBlocked:()=>inventoryOpen()||!settings.hidden,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
+  onCatch:result=>{if(addCatch(inventory,result)){renderInventory();saveProgress();}},
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
