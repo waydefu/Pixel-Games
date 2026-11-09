@@ -6,13 +6,15 @@ test('first-person walking crosses the farm and stops at the visible fence', asy
   expect(await page.evaluate(() => window.__pixelGame.read().camera)).toBe('first');
   await page.keyboard.down('w');
   try {
-    await expect.poll(() => page.evaluate(() => window.__pixelGame.read().player.x), { timeout: 45000 }).toBeLessThan(-48);
+    await expect.poll(() => page.evaluate(() => window.__pixelGame.read().player.x), { timeout: 45000 }).toBeLessThan(-48.2);
     await page.waitForTimeout(2000);
   } finally {
     await page.keyboard.up('w');
   }
   const player = await page.evaluate(() => window.__pixelGame.read().player);
-  expect(player.x).toBeGreaterThan(-49);
+  // The fence face is at -48.8; the player radius keeps its center at least
+  // 0.36 away. The map boundary at -49 alone would not satisfy this check.
+  expect(player.x).toBeGreaterThanOrEqual(-48.44);
   expect(player.z).toBeCloseTo(-25.7, 1);
   await page.screenshot({ path: testInfo.outputPath('farm-west-fence.png') });
 });
