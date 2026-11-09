@@ -52,42 +52,76 @@ float fbmF(vec2 p,int n,float fw){
 
 // ---- forms. Each returns x = density 0..1, y = lit-ness -1..1 (+1 faces the sun), z = thickness 0..1 ----
 
-// Cumulus: separate lumps standing on a warped plane, shaded by the field's slope toward the sun
-vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
+// Cu's field is shared by the ordinary 2D silhouette, and by the opt-in
+// bounded slab. The latter follows the base/top + four height samples in
+// takustaqu/atmosphere's Cu slab (MIT), not two overlaid ghost silhouettes.
+float cuLump(vec2 q){
+  return 0.28+smoothstep(0.35,0.80,vn(R15*q*0.9+31.7))*0.85;
+}
+// x: uncut density; y: sunward light; z: thickness; w: broad field
+// (including the grouping bias) before mixing in 45% of the one-tap lumps.
+vec4 cuField(vec2 uv,float fw,float cov,vec2 ldir,int Q,out vec2 q){
   float ev=uTime*0.0035;
   int wo=Q>=2?3:2;
-  vec2 q=uv+0.5*(vec2(fbmF(uv*1.6+ev,wo,fw*1.6),fbmF(uv*1.6-ev*0.8+7.0,wo,fw*1.6))-0.5);
-  float lump=0.28+smoothstep(0.35,0.80,vn(R15*q*0.9+31.7))*0.85;
+  q=uv+0.5*(vec2(fbmF(uv*1.6+ev,wo,fw*1.6),fbmF(uv*1.6-ev*0.8+7.0,wo,fw*1.6))-0.5);
+  float lump=cuLump(q);
   float base=fbmF(q,Q>=1?4:3,fw);
   float det=Q>=1?fbmF(q*4.6+17.0+vec2(ev*0.33,-ev*0.21),Q>=2?4:3,fw*4.6):0.5;
-  // High: a finer billow octave roughens the margin like a cauliflower (shape and place are the same on every tier)
+  // High billow and sun-side taps stay identical in the legacy 2D path.
   float billow=Q>=2?(fbmF(q*11.0+5.0,3,fw*11.0)-0.5)*0.30:0.0;
   float field=(base*0.54+det*0.46-0.5)*2.2+0.5+billow;
-  float d=mix(field,lump,0.45);
-  // a sparse sky is a few big masses, not scattered bits: a slow field lifts whole regions together, so the peaks inside one
-  // region merge into one body and the rest stays blue
   float grp=fbmF(uv*0.30+41.0,2,fw*0.30);
-  d+=(grp-0.5)*mix(1.15,0.30,cov);
+  float grpLift=(grp-0.5)*mix(1.15,0.30,cov);
+  float d=mix(field,lump,0.45)+grpLift;
   float edge=mix(0.84,0.52,cov);
-  // a wide ramp: dense core, then a long misty fall-off (smoke, not a cut-out)
+  float broad=field+grpLift/0.55;
   float den=smoothstep(edge-0.16,edge+0.22,d);
-  if(den<=0.0)return vec3(0.0);
+  if(den<=0.0)return vec4(d,0.0,0.0,broad);
   float lit=0.0;
   if(Q>=1){
     vec2 ql=q+ldir*0.16;
-    float lumpL=0.28+smoothstep(0.35,0.80,vn(R15*ql*0.9+31.7))*0.85;
+    float lumpL=cuLump(ql);
     float baseL=fbmF(ql,Q>=2?4:3,fw);
     float dl=mix((baseL*0.54+det*0.46-0.5)*2.2+0.5+billow,lumpL,0.45);
     lit=clamp((d-dl)*3.6,-1.0,1.0);
     if(Q>=2){
-      // High: a second, farther tap toward the sun, so the side away from it sinks deeper into shade (self-shadowing)
       vec2 q2=q+ldir*0.40;
-      float lump2=0.28+smoothstep(0.35,0.80,vn(R15*q2*0.9+31.7))*0.85;
+      float lump2=cuLump(q2);
       float d2=mix((fbmF(q2,4,fw)*0.54+det*0.46-0.5)*2.2+0.5+billow,lump2,0.45);
       lit=clamp(mix(lit,(d-d2)*2.4,0.5)*1.15,-1.0,1.0);
     }
   }
-  return vec3(den,lit,smoothstep(edge,edge+0.50,d));
+  return vec4(d,lit,smoothstep(edge,edge+0.50,d),broad);
+}
+vec3 cumulusForm(vec2 uv,float fw,float cov,vec2 ldir,int Q){
+  vec2 unusedQ;
+  vec4 v=cuField(uv,fw,cov,ldir,Q,unusedQ);
+  float edge=mix(0.84,0.52,cov);
+  return vec3(smoothstep(edge-0.16,edge+0.22,v.x),v.y,v.z);
+}
+// High-only, opt-in proof of concept. Four height samples form ONE convex
+// Cu silhouette; the top never renders as a second translucent cloud layer.
+// The common base field is still sampled by the cloud-shadow pass.
+vec3 cumulusSlab(vec2 uv,float fw,float cov,vec2 ldir,int Q,vec2 span){
+  vec2 q0,q1;
+  vec4 bottom=cuField(uv,fw,cov,ldir,Q,q0);
+  vec4 crown=cuField(uv+span,fw,cov,ldir,Q,q1);
+  float edge=mix(0.84,0.52,cov);
+  float h0=bottom.x-edge;
+  float hmax=h0;
+  for(int k=1;k<4;k++){
+    float u=float(k)/3.0;
+    float lump=cuLump(mix(q0,q1,u));
+    float h=mix(mix(bottom.w,crown.w,u),lump,0.45)-edge-0.28*u*u;
+    hmax=max(hmax,h);
+  }
+  float den=smoothstep(-0.16,0.22,hmax);
+  float uHit=clamp(-h0/max(hmax-h0,0.02),0.0,1.0);
+  // Below a flat base the underside stays blue-grey; the body above it
+  // catches the directional sunlight. The hit is a continuous interpolation,
+  // not an abrupt step across one of the four sampled heights.
+  float lit=mix(-0.48,crown.y,smoothstep(0.08,0.70,uHit));
+  return vec3(den,lit,smoothstep(-0.08,0.45,hmax));
 }
 
 // Granular (stratocumulus): rolls and mottled masses. One octave cut narrowly: one grain size, irregularly placed
@@ -202,6 +236,7 @@ const float LW[10]=float[10](14.0,13.0,14.0,15.0,16.0,14.0,3.5,10.0,7.5,7.5);
 const float LALT[10]=float[10](1.0,0.9,0.95,0.45,0.55,0.3,0.05,0.15,0.1,0.1);   // 0 low .. 1 high: how long the sun lasts on it
 const float LRIM[10]=float[10](1.0,0.6,0.8,0.1,0.9,0.0,0.2,0.8,1.0,1.0);        // how strongly its margin burns toward the sun
 bool gNeedLit=true;
+vec2 gCuSpan=vec2(0.0);
 
 // one genus at world plane point P: x lit-ness, y thickness; alpha (before the horizon fade) out
 vec2 evalLayer(int id,vec2 P,vec2 ldir,int Q,out float alpha){
@@ -211,7 +246,7 @@ vec2 evalLayer(int id,vec2 P,vec2 ldir,int Q,out float alpha){
   int QL=gNeedLit?Q:0;
   alpha=0.0;
   if(id==6){vec2 s=stratiform(uv,fw,0.55,0.25);alpha=clamp(s.x*0.95*smoothstep(0.0,0.2,g),0.0,0.97);return vec2(0.0,s.y);}
-  if(id==8){vec3 v=cumulusForm(uv,fw,clamp(g*1.2,0.0,1.0),ldir,gNeedLit?Q:min(Q,1));alpha=clamp(v.x*0.97*smoothstep(0.0,0.15,g),0.0,0.97);return v.yz;}
+  if(id==8){float cov=clamp(g*1.2,0.0,1.0);vec3 v=uCuProjection>0.5&&gNeedLit&&Q>=2?cumulusSlab(uv,fw,cov,ldir,Q,gCuSpan):cumulusForm(uv,fw,cov,ldir,gNeedLit?Q:min(Q,1));alpha=clamp(v.x*0.97*smoothstep(0.0,0.15,g),0.0,0.97);return v.yz;}
   if(id==9){vec3 v=cumulusForm(uv*0.7,fw*0.7,1.0,ldir,gNeedLit?Q:min(Q,1));alpha=clamp(v.x*0.98*smoothstep(0.0,0.2,g),0.0,0.98);return vec2(v.y*0.5,max(v.z,0.85));}
   if(id==7){vec3 v=granularForm(uv,fw,0.55+0.3*g,0.8,g,ldir,QL);alpha=clamp(v.x*0.92*smoothstep(0.0,0.2,g),0.0,0.97);return v.yz;}
   if(id==5){vec2 s=stratiform(uv,fw,0.0,0.9);alpha=clamp(s.x*smoothstep(0.0,0.3,g),0.0,0.99);return vec2(0.0,0.6+0.4*s.y);}
@@ -286,6 +321,13 @@ void main(){
   int Q=uCloudDetailLevel>1.5?2:(uCloudDetailLevel>0.5?1:0);
   vec2 ldir=normalize(sunDir.xz+vec2(1e-4));
   vec2 plane=skyPlane(ray.xz,ray.y);               // where the ray meets a plane at unit height; scaled per layer
+  if(uCuProjection>0.5&&Q>=2){
+    // Bounded base/crown separation, as in the upstream Cu slab. At low
+    // elevation the crown displacement is capped to stop double cloud images.
+    vec2 nearPlane=cuPlane(ray.xz,ray.y);
+    float rise=min(0.38,0.72/max(length(nearPlane),0.001));
+    gCuSpan=nearPlane*(LH[8]/LS[8])*rise;
+  }
   vec3 col=vec3(0.0);float T=1.0,thickAcc=0.0;
 
   // Layers run low -> high; each is composited over what lies behind it. Unrolled with constant ids so the compiler can drop
