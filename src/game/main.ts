@@ -4,6 +4,7 @@ import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
 import { liveSky, setMoonPhase } from "./sky-live.js";
 import { HOUR_START, wrapHour, describeHour } from "./time-of-day.js";
 import { createFrameMetrics } from "../rendering/frame-metrics.js";
+import { makePerformanceSnapshot } from "./performance-report.js";
 import { createGpuTimer } from "../rendering/gpu-timer.js";
 import { createAdaptiveResolutionController } from "../rendering/quality.js";
 import { createCoastalWorld } from "./world.js";
@@ -161,6 +162,7 @@ const inventoryOverlay=element<HTMLElement>("#inventory-overlay");
 const inventoryOpen=()=>!inventoryOverlay.hidden;
 if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
+let gameplayFrameAtMenu:ReturnType<typeof frameMetrics.summary>|null=null;
 const adaptive=createAdaptiveResolutionController({targetMs:16.67,windowSize:120,cooldownWindows:3});
 const diagnostics={
   status:"starting" as GameState,
@@ -204,7 +206,7 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open){releaseLook();input.reset();fishing.release();boating.resetRequest();}
+  if(open){gameplayFrameAtMenu=frameMetrics.summary();releaseLook();input.reset();fishing.release();boating.resetRequest();}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -212,6 +214,26 @@ function setMenu(open:boolean){
 }
 menuToggle.addEventListener("click",()=>setMenu(settings.hasAttribute("hidden")));
 menuClose.addEventListener("click",()=>setMenu(false));
+element<HTMLButtonElement>("#perf-report").addEventListener("click",()=>{
+  const frame=gameplayFrameAtMenu??{count:0,p50Ms:null,p95Ms:null,meanMs:null};
+  const params=new URLSearchParams(location.search);
+  const report=makePerformanceSnapshot({
+    capturedAt:new Date().toISOString(),frame,
+    device:{userAgent:navigator.userAgent,viewportWidth:innerWidth,viewportHeight:innerHeight,devicePixelRatio:devicePixelRatio},
+    run:{quality:quality.value,camera:rig.mode,weather:weatherPicker.value,hour,
+      reflect:params.get("reflect")??"default",rtt:params.get("rtt")??"default",
+      mirror:params.get("mirror")??"default",fullres:params.get("fullres")??"default"},
+    renderer:{drawCalls:diagnostics.drawCalls,bufferWidth:diagnostics.bufferWidth,
+      bufferHeight:diagnostics.bufferHeight,renderScale:host?.scale??null}
+  });
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="coastal-performance-"+quality.value+"-"+new Date().toISOString().slice(0,10)+".json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  element<HTMLElement>("#perf-report-status").textContent=report.validity.usable
+    ?"已匯出幀間隔資料；這不是真 GPU 耗時。"
+    :"樣本不足（少於 60 幀）。請關閉設定，在遊戲操作至少 15 秒，再開啟設定匯出。";
+});
 window.addEventListener("keydown",(e)=>{
   if(inventoryOpen())return;
   if(e.key==="Escape"&&document.pointerLockElement===canvas){releaseLook();e.preventDefault();return;}
@@ -525,12 +547,13 @@ async function start(){
     observer=new ResizeObserver(resize);observer.observe(canvas);
     quality.addEventListener("change",()=>{
       if(!host)return;
+      frameMetrics.reset();gameplayFrameAtMenu=null;
       host.setQuality(quality.value);
       applyQuality();
       if(lowPower)host.setRenderScale(lowScale());
       resize();
     });
-    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();});
+    document.addEventListener("visibilitychange",()=>{previous=0;frameMetrics.reset();gameplayFrameAtMenu=null;});
     const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     async function frame(now:number){
       if(!host||closed)return;
@@ -600,7 +623,7 @@ async function start(){
       }
       if(now-uiTime>1200){
         const m=frameMetrics.summary();diagnostics.p95Ms=m.p95Ms;
-        metrics.textContent="p95 "+(m.p95Ms?.toFixed(1)??"—")+"ms · "+
+        metrics.textContent="p50 "+(m.p50Ms?.toFixed(1)??"—")+"ms · p95 "+(m.p95Ms?.toFixed(1)??"—")+"ms · "+
           diagnostics.drawCalls+" draw calls · "+diagnostics.bufferWidth+"×"+diagnostics.bufferHeight;
         uiTime=now;
       }
