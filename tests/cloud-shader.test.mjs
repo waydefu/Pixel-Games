@@ -129,6 +129,29 @@ test("sky and ground shadows drift together, downwind, at a visible pace; the su
   assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),\(1\.0-smoothstep\(\.015,\.16,sunSin\)\)\);/);
 });
 
+// Regression from POCO F8 Ultra real-device screenshots: PR #36 introduced a
+// 2.4 HDR sunset disc multiplied by two broad horizon fades, which made the disc
+// appear darker than the surrounding orange sky. Keep solar red, restore light.
+test("low sun has a bright fiery disc with a separate core and a tight horizon fade", () => {
+  const fjord = read("fjord.ts");
+  assert.doesNotMatch(fjord, /mix\(18\.0,2\.4,/,"do not restore the old dim sunset HDR coefficient");
+  assert.match(fjord, /float discRadiance=mix\(18\.0,5\.6,\(1\.0-smoothstep\(\.04,\.55,sunSin\)\)\);/);
+  assert.match(fjord, /float discVisible=smoothstep\(-\.014,\.002,sunSin\)\*smoothstep\(-\.012,\.003,ray\.y\)/);
+  assert.match(fjord, /float discMask=smoothstep\(\.99957,\.99972,s\)\*discVisible;/);
+  assert.match(fjord, /float hotCore=smoothstep\(\.99986,\.999965,s\);/);
+  assert.match(fjord, /vec3 coreHue=mix\(discHue,vec3\(1\.0,\.43,\.12\),hotCore\*sunsetRed\*\.57\);/);
+  assert.doesNotMatch(fjord, /discMask[^\n]*sunUp/,"atmospheric sunUp should only gate corona, not a visible disc");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const power=y=>18+(5.6-18)*(1-smooth(.04,.55,y));
+  const discVisible=(sunY,rayY)=>smooth(-.014,.002,sunY)*smooth(-.012,.003,rayY);
+  for(const y of [.002,.01,.05,.15]){
+    assert.ok(power(y)>=5.6,"near-horizon HDR stays luminous at "+y);
+    assert.ok(discVisible(y,y)>.99,"above-horizon solar disc remains visible at "+y);
+  }
+  assert.ok(discVisible(-.014,-.014)<1e-6,"fully below the horizon disappears");
+  assert.ok(power(.6)>17,"high sun retains its white-yellow HDR brightness");
+});
+
 // GLSL requires edge0 < edge1. Descending solar-height transitions must invert a
 // conventional smoothstep: reversed parameters produce undefined GPU-specific output.
 test("sunset shader transitions use defined smoothstep order", () => {
