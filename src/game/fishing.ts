@@ -22,7 +22,7 @@ const smooth=(a:number,b:number,v:number)=>{const t=Math.min(1,Math.max(0,(v-a)/
 
 export function createFishingView(opts:{
   scene:THREE.Scene;scope:{track:<T extends{dispose:()=>void}>(item:T)=>T};
-  player:{x:number;z:number};isBlocked?:()=>boolean;isAboard?:()=>boolean;audio?:()=>import("./soundscape.js").Soundscape|null;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;ui:Ui;
+  player:{x:number;z:number};isBlocked?:()=>boolean;isAboard?:()=>boolean;audio?:()=>import("./soundscape.js").Soundscape|null;getCamera:()=>Camera;getMode:()=>CameraMode;setCameraMode:(mode:CameraMode)=>void;onCatch?:(result:{id:string;junk:boolean})=>void;ui:Ui;
 }){
   const {scene,scope,player,ui}=opts;
   // ?fishSeed= makes the bites reproducible (used by the e2e test and for audits).
@@ -256,7 +256,7 @@ export function createFishingView(opts:{
         else{
           say("釣到 "+r.name+" "+r.length+"cm！",now,3.5);
           tally.count++;if(!tally.best||(r.length??0)>tally.best.length)tally.best={name:r.name,length:r.length??0};
-          save();showCount();
+          save();showCount();opts.onCatch?.(r);
         }
         showCatch(r.id,r.length);landedAt=now;body="reeling";
       }

@@ -28,6 +28,19 @@ export function getTierFeatures(quality) {
   return features;
 }
 
+/**
+ * NDC visibility of the sun for screen-space radial light shafts.
+ * GPU Gems 3 ch.13 warns that an off-screen emitter yields long/false rays.
+ * Fade within the last 20% of the viewport edge; skip its pass off screen.
+ * Does not affect the actual sun disc, sky or bloom.
+ */
+export function projectedSunVisibility(ndc) {
+  if (![ndc.x, ndc.y, ndc.z].every(Number.isFinite) || ndc.z < -1 || ndc.z > 1) return 0;
+  const distanceToEdge = 1 - Math.max(Math.abs(ndc.x), Math.abs(ndc.y));
+  const u = Math.min(1, Math.max(0, distanceToEdge / 0.2));
+  return u * u * (3 - 2 * u);
+}
+
 /** Linear view-space distance from a [0,1] depth-buffer value. */
 export function linearDepth(depth, near, far, orthographic) {
   if (orthographic) return near + depth * (far - near);
@@ -429,15 +442,18 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       if (rayTarget && sun.set && down.length) {
         activeCamera.getWorldDirection(cameraForward);
         const facing = cameraForward.dot(sun.direction);
-        if (facing > 0.05) {
+        if (facing > 0.05 && sun.scale > 0.01) {
           sunScreen.copy(activeCamera.position).addScaledVector(sun.direction, 1000).project(activeCamera);
-          const m = materials.rays;
-          m.uniforms.tSource.value = down[0].texture;
-          m.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
-          m.uniforms.uParams.value.set(0.92, 0.955, Math.min(32, features.godRays));
-          measure('rays',()=>pass(m, rayTarget));
-          materials.composite.uniforms.uRayStrength.value = 0.34 * sun.scale * Math.min(1, (facing - 0.05) / 0.3);
-          useRays = sun.scale > 0.01;
+          const viewportVisibility = projectedSunVisibility(sunScreen);
+          if (viewportVisibility > 0) {
+            const m = materials.rays;
+            m.uniforms.tSource.value = down[0].texture;
+            m.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
+            m.uniforms.uParams.value.set(0.92, 0.955, Math.min(32, features.godRays));
+            measure('rays',()=>pass(m, rayTarget));
+            materials.composite.uniforms.uRayStrength.value = 0.34 * sun.scale * Math.min(1, (facing - 0.05) / 0.3) * viewportVisibility;
+            useRays = true;
+          }
         }
       }
 

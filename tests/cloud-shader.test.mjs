@@ -24,8 +24,8 @@ test("the sky and the ground shadow draw the same layers: one shared block, one 
   assert.ok(CLOUD_FRAG.includes(CLOUD_COMMON), "the sky includes the shared block");
   assert.ok(CLOUD_SHADOW_FRAG.includes(CLOUD_COMMON), "the shadow includes the shared block");
   assert.match(CLOUD_COMMON, /vec2 evalLayer\(int id,vec2 P,vec2 ldir,int Q,out float alpha\)/);
-  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\]/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+layerPlane\*LH\[ID\]/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\]/);
   // the shadow has no lighting and no sky uniforms
   assert.match(CLOUD_SHADOW_FRAG, /gNeedLit=false/);
   assert.doesNotMatch(CLOUD_SHADOW_FRAG, /uTwilight|uWeatherDark|paintCloud\(/);
@@ -65,6 +65,89 @@ test("clouds are built the way the failure modes taught: separate lumps, rotated
   for (const form of ["cumulusForm", "granularForm", "flockForm", "stratiform", "filament"]) assert.match(CLOUD_COMMON, new RegExp(form + "\\("));
 });
 
+test("Cu cloud base uses the same bounded horizon ray-plane projection in sky and sun shadow", () => {
+  assert.match(CLOUD_COMMON, /vec2 cuPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/max\(elevation,mix\(0\.10,0\.03,uCuHorizon\)\);\}/);
+  assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5&&Q>=2\?cuPlane\(ray\.xz,ray\.y\):plane/);
+  assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5&&uCloudDetailLevel>1\.5\?cuPlane\(s\.xz,s\.y\):off/);
+  const fjord=read("fjord.ts");
+  assert.match(fjord, /const cuProjection=auditQuery\.get\("cuProjection"\)==="slab"\?1:0;/);
+  assert.match(fjord, /uCuProjection:cloudUniforms\.uCuProjection/,"sky and ground shadow use same A/B switch");
+  // As in a ray/flat-plane intersection, low view angles intersect the
+  // cloud base farther away; the numeric near-zero bound avoids singularities.
+  const plane = elevation => 1 / Math.max(elevation,0.10);
+  const legacy = elevation => 1 / (0.28+0.72*Math.max(elevation,0));
+  assert.ok(plane(.10)>2*legacy(.10),"cloud bank becomes shallower and more distant");
+  assert.equal(plane(.01),plane(.08),"horizon safety band remains bounded");
+  assert.ok(plane(.5)>legacy(.5));
+  assert.equal(plane(1),legacy(1));
+  assert.match(CLOUD_FRAG, /float mask=smoothstep\(0\.0,0\.20,ray\.y\)/,"horizon haze masks the capped band");
+});
+
+test("Cu horizon repair pairs a 0.03 ray-plane floor with a 0.03-0.12 fade and aerial color", () => {
+  const fjord=read("fjord.ts");
+  assert.match(fjord,/const cuHorizon=auditQuery\.get\("cuHorizon"\)==="legacy"\?0:1;/);
+  assert.match(fjord,/uCuHorizon:\{value:cuHorizon\}/);
+  assert.match(fjord,/uCuHorizon:cloudUniforms\.uCuHorizon/,"ground shadow and sky share the projection switch");
+  assert.match(CLOUD_COMMON,/mix\(0\.10,0\.03,uCuHorizon\)/);
+  assert.match(CLOUD_FRAG,/ID==8&&uCuProjection>0\.5&&Q>=2&&uCuHorizon>0\.5\)cloudMask=smoothstep\(0\.03,0\.12,ray\.y\)/);
+  assert.match(CLOUD_FRAG,/float cuAir=1\.0-exp\(-0\.35\*0\.05\/max\(ray\.y,0\.03\)\)/);
+  assert.match(CLOUD_FRAG,/layerColor=mix\(layerColor,uHorizon,cuAir\)/);
+  assert.match(CLOUD_SHADOW_FRAG,/cuPlane\(s\.xz,s\.y\)/,"both passes use the same Cu plane");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  for(const y of [-.01,0,.01,.029])assert.equal(smooth(.03,.12,y),0,"the capped texture region must be invisible");
+  assert.equal(smooth(.03,.12,.12),1,"clouds become fully opaque above the fade band");
+  const haze=y=>1-Math.exp(-.35*.05/Math.max(y,.03));
+  assert.ok(haze(.03)>haze(.12),"distant Cu merges into horizon color more strongly");
+  assert.ok(haze(.12)>haze(.5),"high-elevation Cu keeps its contrast");
+  assert.equal(1/Math.max(.01,.10),10,"legacy A/B remains bounded");
+  assert.ok(1/Math.max(.01,.03)>30,"new bound applies only in opt-in slab path");
+});
+
+test("High Cu flank lighting reuses slab geometry, is opt-in and leaves cloud shadows unchanged", () => {
+  const fjord=read("fjord.ts");
+  assert.match(fjord,/const cuLighting=auditQuery\.get\("cuLighting"\)==="volume"\?1:0;/);
+  assert.match(fjord,/uCuLighting:\{value:cuLighting\}/);
+  assert.match(CLOUD_FRAG,/uniform float uCuLighting/);
+  assert.doesNotMatch(CLOUD_SHADOW_FRAG,/uCuLighting/,"sky-only lighting must not enter the shadow pass");
+  assert.match(CLOUD_COMMON,/gCuHit=uHit;/,"height data comes from the existing slab");
+  assert.match(CLOUD_FRAG,/ID==8&&uCuProjection>0\.5&&Q>=2&&uCuLighting>0\.5/);
+  assert.match(CLOUD_FRAG,/float cuSide=\(1\.0-smoothstep\(0\.35,0\.85,sy\)\)\*\(1\.0-smoothstep\(0\.15,0\.65,ray\.y\)\)/);
+  assert.match(CLOUD_FRAG,/float cuCrown=smoothstep\(0\.08,0\.70,gCuHit\);/);
+  assert.match(CLOUD_FRAG,/lit=clamp\(lit\+cuFlank,-1\.0,1\.0\);/);
+  assert.match(CLOUD_FRAG,/cuRimBoost=0\.12\*cuBack\*cuEdge;/);
+  assert.match(CLOUD_FRAG,/layerColor=mix\(layerColor,uHorizon,cuAir\)/,"#109 Cu aerial haze remains after lighting");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const flank=(sunY,viewY,az,hit)=>(1-smooth(.35,.85,sunY))*(1-smooth(.15,.65,viewY))*
+    (-.24*az+.12*(1-az*az)*(2*smooth(.08,.70,hit)-1));
+  assert.ok(flank(.15,.1,-.9,.7)>0,"sun from behind brightens the flank");
+  assert.ok(flank(.15,.1,.9,.7)<0,"viewing toward sun darkens the solid core");
+  assert.ok(Math.abs(flank(.9,.1,.9,.7))<1e-12,"high sun avoids artificial side illumination");
+  for(const h of [0,.1,.5,1])for(const az of [-1,-.5,0,.5,1])
+    assert.ok(Math.abs(flank(.1,.1,az,h))<=.36,"bounded directional lighting");
+});
+
+test("High Cu slab uses one four-height envelope, not two overlaid cloud pictures", () => {
+  const s=CLOUD_COMMON;
+  assert.match(s,/vec4 cuField\(vec2 uv,float fw,float cov,vec2 ldir,int Q,out vec2 q\)/);
+  assert.match(s,/vec3 cumulusSlab\(vec2 uv,float fw,float cov,vec2 ldir,int Q,vec2 span\)/);
+  assert.match(s,/vec4 bottom=cuField\(uv,fw,cov,ldir,Q,q0\)/);
+  assert.match(s,/vec4 crown=cuField\(uv\+span,fw,cov,ldir,Q,q1\)/);
+  assert.match(s,/for\(int k=1;k<4;k\+\+\)/);
+  assert.match(s,/float u=float\(k\)\/3\.0;/);
+  assert.match(s,/hmax=max\(hmax,h\)/);
+  assert.match(s,/float uHit=clamp\(-h0\/max\(hmax-h0,0\.02\),0\.0,1\.0\)/);
+  assert.match(s,/uCuProjection>0\.5&&gNeedLit&&Q>=2\?cumulusSlab/);
+  assert.match(CLOUD_FRAG,/gCuSpan=nearPlane\*\(LH\[8\]\/LS\[8\]\)\*rise/);
+  assert.match(CLOUD_FRAG,/float rise=min\(0\.38,0\.72\/max\(length\(nearPlane\),0\.001\)\)/);
+  assert.match(CLOUD_SHADOW_FRAG,/gNeedLit=false;/);
+  assert.match(CLOUD_COMMON,/uCuProjection>0\.5&&gNeedLit&&Q>=2\?cumulusSlab/,"shadow pass has gNeedLit=false so it takes the legacy Cu footprint");
+  const spanRatio = len=>len*Math.min(.38,.72/Math.max(len,.001));
+  for(const len of [.01,.1,1,3,10,100]) assert.ok(spanRatio(len)<=.7200001);
+  // Preserve the existing Cu/Cb field sampling when the explicit PoC flag is off.
+  assert.match(s,/vec3 cumulusForm\(vec2 uv,float fw,float cov,vec2 ldir,int Q\)/);
+  assert.match(s,/float den=smoothstep\(edge-0\.16,edge\+0\.22,d\)/);
+});
+
 test("cirrus strands have a coherent head and trailing tuft instead of an unbroken streak", () => {
   const src = CLOUD_COMMON.slice(CLOUD_COMMON.indexOf("float filament("), CLOUD_COMMON.indexOf("vec2 skyPlane("));
   assert.match(src, /float head=smoothstep\(0\.56,0\.74,vn\(headUv\)\);/);
@@ -80,7 +163,7 @@ test("cirrus strands have a coherent head and trailing tuft instead of an unbrok
   assert.ok(alpha(1,1,0,1)>alpha(1,1,0,0), "trailing tuft supports a fibre");
   // Keep every cloud genus on the existing shared evaluator: no new sky-only layer.
   assert.match(CLOUD_COMMON, /float f=filament\(uv,fw\);alpha=/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\]/);
 });
 
 test("light: the sun's own colour on the lit side, sky light in shade, high layers keep the sun longest, with an afterglow", () => {
@@ -135,8 +218,8 @@ test("clouds are soft (wide density ramp, gathered when sparse) and the sunset i
 test("sky and ground shadows drift together, downwind, at a visible pace; the sun disc reddens as it sinks", () => {
   // one line moves every layer, and the sky and the shadow pass both read it through evalLayer
   assert.match(CLOUD_COMMON, /vec2 uv=\(P-uCloudWind\*LW\[id\]\)\/LS\[id\];/);
-  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\],ldir,Q,al\)/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+layerPlane\*LH\[ID\],ldir,Q,al\)/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
   // angular speed of a layer at the default wind (0.48 drift units a second): low layers about a degree a second
   const H = arrayOf("LH"), W = arrayOf("LW");
   const degPerSecond = i => (W[i] * 0.48 / H[i]) * 180 / Math.PI;
