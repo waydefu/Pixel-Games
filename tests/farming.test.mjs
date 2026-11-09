@@ -24,3 +24,11 @@ test('legacy save upgrades without changing pickup accounting; invalid farm is r
  assert.throws(()=>validateSave({...save,farm:[{crop:'wheat',plantedAt:-1}]}),/農田/);
  assert.throws(()=>validateSave({...save,farm:save.farm.map((p,i)=>i===0?{crop:'unknown',plantedAt:5}:p)}),/農田/);
 });
+
+test('version 1 fish inventory upgrades without losing fish or crops in version 2',async()=>{
+ const {CATCH_ITEMS}=await import('../src/game/inventory.js');const fish=Object.keys(CATCH_ITEMS)[0];
+ const old={version:1,player:{x:9,z:4},hour:9,timeAuto:true,inventory:{[fish]:2,shell:1},collected:['shell-1'],fishing:{count:2,best:null},boatsMovable:false,boats:[{x:0,z:0,heading:0}],aboard:-1};
+ const save=upgradeSave(old);assert.equal(save.inventory[fish],2);save.inventory.wheat=1;assert.equal(validateSave(save),save);
+ assert.throws(()=>validateSave({...save,fishing:{count:1,best:null}}),/漁獲/);
+ assert.throws(()=>validateSave({...save,inventory:{...save.inventory,shell:2}}),/背包數量/);
+});

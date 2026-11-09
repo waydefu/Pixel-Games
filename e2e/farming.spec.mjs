@@ -18,7 +18,7 @@ test('plant, grow offline, harvest into inventory and replant',async({page},test
  const index=planted.farm.findIndex(Boolean);expect(index).toBeGreaterThanOrEqual(0);expect(planted.farm[index].crop).toBe('pumpkin');
  planted.farm[index].plantedAt=Date.now()-300001;
  await page.locator('#inventory-toggle').click();await upload(planted);await expect(page.locator('#save-message')).toContainText('存檔已匯入');await page.locator('#inventory-close').click();
- await page.locator('#pickup-button').click();await expect(page.locator('#farm-status')).toContainText('已成熟');await page.getByRole('button',{name:'收割'}).click();
+ await page.locator('#pickup-button').click();await expect(page.locator('#farm-status')).toContainText('已成熟');await page.getByRole('button',{name:'收割',exact:true}).click();
  await expect(page.locator('#farm-status')).toContainText('空田');await page.getByRole('button',{name:'小麥'}).click();await expect(page.locator('#farm-status')).toContainText('小麥');await page.locator('#farm-close').click();await page.locator('#inventory-toggle').click();await expect(page.locator('#inventory-list')).toContainText('南瓜');
  await page.reload();await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});await page.locator('#inventory-toggle').click();await expect(page.locator('#inventory-list')).toContainText('南瓜');
  expect(errors).toEqual([]);

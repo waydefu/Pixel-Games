@@ -106,7 +106,7 @@
     },
     {
       "id": "inventory",
-      "name": "統一背包與物品管理",
+      "name": "統一背包、拾取物與漁獲管理",
       "status": "implemented",
       "pr": [
         58

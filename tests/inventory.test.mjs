@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {collect} from '../src/game/inventory.js';
+import {collect,addCatch} from '../src/game/inventory.js';
 import {readSave,writeSave,commitImportedSave,SAVE_KEY} from '../src/game/save.js';
 const example=()=>({version:1,player:{x:9,z:4},hour:9.5,timeAuto:true,inventory:{shell:2},collected:['shell-1','shell-2'],fishing:{count:3,best:{name:'魚',length:12}},boatsMovable:true,boats:[{x:20,z:4,heading:0}],aboard:-1});
 test('pickups stack by item and cannot be collected twice',()=>{const bag={},picked=[];assert.equal(collect(bag,picked,'shell-1'),true);assert.equal(collect(bag,picked,'shell-1'),false);assert.equal(collect(bag,picked,'shell-2'),true);assert.deepEqual(bag,{shell:2});});
@@ -37,4 +37,18 @@ test('failed import rolls back runtime state and leaves the original save untouc
   assert.throws(()=>commitImportedSave(storage,after,before,s=>{current=s;if(s===after)throw Error('apply failed');}),/apply failed/);
   assert.equal(current,before);
   assert.deepEqual(readSave(storage),before);
+});
+
+test('landed catches stack, survive saving, and cannot be fabricated beyond the tally',()=>{
+  const bag={shell:2};
+  assert.equal(addCatch(bag,{id:'mackerel',junk:false}),true);
+  assert.equal(addCatch(bag,{id:'mackerel',junk:false}),true);
+  assert.equal(addCatch(bag,{id:'crab',junk:false}),true);
+  assert.equal(addCatch(bag,{id:'boot',junk:true}),false);
+  assert.equal(addCatch(bag,{id:'unknown',junk:false}),false);
+  const data=new Map(),storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v)};
+  const save={...example(),inventory:bag};
+  writeSave(storage,save);assert.deepEqual(readSave(storage),save);
+  assert.throws(()=>writeSave(storage,{...save,fishing:{...save.fishing,count:2}}),/漁獲數量/);
+  assert.deepEqual(readSave(storage),save);
 });

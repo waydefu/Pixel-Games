@@ -14,7 +14,7 @@ import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.js";
 import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
 import { hullClear } from "./rowing.js";
-import { ITEMS, PICKUPS, collect } from "./inventory.js";
+import { ITEMS, PICKUPS, collect, addCatch } from "./inventory.js";
 import { readSave, writeSave, validateSave, upgradeSave, commitImportedSave, SAVE_KEY } from "./save.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
@@ -289,6 +289,7 @@ document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(documen
 const fishing=createFishingView({
   scene:world.scene,scope:world.scope,player:world.player,isBlocked:()=>inventoryOpen()||farmOpen()||!settings.hidden,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
+  onCatch:result=>{if(addCatch(inventory,result)){renderInventory();saveProgress();}},
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
@@ -621,7 +622,7 @@ async function start(){
       if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
       let cpuTime=measureCpu?performance.now():0;
       update(dt,document.visibilityState==='visible'?wallDt:0);
-      updateFarmVisual();if(farmOpen())renderFarm();const plot=nearPlot(),pickup=nearPickup();pickupButton.hidden=(!plot&&!pickup)||inventoryOpen()||farmOpen()||!settings.hidden;pickupButton.textContent=plot?"農田 (G)":pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
+      updateFarmVisual();if(farmOpen())renderFarm();const plot=nearPlot(),pickup=nearPickup();pickupButton.hidden=(!plot&&!pickup)||inventoryOpen()||farmOpen()||!settings.hidden;pickupButton.textContent=plot?(farm[plot.id]?(stage(farm[plot.id])===3?"農田：可收割 (G)":"農田：生長中 (G)"):"農田：種植 (G)"):pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
       if(now-lastSaveAt>5000){lastSaveAt=now;saveProgress();}
       const movementMs=measureCpu?performance.now()-cpuTime:0;
       if(measureCpu)cpuTime=performance.now();
