@@ -3,9 +3,23 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { CLOUD_VERT, CLOUD_FRAG } from "../src/game/cloud-shader.ts";
-import { createCloudShadow } from "../src/game/cloud-shadow.ts";
+import { registerHooks } from "node:module";
 
 const fjordSource=readFileSync(new URL("../src/game/fjord.ts",import.meta.url),"utf8");
+// Node does not apply TypeScript bundler-style '.js' -> '.ts' resolution.
+// Use the documented Node loader hook ONLY for this test's two local imports,
+// so the actual cloud-shadow.ts implementation can be exercised with a fake GPU.
+const hooks=registerHooks({
+  resolve(specifier,context,nextResolve){
+    if(context.parentURL?.endsWith("/src/game/cloud-shadow.ts") &&
+       (specifier==="./cloud-shader.js"||specifier==="./cloud-field.js"))
+      return nextResolve(specifier.slice(0,-3)+".ts",context);
+    return nextResolve(specifier,context);
+  }
+});
+const {createCloudShadow}=await import("../src/game/cloud-shadow.ts");
+hooks.deregister();
+
 
 test("clouds and atmosphere share actual world-space camera rays",()=>{
   const expected=/vRay=worldPoint\.xyz-cameraPosition;/;
