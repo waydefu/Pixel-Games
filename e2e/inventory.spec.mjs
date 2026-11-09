@@ -6,6 +6,9 @@ test('inventory controls, pickup, reload and backup',async({page},testInfo)=>{
   await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
   await page.keyboard.press('b');
   await expect(page.getByRole('dialog',{name:'海岸行囊'})).toBeVisible();
+  await page.locator('#save-import').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button',{name:'關閉背包'})).toBeFocused();
   const before=await page.evaluate(()=>window.__pixelGame.read().player);
   await page.keyboard.down('d');await page.waitForTimeout(400);await page.keyboard.up('d');
   expect(await page.evaluate(()=>window.__pixelGame.read().player)).toEqual(before);
