@@ -43,3 +43,31 @@ test('physical C and F work with an IME and after closing inventory',async({page
   await key(page,'keyup','KeyF','Process');
   await expect(page.locator('#fish-button')).toHaveText('按住收線 (F)',{timeout:40000});
 });
+
+test('phone portrait fishing dock stays compact without overlapping movement and look controls',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(pose);
+  await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:30000});
+  const fishing=page.locator('#fish-button');
+  await expect(fishing).toBeVisible();
+  const layout=await page.evaluate(()=>{
+    const rect=id=>{const el=document.querySelector(id),r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,visible:getComputedStyle(el).display!=='none'&&!el.hidden};};
+    return {coarse:matchMedia('(pointer:coarse)').matches,hud:rect('#fish-hud'),button:rect('#fish-button'),joystick:rect('#joystick'),look:rect('#look-hint'),viewport:{width:innerWidth,height:innerHeight}};
+  });
+  expect(layout.button.width).toBeGreaterThanOrEqual(44);
+  expect(layout.button.height).toBeGreaterThanOrEqual(44);
+  expect(layout.button.left).toBeGreaterThanOrEqual(0);
+  expect(layout.button.right).toBeLessThanOrEqual(layout.viewport.width);
+  if(layout.coarse){
+    expect(layout.hud.width).toBeLessThanOrEqual(161);
+    expect(layout.button.width).toBeLessThanOrEqual(121);
+    expect(layout.hud.right).toBeLessThanOrEqual(layout.viewport.width-7);
+    expect(layout.hud.left).toBeGreaterThan(layout.joystick.right);
+    if(layout.look.visible)expect(layout.hud.bottom).toBeLessThanOrEqual(layout.look.top);
+    await page.setViewportSize({width:844,height:390});
+    await expect(fishing).toBeVisible();
+    const landscapeWidth=(await fishing.boundingBox()).width;
+    expect(landscapeWidth).toBeGreaterThanOrEqual(120);
+  }
+  await page.screenshot({path:testInfo.outputPath('portrait-fishing-hud.png')});
+});
