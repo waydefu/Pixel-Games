@@ -101,7 +101,8 @@ test("the physics is deterministic and finite", () => {
 
 test("boating wiring: key E and the HUD button board and leave; the view uses the pure physics", () => {
   const src = read("src/game/boating.ts"), main = read("src/game/main.ts"), html = read("index.html");
-  assert.match(src, /key\.toLowerCase\(\)==="e"/);
+  assert.match(src, /matchesActionKey\(e,"KeyE","e"\)/);
+  assert.match(src, /isEditingTarget\(e\.target\)/);
   assert.match(src, /from "\.\/rowing\.js"/);
   assert.match(src, /靠近碼頭或岸邊才能下船/);
   assert.match(main, /createBoating\(/);
