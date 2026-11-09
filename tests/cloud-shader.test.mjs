@@ -136,19 +136,25 @@ test("low sun has a bright fiery disc with a separate core and a tight horizon f
   const fjord = read("fjord.ts");
   assert.doesNotMatch(fjord, /mix\(18\.0,2\.4,/,"do not restore the old dim sunset HDR coefficient");
   assert.match(fjord, /float discRadiance=mix\(18\.0,5\.6,\(1\.0-smoothstep\(\.04,\.55,sunSin\)\)\);/);
-  assert.match(fjord, /float discVisible=smoothstep\(-\.014,\.002,sunSin\)\*smoothstep\(-\.012,\.003,ray\.y\)/);
+  assert.match(fjord, /float discVisible=smoothstep\(-\.003,\.001,ray\.y\)/);
   assert.match(fjord, /float discMask=smoothstep\(\.99957,\.99972,s\)\*discVisible;/);
   assert.match(fjord, /float hotCore=smoothstep\(\.99986,\.999965,s\);/);
   assert.match(fjord, /vec3 coreHue=mix\(discHue,vec3\(1\.0,\.43,\.12\),hotCore\*sunsetRed\*\.57\);/);
   assert.doesNotMatch(fjord, /discMask[^\n]*sunUp/,"atmospheric sunUp should only gate corona, not a visible disc");
   const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
   const power=y=>18+(5.6-18)*(1-smooth(.04,.55,y));
-  const discVisible=(sunY,rayY)=>smooth(-.014,.002,sunY)*smooth(-.012,.003,rayY);
+  const discVisible=rayY=>smooth(-.003,.001,rayY);
   for(const y of [.002,.01,.05,.15]){
     assert.ok(power(y)>=5.6,"near-horizon HDR stays luminous at "+y);
-    assert.ok(discVisible(y,y)>.98,"above-horizon solar disc remains visible at "+y);
+    assert.ok(discVisible(y)>.99,"above-horizon solar pixels remain visible at "+y);
   }
-  assert.ok(discVisible(-.014,-.014)<1e-6,"fully below the horizon disappears");
+  // Angular rim defined by the dot threshold: a centre just BELOW the horizon
+  // still has a visible upper edge, rather than disappearing all at once.
+  const rimAngle=Math.acos(.99957);
+  assert.ok(-.012+Math.sin(rimAngle)>0,"sun upper limb above horizon");
+  assert.ok(discVisible(-.012+Math.sin(rimAngle))>.99,"upper sun limb survives when centre is below horizon");
+  assert.equal(discVisible(-.02),0,"pixels below the horizon are hidden");
+  assert.ok(-.04+Math.sin(rimAngle)<0,"whole disc sinks when the centre is far enough below horizon");
   assert.ok(power(.6)>17,"high sun retains its white-yellow HDR brightness");
 });
 
