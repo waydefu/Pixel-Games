@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createRowing, boardableBoat, findLanding, ROWING } from "./rowing.js";
+import { isEditingTarget, matchesActionKey } from "./input.js";
 
 /**
  * Boarding and rowing the moored boats. The physics lives in rowing.js; this file is the view: it seats the player,
@@ -45,8 +46,8 @@ export function createBoating(opts:{
   const say=(text:string,seconds=2.2)=>{message=text;messageUntil=time+seconds;};
   window.addEventListener("keydown",e=>{
     if(opts.isBlocked?.()||e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;
-    if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
-    if(e.key.toLowerCase()==="e")request=true;
+    if(isEditingTarget(e.target))return;
+    if(matchesActionKey(e,"KeyE","e"))request=true;
   });
   ui.button.addEventListener("click",()=>{if(!opts.isBlocked?.())request=true;});
 

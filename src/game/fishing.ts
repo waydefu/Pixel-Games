@@ -161,7 +161,7 @@ export function createFishingView(opts:{
   let held=false,tap=false,pressedNotice=false,lastHold=false;
   const setHeld=(value:boolean)=>{if(value&&!held)tap=true;held=value;};
   window.addEventListener("keydown",event=>{
-    if(opts.isBlocked?.()||isEditingTarget(event.target))return;
+    if(opts.isBlocked?.()||isEditingTarget(event.target)||event.altKey||event.ctrlKey||event.metaKey)return;
     if(matchesActionKey(event,"KeyF","f")){event.preventDefault();if(!event.repeat)setHeld(true);}
     if(event.key.toLowerCase()==="r"&&!event.repeat&&!event.ctrlKey&&!event.metaKey&&!event.altKey)cycleLure();
   });

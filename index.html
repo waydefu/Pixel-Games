@@ -73,6 +73,11 @@
         <div class="settings-title"><strong id="inventory-title">海岸行囊</strong><button id="inventory-close" class="close" aria-label="關閉背包" type="button">✕</button></div>
         <p>一路撿拾的小寶物，會自動收在這裡。</p><div id="inventory-list" class="inventory-list"></div>
         <div class="inventory-actions"><button id="save-export" type="button">匯出存檔</button><button id="save-import" type="button">匯入存檔</button><input id="save-file" type="file" accept="application/json,.json" hidden></div>
+        <div id="save-recovery" class="inventory-recovery" hidden>
+          <p>舊存檔無法載入。原始資料仍保留在瀏覽器；你可以匯入有效備份，或先下載原始資料再重新開始。</p>
+          <button id="save-backup-raw" type="button">下載原始存檔</button>
+          <button id="save-reset" type="button" disabled>重新開始</button>
+        </div>
         <p id="save-message" role="status" aria-live="polite"></p>
       </section>
     </div>

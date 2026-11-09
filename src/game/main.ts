@@ -10,8 +10,9 @@ import { createCoastalWorld } from "./world.js";
 import { loadVillageKit } from "./village-kit.js";
 import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.js";
 import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
+import { hullClear } from "./rowing.js";
 import { ITEMS, PICKUPS, collect } from "./inventory.js";
-import { readSave, writeSave, validateSave } from "./save.js";
+import { readSave, writeSave, validateSave, commitImportedSave, SAVE_KEY } from "./save.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
 import { createBoating } from "./boating.js";
@@ -203,7 +204,7 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open){releaseLook();input.reset();}
+  if(open){releaseLook();input.reset();fishing.release();boating.resetRequest();}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -256,13 +257,13 @@ function startAudio(){
 for(const type of ["pointerdown","keydown","touchstart"])window.addEventListener(type,()=>{startAudio();if(soundCtx&&soundCtx.state==="suspended")void soundCtx.resume();},{passive:true});
 document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(document.visibilityState==="hidden")void soundCtx.suspend();else void soundCtx.resume();});
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,isBlocked:inventoryOpen,isAboard:()=>boating.aboard,audio:()=>sound,
+  scene:world.scene,scope:world.scope,player:world.player,isBlocked:()=>inventoryOpen()||!settings.hidden,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
   scene:world.scene,scope:world.scope,boats:world.boats,movable:world.boatsMovable,blockers:world.seaBlockers,colliders:world.colliders,
-  player:world.player,audio:()=>sound,world,rig,isBlocked:inventoryOpen,getMode:()=>rig.mode,setCameraMode,
+  player:world.player,audio:()=>sound,world,rig,isBlocked:()=>inventoryOpen()||!settings.hidden,getMode:()=>rig.mode,setCameraMode,
   ui:{hud:element<HTMLElement>("#boat-hud"),status:element<HTMLElement>("#boat-status"),button:element<HTMLButtonElement>("#boat-button")},
 });
 // Pickups and saves are independent of the renderer and share stable identifiers.
@@ -295,6 +296,12 @@ function saveSnapshot(){return {version:1,player:{...world.player},hour,timeAuto
 function checkWorldSave(value:ReturnType<typeof saveSnapshot>){
   validateSave(value);
   if(value.boats.length!==boating.sims.length || (value.aboard>=0&&(!world.boatsMovable||!value.boatsMovable)) || (value.aboard>=0&&Math.hypot(value.player.x-value.boats[value.aboard].x,value.player.z-value.boats[value.aboard].z)>5) || (value.aboard<0&&!canOccupy(value.player.x,value.player.z,world.colliders)))throw Error("存檔位置或船隻與目前世界不相容");
+  if(value.boatsMovable&&world.boatsMovable){
+    for(let i=0;i<value.boats.length;i++){
+      const pose=value.boats[i],hull=boating.sims[i].state;
+      if(!hullClear(pose.x,pose.z,pose.heading,hull.length,hull.beam,[]))throw Error("存檔船隻位於無法航行的水域或碼頭");
+    }
+  }
   return value;
 }
 function applySave(value:ReturnType<typeof saveSnapshot>){
@@ -302,13 +309,19 @@ function applySave(value:ReturnType<typeof saveSnapshot>){
   hour=value.hour;timeAuto.checked=value.timeAuto;showHour();world.setHour(hour);fishing.setTally(value.fishing);
   if(world.boatsMovable)boating.restore(value.boatsMovable?value.boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),value.aboard);world.movePlayer(value.player.x,value.player.z,0);renderInventory();
 }
-let saveBlocked=false;
+let saveBlocked=false,rawBackupRequested=false;
+const saveRecovery=element<HTMLElement>("#save-recovery"),saveReset=element<HTMLButtonElement>("#save-reset");
+function downloadText(text:string,filename:string,mime:string){
+  const url=URL.createObjectURL(new Blob([text],{type:mime}));
+  try{const a=document.createElement("a");a.href=url;a.download=filename;a.click();}
+  finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}
+}
 function saveProgress(){
   if(visualShot||saveBlocked)return;
   try{writeSave(window.localStorage,checkWorldSave(saveSnapshot()));saveMessage.textContent="已保存到這個瀏覽器。";}
   catch{saveMessage.textContent="無法保存進度，請檢查瀏覽器儲存空間或權限。";}
 }
-if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave(checkWorldSave(saved));}catch{saveBlocked=true;saveMessage.textContent="現有存檔無法讀取，已保留原資料；可匯入備份。";}}
+if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave(checkWorldSave(saved));}catch{saveBlocked=true;saveRecovery.hidden=false;saveMessage.textContent="現有存檔無法讀取，原始資料已保留。可匯入有效備份，或先下載原始資料再重新開始。";}}
 renderInventory();
 function setInventory(open:boolean){
   if(open){setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
@@ -318,19 +331,48 @@ function setInventory(open:boolean){
 inventoryToggle.addEventListener("click",()=>setInventory(!inventoryOpen()));inventoryClose.addEventListener("click",()=>setInventory(false));
 window.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&inventoryOpen()){e.preventDefault();setInventory(false);return;}
-  if((e.code==="KeyB"||e.key.toLowerCase()==="b")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLSelectElement)&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();setInventory(!inventoryOpen());}
+  if(matchesActionKey(e,"KeyB","b")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!isEditingTarget(e.target)){e.preventDefault();setInventory(!inventoryOpen());}
   if(inventoryOpen()&&e.key==="Tab"){
-    const controls=[...inventoryOverlay.querySelectorAll<HTMLElement>('button:not([disabled])')];const i=controls.indexOf(document.activeElement as HTMLElement);
+    const controls=[...inventoryOverlay.querySelectorAll<HTMLElement>('button:not([disabled])')].filter(button=>button.getClientRects().length>0);const i=controls.indexOf(document.activeElement as HTMLElement);
     if(controls.length&&(e.shiftKey&&i<=0||!e.shiftKey&&i===controls.length-1)){e.preventDefault();controls[e.shiftKey?controls.length-1:0].focus();}
   }
 });
 function nearPickup(){return !boating.aboard&&rig.mode!=="vista"?PICKUPS.find(p=>!collected.includes(p.id)&&Math.hypot(world.player.x-p.x,world.player.z-p.z)<2):undefined;}
 function takePickup(){const p=nearPickup();if(!p||inventoryOpen()||!settings.hidden)return;if(collect(inventory,collected,p.id)){renderInventory();saveProgress();}}
-window.addEventListener("keydown",e=>{if((e.code==="KeyG"||e.key.toLowerCase()==="g")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!(e.target instanceof HTMLInputElement))takePickup();});
+window.addEventListener("keydown",e=>{if(matchesActionKey(e,"KeyG","g")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!isEditingTarget(e.target))takePickup();});
 pickupButton.addEventListener("click",takePickup);
-element<HTMLButtonElement>("#save-export").addEventListener("click",()=>{try{const blob=new Blob([JSON.stringify(checkWorldSave(saveSnapshot()),null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="coastal-wander-save.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{saveMessage.textContent="無法匯出存檔。";}});
+element<HTMLButtonElement>("#save-export").addEventListener("click",()=>{try{downloadText(JSON.stringify(checkWorldSave(saveSnapshot()),null,2),"coastal-wander-save.json","application/json");}catch{saveMessage.textContent="無法匯出存檔。";}});
 element<HTMLButtonElement>("#save-import").addEventListener("click",()=>saveFile.click());
-saveFile.addEventListener("change",async()=>{try{const file=saveFile.files?.[0];if(!file)return;if(file.size>1000000)throw Error("檔案過大");const value=checkWorldSave(JSON.parse(await file.text()));writeSave(window.localStorage,value);applySave(value);saveBlocked=false;saveMessage.textContent="存檔已匯入。";}catch(error){saveMessage.textContent="匯入失敗："+(error instanceof Error?error.message:"無法讀取檔案");}finally{saveFile.value="";}});
+saveFile.addEventListener("change",async()=>{
+  try{
+    const file=saveFile.files?.[0];if(!file)return;
+    if(file.size>1000000)throw Error("檔案過大");
+    const value=checkWorldSave(JSON.parse(await file.text()));
+    const previous=checkWorldSave(saveSnapshot());
+    commitImportedSave(window.localStorage,value,previous,applySave);
+    saveBlocked=false;rawBackupRequested=false;saveRecovery.hidden=true;saveReset.disabled=true;
+    saveMessage.textContent="存檔已匯入。";
+  }catch(error){saveMessage.textContent="匯入失敗："+(error instanceof Error?error.message:"無法讀取檔案");}
+  finally{saveFile.value="";}
+});
+element<HTMLButtonElement>("#save-backup-raw").addEventListener("click",()=>{
+  if(!saveBlocked)return;
+  try{
+    const raw=window.localStorage.getItem(SAVE_KEY);
+    if(raw===null)throw Error("找不到原始資料");
+    downloadText(raw,"coastal-wander-unreadable-save.txt","text/plain");
+    rawBackupRequested=true;saveReset.disabled=false;
+    saveMessage.textContent="已要求下載原始資料。確認檔案已保存到裝置後，才可重新開始。";
+  }catch(error){saveMessage.textContent="無法下載原始資料："+(error instanceof Error?error.message:"未知錯誤");}
+});
+saveReset.addEventListener("click",()=>{
+  if(!saveBlocked||!rawBackupRequested||!window.confirm("確認已保存原始資料？重新開始會覆寫這個瀏覽器裡的損壞存檔。"))return;
+  try{
+    writeSave(window.localStorage,checkWorldSave(saveSnapshot()));
+    saveBlocked=false;rawBackupRequested=false;saveReset.disabled=true;saveRecovery.hidden=true;
+    saveMessage.textContent="已重新建立本機存檔。";
+  }catch(error){saveMessage.textContent="重新開始失敗，原始資料未覆寫："+(error instanceof Error?error.message:"無法保存");}
+});
 window.addEventListener("pagehide",saveProgress);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")saveProgress();});
 let lastSaveAt=0;
