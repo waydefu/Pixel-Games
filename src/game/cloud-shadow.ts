@@ -24,6 +24,8 @@ export function createCloudShadow(opts:{
   const target=scope.track(new THREE.WebGLRenderTarget(size,size,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false}));
   target.texture.wrapS=target.texture.wrapT=THREE.ClampToEdgeWrapping;
   cloudField.uniforms.uCloudShadowMap.value=target.texture;
+  // setSize() and world teardown dispose target attachments; reject any in-flight readback.
+  target.addEventListener("dispose",invalidate);
   const material=scope.track(new THREE.ShaderMaterial({
     uniforms:{...opts.uniforms,uShadowCenter:cloudField.uniforms.uShadowCenter,uShadowSize:cloudField.uniforms.uShadowSize},
     vertexShader:CLOUD_SHADOW_VERT,fragmentShader:CLOUD_SHADOW_FRAG,depthTest:false,depthWrite:false,
