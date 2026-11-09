@@ -66,7 +66,7 @@ test("clouds are built the way the failure modes taught: separate lumps, rotated
 });
 
 test("Cu cloud base uses the same bounded horizon ray-plane projection in sky and sun shadow", () => {
-  assert.match(CLOUD_COMMON, /vec2 cuPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/max\(elevation,0\.10\);\}/);
+  assert.match(CLOUD_COMMON, /vec2 cuPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/max\(elevation,mix\(0\.10,0\.03,uCuHorizon\)\);\}/);
   assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5&&Q>=2\?cuPlane\(ray\.xz,ray\.y\):plane/);
   assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5&&uCloudDetailLevel>1\.5\?cuPlane\(s\.xz,s\.y\):off/);
   const fjord=read("fjord.ts");
@@ -81,6 +81,26 @@ test("Cu cloud base uses the same bounded horizon ray-plane projection in sky an
   assert.ok(plane(.5)>legacy(.5));
   assert.equal(plane(1),legacy(1));
   assert.match(CLOUD_FRAG, /float mask=smoothstep\(0\.0,0\.20,ray\.y\)/,"horizon haze masks the capped band");
+});
+
+test("Cu horizon repair pairs a 0.03 ray-plane floor with a 0.03-0.12 fade and aerial color", () => {
+  const fjord=read("fjord.ts");
+  assert.match(fjord,/const cuHorizon=auditQuery\.get\("cuHorizon"\)==="legacy"\?0:1;/);
+  assert.match(fjord,/uCuHorizon:\{value:cuHorizon\}/);
+  assert.match(fjord,/uCuHorizon:cloudUniforms\.uCuHorizon/,"ground shadow and sky share the projection switch");
+  assert.match(CLOUD_COMMON,/mix\(0\.10,0\.03,uCuHorizon\)/);
+  assert.match(CLOUD_FRAG,/ID==8&&uCuProjection>0\.5&&Q>=2&&uCuHorizon>0\.5\)cloudMask=smoothstep\(0\.03,0\.12,ray\.y\)/);
+  assert.match(CLOUD_FRAG,/float cuAir=1\.0-exp\(-0\.35\*0\.05\/max\(ray\.y,0\.03\)\)/);
+  assert.match(CLOUD_FRAG,/layerColor=mix\(layerColor,uHorizon,cuAir\)/);
+  assert.match(CLOUD_SHADOW_FRAG,/cuPlane\(s\.xz,s\.y\)/,"both passes use the same Cu plane");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  for(const y of [-.01,0,.01,.029])assert.equal(smooth(.03,.12,y),0,"the capped texture region must be invisible");
+  assert.equal(smooth(.03,.12,.12),1,"clouds become fully opaque above the fade band");
+  const haze=y=>1-Math.exp(-.35*.05/Math.max(y,.03));
+  assert.ok(haze(.03)>haze(.12),"distant Cu merges into horizon color more strongly");
+  assert.ok(haze(.12)>haze(.5),"high-elevation Cu keeps its contrast");
+  assert.equal(1/Math.max(.01,.10),10,"legacy A/B remains bounded");
+  assert.ok(1/Math.max(.01,.03)>30,"new bound applies only in opt-in slab path");
 });
 
 test("High Cu slab uses one four-height envelope, not two overlaid cloud pictures", () => {

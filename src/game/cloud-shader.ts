@@ -25,6 +25,7 @@ export const CLOUD_COMMON=String.raw`uniform float uTime;
 uniform float uCloudAmount;
 uniform float uCloudDetailLevel;
 uniform float uCuProjection;
+uniform float uCuHorizon;
 uniform vec2 uCloudWind;
 uniform sampler2D uNoise;
 uniform float uGen[10];
@@ -215,12 +216,12 @@ float filament(vec2 uv,float fw){
 // up and show their sides, so the stretch is capped: about 3.5x at the horizon instead of 25x. The sky and the ground shadows
 // both use this, so the cloud over your head is still the one whose shadow is on the ground.
 vec2 skyPlane(vec2 dirXZ,float elevation){return dirXZ/(0.28+0.72*max(elevation,0.0));}
-// Low Cu near the horizon: use the ray's intersection with the horizontal
-// cloud-base plane, as in takustaqu/atmosphere planeUV(). The old artistic
-// shared projection stretched near-horizon Cu into angled brushstrokes.
-// Clamp only the near-zero elevation to avoid unbounded texture derivatives;
-// the existing atmospheric horizon fade hides that safety band.
-vec2 cuPlane(vec2 dirXZ,float elevation){return dirXZ/max(elevation,0.10);}
+// A Cu-only ray/plane projection (takustaqu/atmosphere 0.12.1).
+// Unlike the old 0.10 clamp, the 0.03 safety floor is matched by a Cu-only
+// horizon gate at .03-.12 and aerial haze. Below the floor the cloud is hidden,
+// rather than stretching a fixed texture sample into vertical waterfall streaks.
+// ?cuHorizon=legacy restores the original slab projection in sky AND shadow.
+vec2 cuPlane(vec2 dirXZ,float elevation){return dirXZ/max(elevation,mix(0.10,0.03,uCuHorizon));}
 
 // ---- layers: where each genus sits ----
 // H = height of the plane it is drawn on, S = size of one noise cell on it (world units; the island is about 100 across, so a
@@ -336,8 +337,16 @@ void main(){
     float al;\
     vec2 layerPlane=ID==8&&uCuProjection>0.5&&Q>=2?cuPlane(ray.xz,ray.y):plane;\
     vec2 lt=evalLayer(ID,cameraPosition.xz+layerPlane*LH[ID],ldir,Q,al);\
-    float a=clamp(al*mask,0.0,0.97);\
-    if(a>0.002){col+=T*a*paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);thickAcc+=T*a*lt.y;T*=1.0-a;}\
+    float cloudMask=mask;\
+    if(ID==8&&uCuProjection>0.5&&Q>=2&&uCuHorizon>0.5)cloudMask=smoothstep(0.03,0.12,ray.y)*(1.0-0.97*uNightC);\
+    float a=clamp(al*cloudMask,0.0,0.97);\
+    if(a>0.002){\
+      vec3 layerColor=paintCloud(lt.x,lt.y,LALT[ID],LRIM[ID]);\
+      if(ID==8&&uCuProjection>0.5&&Q>=2&&uCuHorizon>0.5){\
+        float cuAir=1.0-exp(-0.35*0.05/max(ray.y,0.03));\
+        layerColor=mix(layerColor,uHorizon,cuAir);\
+      }\
+      col+=T*a*layerColor;thickAcc+=T*a*lt.y;T*=1.0-a;}\
   }
   SKY_LAYER(6) SKY_LAYER(8) SKY_LAYER(9) SKY_LAYER(7) SKY_LAYER(5)
   SKY_LAYER(3) SKY_LAYER(4) SKY_LAYER(1) SKY_LAYER(2) SKY_LAYER(0)
