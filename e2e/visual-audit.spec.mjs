@@ -46,7 +46,7 @@ test("opt-in High Cu slab renders after switching quality without a shader error
   await page.locator("#menu-close").click();
   const first=await page.evaluate(()=>window.__pixelGame.read().frames);
   await expect.poll(()=>page.evaluate(()=>window.__pixelGame.read().frames),{timeout:80000}).toBeGreaterThan(first+1);
-  expect(await page.evaluate(()=>window.__pixelGame.read().quality)).toBe("high");
+  expect(await page.evaluate(()=>window.__pixelGame.read().grade)).toBe("high");
   expect(shaderErrors).toEqual([]);
 });
 
