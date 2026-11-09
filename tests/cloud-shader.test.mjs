@@ -24,8 +24,8 @@ test("the sky and the ground shadow draw the same layers: one shared block, one 
   assert.ok(CLOUD_FRAG.includes(CLOUD_COMMON), "the sky includes the shared block");
   assert.ok(CLOUD_SHADOW_FRAG.includes(CLOUD_COMMON), "the shadow includes the shared block");
   assert.match(CLOUD_COMMON, /vec2 evalLayer\(int id,vec2 P,vec2 ldir,int Q,out float alpha\)/);
-  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\]/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+layerPlane\*LH\[ID\]/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\]/);
   // the shadow has no lighting and no sky uniforms
   assert.match(CLOUD_SHADOW_FRAG, /gNeedLit=false/);
   assert.doesNotMatch(CLOUD_SHADOW_FRAG, /uTwilight|uWeatherDark|paintCloud\(/);
@@ -65,6 +65,24 @@ test("clouds are built the way the failure modes taught: separate lumps, rotated
   for (const form of ["cumulusForm", "granularForm", "flockForm", "stratiform", "filament"]) assert.match(CLOUD_COMMON, new RegExp(form + "\\("));
 });
 
+test("Cu cloud base uses the same bounded horizon ray-plane projection in sky and sun shadow", () => {
+  assert.match(CLOUD_COMMON, /vec2 cuPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/max\(elevation,0\.10\);\}/);
+  assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(ray\.xz,ray\.y\):plane/);
+  assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(s\.xz,s\.y\):off/);
+  const fjord=read("fjord.ts");
+  assert.match(fjord, /cuProjection:auditQuery\.get\("cuProjection"\)===?"legacy"/);
+  assert.match(fjord, /uCuProjection:cloudUniforms\.uCuProjection/,"sky and ground shadow use same A/B switch");
+  // As in a ray/flat-plane intersection, low view angles intersect the
+  // cloud base farther away; the numeric near-zero bound avoids singularities.
+  const plane = elevation => 1 / Math.max(elevation,0.10);
+  const legacy = elevation => 1 / (0.28+0.72*Math.max(elevation,0));
+  assert.ok(plane(.10)>2*legacy(.10),"cloud bank becomes shallower and more distant");
+  assert.equal(plane(.01),plane(.08),"horizon safety band remains bounded");
+  assert.ok(plane(.5)>legacy(.5));
+  assert.equal(plane(1),legacy(1));
+  assert.match(CLOUD_FRAG, /float mask=smoothstep\(0\.0,0\.20,ray\.y\)/,"horizon haze masks the capped band");
+});
+
 test("cirrus strands have a coherent head and trailing tuft instead of an unbroken streak", () => {
   const src = CLOUD_COMMON.slice(CLOUD_COMMON.indexOf("float filament("), CLOUD_COMMON.indexOf("vec2 skyPlane("));
   assert.match(src, /float head=smoothstep\(0\.56,0\.74,vn\(headUv\)\);/);
@@ -80,7 +98,7 @@ test("cirrus strands have a coherent head and trailing tuft instead of an unbrok
   assert.ok(alpha(1,1,0,1)>alpha(1,1,0,0), "trailing tuft supports a fibre");
   // Keep every cloud genus on the existing shared evaluator: no new sky-only layer.
   assert.match(CLOUD_COMMON, /float f=filament\(uv,fw\);alpha=/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\]/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\]/);
 });
 
 test("light: the sun's own colour on the lit side, sky light in shade, high layers keep the sun longest, with an afterglow", () => {
@@ -135,8 +153,8 @@ test("clouds are soft (wide density ramp, gathered when sparse) and the sunset i
 test("sky and ground shadows drift together, downwind, at a visible pace; the sun disc reddens as it sinks", () => {
   // one line moves every layer, and the sky and the shadow pass both read it through evalLayer
   assert.match(CLOUD_COMMON, /vec2 uv=\(P-uCloudWind\*LW\[id\]\)\/LS\[id\];/);
-  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+plane\*LH\[ID\],ldir,Q,al\)/);
-  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+off\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
+  assert.match(CLOUD_FRAG, /evalLayer\(ID,cameraPosition\.xz\+layerPlane\*LH\[ID\],ldir,Q,al\)/);
+  assert.match(CLOUD_SHADOW_FRAG, /evalLayer\(ID,ground\+layerOff\*LH\[ID\],vec2\(0\.0\),Q,al\)/);
   // angular speed of a layer at the default wind (0.48 drift units a second): low layers about a degree a second
   const H = arrayOf("LH"), W = arrayOf("LW");
   const degPerSecond = i => (W[i] * 0.48 / H[i]) * 180 / Math.PI;
