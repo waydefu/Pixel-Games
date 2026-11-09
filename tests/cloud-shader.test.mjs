@@ -129,6 +129,40 @@ test("sky and ground shadows drift together, downwind, at a visible pace; the su
   assert.match(fjord, /discHue=mix\(discHue,vec3\(1\.0,\.10,\.02\),\(1\.0-smoothstep\(\.015,\.16,sunSin\)\)\);/);
 });
 
+// Regression from POCO F8 Ultra real-device screenshots: PR #36 introduced a
+// 2.4 HDR sunset disc multiplied by two broad horizon fades, which made the disc
+// appear darker than the surrounding orange sky. Keep solar red, restore light.
+test("low sun has a bright fiery disc with a separate core and a tight horizon fade", () => {
+  const fjord = read("fjord.ts");
+  assert.doesNotMatch(fjord, /mix\(18\.0,2\.4,/,"do not restore the old dim sunset HDR coefficient");
+  assert.match(fjord, /float discRadiance=mix\(18\.0,5\.6,\(1\.0-smoothstep\(\.04,\.55,sunSin\)\)\);/);
+  assert.match(fjord, /float discVisible=smoothstep\(-\.003,\.001,ray\.y\)/);
+  assert.match(fjord, /float discMask=smoothstep\(\.99957,\.99972,s\)\*discVisible;/);
+  assert.match(fjord, /float hotCore=smoothstep\(\.99986,\.999965,s\);/);
+  assert.match(fjord, /vec3 coreHue=mix\(discHue,vec3\(1\.0,\.43,\.12\),hotCore\*sunsetRed\*\.57\);/);
+  assert.match(fjord, /col=mix\(col,coreHue\*discRadiance\*\(1\.0\+\.18\*hotCore\),discMask\);/);
+  // The HDR core can be hotter without losing its distinctive red outer rim.
+  const emberGreen=.10+(.43-.10)*.57;
+  const emberBlue=.02+(.12-.02)*.57;
+  assert.ok(emberGreen<.30 && emberBlue<.08,"hot core preserves a red-dominant hue before tone mapping");
+  assert.doesNotMatch(fjord, /discMask[^\n]*sunUp/,"atmospheric sunUp should only gate corona, not a visible disc");
+  const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+  const power=y=>18+(5.6-18)*(1-smooth(.04,.55,y));
+  const discVisible=rayY=>smooth(-.003,.001,rayY);
+  for(const y of [.002,.01,.05,.15]){
+    assert.ok(power(y)>=5.6,"near-horizon HDR stays luminous at "+y);
+    assert.ok(discVisible(y)>.99,"above-horizon solar pixels remain visible at "+y);
+  }
+  // Angular rim defined by the dot threshold: a centre just BELOW the horizon
+  // still has a visible upper edge, rather than disappearing all at once.
+  const rimAngle=Math.acos(.99957);
+  assert.ok(-.012+Math.sin(rimAngle)>0,"sun upper limb above horizon");
+  assert.ok(discVisible(-.012+Math.sin(rimAngle))>.99,"upper sun limb survives when centre is below horizon");
+  assert.equal(discVisible(-.02),0,"pixels below the horizon are hidden");
+  assert.ok(-.04+Math.sin(rimAngle)<0,"whole disc sinks when the centre is far enough below horizon");
+  assert.ok(power(.6)>17,"high sun retains its white-yellow HDR brightness");
+});
+
 // GLSL requires edge0 < edge1. Descending solar-height transitions must invert a
 // conventional smoothstep: reversed parameters produce undefined GPU-specific output.
 test("sunset shader transitions use defined smoothstep order", () => {
