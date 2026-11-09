@@ -97,7 +97,7 @@ test("High Cu slab uses one four-height envelope, not two overlaid cloud picture
   assert.match(CLOUD_FRAG,/gCuSpan=nearPlane\*\(LH\[8\]\/LS\[8\]\)\*rise/);
   assert.match(CLOUD_FRAG,/float rise=min\(0\.38,0\.72\/max\(length\(nearPlane\),0\.001\)\)/);
   assert.match(CLOUD_SHADOW_FRAG,/gNeedLit=false;/);
-  assert.doesNotMatch(CLOUD_SHADOW_FRAG,/cumulusSlab\(/,"shadow pass samples the original shared base footprint, not the expensive sky-only slab");
+  assert.match(CLOUD_COMMON,/uCuProjection>0\.5&&gNeedLit&&Q>=2\?cumulusSlab/,"shadow pass has gNeedLit=false so it takes the legacy Cu footprint");
   const spanRatio = len=>len*Math.min(.38,.72/Math.max(len,.001));
   for(const len of [.01,.1,1,3,10,100]) assert.ok(spanRatio(len)<=.7200001);
   // Preserve the existing Cu/Cb field sampling when the explicit PoC flag is off.
