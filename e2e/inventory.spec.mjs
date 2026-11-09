@@ -117,5 +117,10 @@ test('settings export a diagnostic JSON with frame samples and active quality',a
   expect(json.run.quality).toBe('balanced');
   expect(typeof json.frame.count).toBe('number');
   expect(json.device.viewportWidth).toBeGreaterThan(0);
-  expect(json.validity.minimumFrames).toBe(60);
+  expect(json.validity.minimumFrames).toBe(10);
+  expect(json.validity.minimumDurationMs).toBe(15000);
+  expect(typeof json.validity.measuredDurationMs).toBe('number');
+  expect(json.run.weatherActual).toBeTruthy();
+  expect(typeof json.run.timeAuto).toBe('boolean');
+  expect(json.validity.usable).toBe(false); // test opens settings immediately, no 15 s sample
 });
