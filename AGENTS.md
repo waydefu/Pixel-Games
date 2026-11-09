@@ -9,7 +9,7 @@
 
 ## 有實作或 PR 時必守
 1. 開工前核對最新 main HEAD、open Issue／PR、相關 CI；查重、列修改路徑和相依工作，避免與別人的 PR 衝突。
-2. 一張工作 Issue 對應明確驗收；自行認領並註明執行端 A＝Waydefu、B＝cooby19。協作／接手流程依 `docs/CONTRIBUTING.md`，當次交接依 `docs/HANDOFF.md`。
+2. 一張工作 Issue 對應明確驗收；自行認領並註明執行端 A＝Waydefu、B＝cooby19。緊急修復可用唯一 HOTFIX-ID，但仍須 PR／驗收；認領及協作依 `docs/CONTRIBUTING.md`，交接依 `docs/HANDOFF.md`。
 3. 從最新 main 開自己的分支；只透過 PR 整合，不直接改 main 或覆寫他人分支。PR 記錄範圍、關聯 Issue、重疊檔案、測試 PASS／FAIL／NOT RUN、風險與回退；**Owner 當次授權後**才可合併。
 4. 改**已實作功能**才核對並更新 `docs/FEATURE-STATUS.json`；改**有效設計決策**才核對 `docs/decisions/DECISION-REGISTER.md`。保留舊研究、ADR、素材來源和歷史決策；SUPERSEDED／HISTORICAL 不作現行需求。
 
