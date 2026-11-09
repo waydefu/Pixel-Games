@@ -210,4 +210,115 @@
 
 - 2026-11-05：從 [整合研究](../reviews/P1-VISUAL-QUALITY-INTEGRATED-RESEARCH-2026-11-05.md)、[HD-2D 補充](../reviews/HD2D-VISUAL-TECH-PLAN-2026-11-05.md)、PR #11～#13 與 `main@a8a504b` 的程式快照建立第一批 PV-001～PV-027。
 - **未實施 G1～G6**；初版中任何 `OPEN` 只說明程式級待修／待驗證，而非當天已進行完整桌面與 POCO F8 Ultra 實測。
+- 2026-11-09：補錄 PV-035～PV-046（PR #33～#51 期間的天空、渲染、CI、輸入與工具陷阱，見 §7；Issue #87）。
 - 後續每次 G PR：先重查證據，修復時補 Commit／測試／對照圖；若調查排除某項，記錄「已證偽」而非抹掉歷史。定期把重複根因合併，ID 保留便於 PR 回溯。
+
+## 7. 2026-11-09 補錄（PR #33～#51 期間的坑）
+
+> 依 §0 規則 1 補錄，Issue #87。**每筆的「真機」欄**：沒有使用者回報或實測就是 NOT RUN；CI 與軟體 GPU（SwiftShader）截圖**不是**真機證據。根因是推論的，寫成假說。
+
+### PV-035｜在場景繪製途中切換渲染目標，手機整幀空白
+
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #34）；**根因 NEEDS-VERIFY**。
+- **觸發前提**：Poco F8 Ultra、高畫質（多重取樣 4×＋海面反射）、斜角與第一人稱都有、遊戲約 10 fps。
+- **現象**：約每 2 個遊戲幀有 1 個整幀空白（只剩天空底色，建築、海、樹全部消失），約每秒 5 次，每個空白幀只持續 1 個顯示幀。
+- **證據**：使用者螢幕錄影的逐幀分析（60 fps 影片：平穩序列中出現單幀尖峰，前後幀相同、中間一幀異常）。修復前程式：`src/game/ocean.ts` 的 `water.onBeforeRender` 在場景（多重取樣目標）繪製**途中**又呼叫 `renderer.render()` 畫反射（每 2 幀一次）；`src/game/cloud-shadow.ts` 的 hook 也在途中切換目標。three.js 原始碼對 `WEBGL_multisampled_render_to_texture` 註記：中途 flush 時該擴充「doesn't work properly」。
+- **根因確定度**：**假說**。節奏與反射的「每兩幀」吻合，且 SwiftShader 沒有該擴充，**無法重現**。替代解釋未排除：這條路徑（多重取樣＋反射）在「平衡」檔也存在，若平衡檔原本不閃，推論不完整。
+- **修法／防呆**：`hd2d-pipeline.js` 新增 `prePass`，雲影圖與海面反射改在場景繪製**之前**畫（`world.prePass`、`ocean.mirrorPass`、`cloud-shadow.run`）；`onBeforeRender` 僅留作無管線時的後備。診斷網址參數 `?reflect=0`（關反射）、`?rtt=0`（不用該擴充）。**規則：不得在場景繪製途中切換渲染目標。**
+- **回歸證據**：單測 `tests/cloud-shader.test.mjs` 靜態檢查 `prePass` 在 `sceneTarget` 之前；CI PASS。真機：使用者回報「正常網址有效」（2026-11-08，**非逐幀量測**）；`?reflect=0`／`?rtt=0` 對照與逐幀復測 **NOT RUN**（Issue #45、#46）。
+
+### PV-036｜CI 在軟體 GPU 的簡化路徑上，看不到手機專屬問題
+
+- **類型／狀態**：`CODE-VERIFIED / OPEN`（追蹤於 Issue #48）。
+- **現象**：CI 全綠，手機卻有空白幀（PV-035）。
+- **證據**：`src/game/main.ts` 的 `softwareGpu`／`lowPower`：軟體 GPU 時關海面反射、關雲影圖、天空降到基本檔、解析度固定 0.55 倍。實測 SwiftShader 的 `getExtension('WEBGL_multisampled_render_to_texture')` 為 `false`。
+- **根因確定度**：已驗證（設計取捨：慢的軟體渲染要在時限內跑完）。
+- **防呆**：審查截圖用 `?mirror=1&fullres=1` 走完整路徑；不把 CI 綠燈當畫面證據（PR 範本與 AGENTS.md 已寫）。可評估非阻擋的完整畫質截圖 smoke（Issue #48）。
+- **回歸證據**：不適用（限制本身）；真機 NOT RUN。
+
+### PV-037｜GLSL `smoothstep(edge0, edge1, x)` 的 `edge0 >= edge1` 是未定義行為
+
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #36；Owner 先修太陽與夕陽，補修其餘 7 處）。
+- **現象**：下降式過渡（太陽高度越低越紅等）在不同 GPU 上結果不一致；**是否就是手機夕陽表現不穩的原因：未驗證**。
+- **證據**：GLSL 規範；專案內有 `smoothstep(.13,-.02,sy)`、`smoothstep(.42,.14,sunSin)`、星星亮點、夜空點狀精靈、草被推開等寫法。
+- **修法／防呆**：改為 `1.0 - smoothstep(小, 大, x)`（數學等價）。`tests/cloud-shader.test.mjs` 掃整個 `src/`，**字面數字**邊界反向就失敗。
+- **限制**：邊界是**表達式**、執行時才反向的情況沒有機械式保證。
+- **回歸證據**：單測與 CI PASS；夜空截圖（星星、銀河）正常；真機 NOT RUN（Issue #45）。
+
+### PV-038｜平面雲層在低仰角被拉長，雲變成一根一根的細棍
+
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #34）；殘留見 Issue #47。
+- **現象**：天空下半部（仰角低）的雲是細橫條，不像團狀的雲。
+- **證據**：使用者手機截圖；`plane = ray.xz / max(ray.y, 0.035)` 在仰角 0.04 時拉長約 25 倍。卷雲原本以 10:1 筆畫繪製。
+- **修法／防呆**：共用 `skyPlane()`（`ray.xz / (0.28 + 0.72 * y)`，上限約 3.5 倍），**天空與地面雲影共用同一函式**，頭上那朵雲仍是投下影子的那朵；卷雲改約 3:1；地平線淡出起點略抬高。
+- **限制**：積雲在低仰角仍有斜向拖影（平面透視拉長，只壓不消）。
+- **回歸證據**：`tests/aerial-cloud-integration.test.mjs` 檢查 `skyPlane` 與兩處使用；SwiftShader 三個時段截圖；使用者後續未再提棒狀，但**未明確確認**，真機 NOT RUN。
+
+### PV-039｜雲飄得太慢，而且逆風
+
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #36）。
+- **現象**：天空的雲幾乎不動，與地面影子的視覺速度不一致。
+- **證據**：`uv = P/LS + uCloudWind*(0.02*LW)`：雲高 210 m、風速約 0.9 m/s，角速度約 0.25°/s；且 uv 加上漂移，雲向**反風向**移動，與陣風、煙霧相反。
+- **修法／防呆**：`LW` 改為「每單位漂移的世界距離」，低層約 1°/s、高層約 0.25～0.5°/s，順風；天空與雲影 pass 讀**同一行** `uv = (P - uCloudWind*LW[id]) / LS[id]`，必然同步。單測限制各層角速度範圍（太慢或太快都會失敗）。
+- **回歸證據**：單測 PASS；**實際飄移速度沒在真機計時**（風速隨天氣變化）：NOT RUN。
+
+### PV-040｜太陽圓盤的亮度乘數過大，被色調映射壓成白色
+
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #36）。
+- **現象**：天空是橘紅，太陽圓盤卻幾乎永遠是白黃色。
+- **證據**：圓盤為 `uSunColor * vec3(20, 17, 13)`；HDR 值很大時，AgX 色調映射會把飽和度壓掉。
+- **修法／防呆**：圓盤色相隨高度由白黃→橘→橘紅，亮度由 18 降到 2.4（貼近地平線）；日冕同色調；低太陽的主光色鍵值也更紅。
+- **教訓**：在 HDR＋色調映射下，要紅就要**降低亮度並提高飽和度**，不是加大亮度。
+- **回歸證據**：單測鎖住色階；SwiftShader 四個太陽高度截圖；真機 NOT RUN（Issue #45）。
+
+### PV-041｜光柱（god rays）在白天把亮雲拖成放射狀煙霧
+
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #36）。
+- **現象**：藍天上有白色放射條紋，像煙霧（使用者截圖）。
+- **證據**：`host.setRayScale(liveSky.sunRays * (1 + 1.4 * twilight))` 白天恆開，太陽在畫面上方時，後製把亮雲沿徑向拖開。
+- **修法／防呆**：只在日出日落（`twilight`）出現：`Math.min(1, sunRays * twilight * 1.6)`。
+- **回歸證據**：單測檢查該式；真機 NOT RUN。
+
+### PV-042｜雲邊緣太銳利像黏土；少雲時雲零碎
+
+- **類型／狀態**：`HISTORY / RESOLVED-CODE`（PR #36；**偏主觀**，蓬鬆程度可再調）。
+- **現象**：雲像黏土；少雲時是散開的小片，而不是幾大團。
+- **證據**：使用者回報；積雲密度 `smoothstep(edge-0.01, edge+0.07, d)` 邊緣窄、明暗落差大。
+- **修法／防呆**：邊緣改長而柔的漸層（`edge-0.16 … edge+0.22`）、明暗調柔；新增低頻「群聚場」讓峰值合併成少數大塊；積雲格寬 70→95（仍 ≤100，雲影仍是可走進走出的區塊）。
+- **回歸證據**：單測鎖住式子；SwiftShader 只有積雲的三種雲量截圖；真機 NOT RUN。
+
+### PV-043｜被新提交取代而取消的 CI，讓總關卡誤報失敗
+
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #51）；**待在真實連續推送中確認：NEEDS-VERIFY**（Issue #50）。
+- **現象**：連續推送時，舊提交的必要總關卡因 `VERIFY_RESULT: cancelled` 判失敗，產生失敗通知（2026-11-08 連續 3 則假失敗，淹沒真失敗）。
+- **證據**：CI 日誌；`.github/workflows/ci.yml` 舊的兩行 shell 判斷。
+- **修法／防呆**：`scripts/check-gate.mjs`＋`gateDecision`：只有「被取消且已被更新的提交取代」視為過時；真失敗、最新提交被取消、查不到最新提交**仍失敗**。
+- **回歸證據**：單測涵蓋各情況；PR #51 的 CI 以新總關卡跑過（全部成功時通過）；連續推送的實際觀察 NOT RUN。
+
+### PV-044｜WASD：輸入法按鍵值不是 W，低 FPS 下走路變慢
+
+- **類型／狀態**：`CODE-VERIFIED / RESOLVED-CODE`（PR #44）；真機 NOT RUN（Issue #53）。
+- **現象**：WASD 走不動（玩家回報）。
+- **證據**：`input.ts` 只認 `KeyboardEvent.key`；`main.ts` 每幀移動被夾在 0.05 秒。軟體 GPU（約 2 fps）對照：修復前拉丁 `w` 0.42 m/s（約 10% 速度）、輸入法（key=ㄈ、code=KeyW）0 m/s；修復後 4.15 m/s，輸入法也能走。
+- **修法／防呆**：優先認 `event.code`；步行以實際時間推進、50ms 小步進保持碰撞、追趕上限 0.5 秒。
+- **限制**：真機低於約 2 fps 時速度仍被限制；根本解法是效能（Issue #46、#52）。
+- **回歸證據**：單測與 e2e PASS；實體鍵盤／輸入法／手機 NOT RUN。
+
+### PV-045｜審查截圖的工具陷阱（軟體 GPU）
+
+- **類型／狀態**：`HISTORY / RESOLVED-PROCESS`（本期作業中踩到的錯，皆已處理）。
+- **內容**：
+  - **shader 編譯錯誤會讓天空安靜地壞掉**：`uHalo` 未宣告，截圖「看起來正常」；審查截圖必須同時看 console 輸出。
+  - **兩個軟體 GPU 瀏覽器同時跑會產生空白幀**：一次只跑一個。
+  - **審查模式凍結時間**：依 `uTime` 才執行的 pass 只會跑一次；改用幀計數器。
+  - **以為的統計值要量**：雜訊平均值假設是 0.37，實測 0.53，閾值要依實測調整。
+  - **執行期 id 迴圈在軟體 GPU 慢約 30%**：十層雲改成常數 id 的巨集展開（A/B 交錯量測 1.07 vs 1.09 fps）。
+- **回歸證據**：`tests/cloud-shader.test.mjs` 檢查展開順序與保留字；相關效能數字只是軟體 GPU，**不代表真機**。
+
+### PV-046｜以為 repo 設定能把外掛帶進雲端 session
+
+- **類型／狀態**：`HISTORY / RESOLVED-PROCESS`（Issue #79、#81；PR #80、#85）。
+- **現象**：Owner 要在雲端啟用 Serena 與 Ponytail。
+- **證據**：官方文件（Configure cloud environments）：repo 的 `.claude/settings.json` 的 `enabledPlugins`／`extraKnownMarketplaces` **雲端 session 不會安裝**；可帶入的是 `.claude/skills/`、`.claude/agents/`、`.claude/commands/` 與 `.mcp.json`。Ponytail v5 是外掛（非 MCP），Serena 是 MCP。
+- **做法**：Serena 走 `.mcp.json`（釘版 `serena-agent==2.1.0`，實測在合併後的同一 session 載入）；Ponytail 只帶入 skill 本體（釘 v5.3.3、sha256 受測試保護），hook 不帶入。
+- **回歸證據**：單測保護釘版；Ponytail 實際行為差異 NOT RUN（Issue #81）。
