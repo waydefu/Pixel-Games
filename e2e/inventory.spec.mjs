@@ -99,3 +99,28 @@ test('storage failure during import does not change active game state',async({pa
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('pixel-games.save.v1')))).toEqual(before);
   expect(await page.locator('#time-auto').isChecked()).toBe(before.timeAuto);
 });
+
+test('settings export a diagnostic JSON with frame samples and active quality',async({page})=>{
+  await page.goto('./');
+  await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
+  await page.locator('#menu-toggle').click();
+  await expect(page.locator('#metrics')).toContainText('p50');
+  const download=page.waitForEvent('download');
+  await page.locator('#perf-report').click();
+  const file=await download;
+  expect(file.suggestedFilename()).toContain('coastal-performance-balanced-');
+  const {readFile}=await import('node:fs/promises');
+  const json=JSON.parse(await readFile(await file.path(),'utf8'));
+  expect(json.schemaVersion).toBe(1);
+  expect(json.source).toContain('not a GPU timer');
+  expect(json.run.reflect).toBe('default');
+  expect(json.run.quality).toBe('balanced');
+  expect(typeof json.frame.count).toBe('number');
+  expect(json.device.viewportWidth).toBeGreaterThan(0);
+  expect(json.validity.minimumFrames).toBe(10);
+  expect(json.validity.minimumDurationMs).toBe(15000);
+  expect(typeof json.validity.measuredDurationMs).toBe('number');
+  expect(json.run.weatherActual).toBeTruthy();
+  expect(typeof json.run.timeAuto).toBe('boolean');
+  expect(typeof json.validity.usable).toBe('boolean'); // CI software GPU may need seconds per frame
+});
