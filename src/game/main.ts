@@ -204,7 +204,7 @@ function mark(state:GameState,message:string){
   else fallback.hidden=true;
 }
 function setMenu(open:boolean){
-  if(open){releaseLook();input.reset();}
+  if(open){releaseLook();input.reset();fishing.release();boating.resetRequest();}
   settings.hidden=!open;
   menuToggle.setAttribute("aria-expanded",String(open));
   if(open)menuClose.focus();
@@ -333,7 +333,7 @@ window.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&inventoryOpen()){e.preventDefault();setInventory(false);return;}
   if(matchesActionKey(e,"KeyB","b")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!isEditingTarget(e.target)){e.preventDefault();setInventory(!inventoryOpen());}
   if(inventoryOpen()&&e.key==="Tab"){
-    const controls=[...inventoryOverlay.querySelectorAll<HTMLElement>('button:not([disabled])')];const i=controls.indexOf(document.activeElement as HTMLElement);
+    const controls=[...inventoryOverlay.querySelectorAll<HTMLElement>('button:not([disabled])')].filter(button=>button.getClientRects().length>0);const i=controls.indexOf(document.activeElement as HTMLElement);
     if(controls.length&&(e.shiftKey&&i<=0||!e.shiftKey&&i===controls.length-1)){e.preventDefault();controls[e.shiftKey?controls.length-1:0].focus();}
   }
 });
