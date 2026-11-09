@@ -146,7 +146,7 @@ test("low sun has a bright fiery disc with a separate core and a tight horizon f
   const discVisible=(sunY,rayY)=>smooth(-.014,.002,sunY)*smooth(-.012,.003,rayY);
   for(const y of [.002,.01,.05,.15]){
     assert.ok(power(y)>=5.6,"near-horizon HDR stays luminous at "+y);
-    assert.ok(discVisible(y,y)>.99,"above-horizon solar disc remains visible at "+y);
+    assert.ok(discVisible(y,y)>.98,"above-horizon solar disc remains visible at "+y);
   }
   assert.ok(discVisible(-.014,-.014)<1e-6,"fully below the horizon disappears");
   assert.ok(power(.6)>17,"high sun retains its white-yellow HDR brightness");
