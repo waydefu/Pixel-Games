@@ -67,10 +67,10 @@ test("clouds are built the way the failure modes taught: separate lumps, rotated
 
 test("Cu cloud base uses the same bounded horizon ray-plane projection in sky and sun shadow", () => {
   assert.match(CLOUD_COMMON, /vec2 cuPlane\(vec2 dirXZ,float elevation\)\{return dirXZ\/max\(elevation,0\.10\);\}/);
-  assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(ray\.xz,ray\.y\):plane/);
-  assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5\?cuPlane\(s\.xz,s\.y\):off/);
+  assert.match(CLOUD_FRAG, /ID==8&&uCuProjection>0\.5&&Q>=2\?cuPlane\(ray\.xz,ray\.y\):plane/);
+  assert.match(CLOUD_SHADOW_FRAG, /ID==8&&uCuProjection>0\.5&&uCloudDetailLevel>1\.5\?cuPlane\(s\.xz,s\.y\):off/);
   const fjord=read("fjord.ts");
-  assert.match(fjord, /const cuProjection=auditQuery\.get\("cuProjection"\)==="legacy"\?0:1;/);
+  assert.match(fjord, /const cuProjection=auditQuery\.get\("cuProjection"\)==="slab"\?1:0;/);
   assert.match(fjord, /uCuProjection:cloudUniforms\.uCuProjection/,"sky and ground shadow use same A/B switch");
   // As in a ray/flat-plane intersection, low view angles intersect the
   // cloud base farther away; the numeric near-zero bound avoids singularities.
@@ -81,6 +81,28 @@ test("Cu cloud base uses the same bounded horizon ray-plane projection in sky an
   assert.ok(plane(.5)>legacy(.5));
   assert.equal(plane(1),legacy(1));
   assert.match(CLOUD_FRAG, /float mask=smoothstep\(0\.0,0\.20,ray\.y\)/,"horizon haze masks the capped band");
+});
+
+test("High Cu slab uses one four-height envelope, not two overlaid cloud pictures", () => {
+  const s=CLOUD_COMMON;
+  assert.match(s,/vec4 cuField\(vec2 uv,float fw,float cov,vec2 ldir,int Q,out vec2 q\)/);
+  assert.match(s,/vec3 cumulusSlab\(vec2 uv,float fw,float cov,vec2 ldir,int Q,vec2 span\)/);
+  assert.match(s,/vec4 bottom=cuField\(uv,fw,cov,ldir,Q,q0\)/);
+  assert.match(s,/vec4 crown=cuField\(uv\+span,fw,cov,ldir,Q,q1\)/);
+  assert.match(s,/for\(int k=1;k<4;k\+\+\)/);
+  assert.match(s,/float u=float\(k\)\/3\.0;/);
+  assert.match(s,/hmax=max\(hmax,h\)/);
+  assert.match(s,/float uHit=clamp\(-h0\/max\(hmax-h0,0\.02\),0\.0,1\.0\)/);
+  assert.match(s,/uCuProjection>0\.5&&gNeedLit&&Q>=2\?cumulusSlab/);
+  assert.match(CLOUD_FRAG,/gCuSpan=nearPlane\*\(LH\[8\]\/LS\[8\]\)\*rise/);
+  assert.match(CLOUD_FRAG,/float rise=min\(0\.38,0\.72\/max\(length\(nearPlane\),0\.001\)\)/);
+  assert.match(CLOUD_SHADOW_FRAG,/gNeedLit=false;/);
+  assert.doesNotMatch(CLOUD_SHADOW_FRAG,/cumulusSlab\(/,"shadow pass samples the original shared base footprint, not the expensive sky-only slab");
+  const spanRatio = len=>len*Math.min(.38,.72/Math.max(len,.001));
+  for(const len of [.01,.1,1,3,10,100]) assert.ok(spanRatio(len)<=.7200001);
+  // Preserve the existing Cu/Cb field sampling when the explicit PoC flag is off.
+  assert.match(s,/vec3 cumulusForm\(vec2 uv,float fw,float cov,vec2 ldir,int Q\)/);
+  assert.match(s,/float den=smoothstep\(edge-0\.16,edge\+0\.22,d\)/);
 });
 
 test("cirrus strands have a coherent head and trailing tuft instead of an unbroken streak", () => {
