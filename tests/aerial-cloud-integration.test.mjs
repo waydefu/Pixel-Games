@@ -35,7 +35,8 @@ test("the shared sky and cloud shadows stay synchronized on all presets",()=>{
   assert.match(clouds,/vec2 plane=skyPlane\(ray\.xz,ray\.y\)/);
   assert.match(clouds,/vec2 off=skyPlane\(s\.xz,s\.y\)/);
   assert.doesNotMatch(clouds,/ray\.xz\/max\(ray\.y/);
-  assert.match(clouds,/smoothstep\(0\.05,0\.20,ray\.y\)/);
+  assert.match(clouds,/smoothstep\\(0\\.0,0\\.10,ray\\.y\\)/);
+  assert.doesNotMatch(clouds,/1\\.0-smoothstep\\(0\\.86,0\\.98,ray\\.y\\)/,"no artificial cloudless zenith cap");
   assert.doesNotMatch(clouds,/max\(0?\.11,ray\.y\)/);
   assert.match(clouds,/uCloudDetailLevel>0\.5/);
   assert.match(clouds,/uCloudDetailLevel>1\.5/);
