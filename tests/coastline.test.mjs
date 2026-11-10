@@ -65,6 +65,7 @@ test("coast water shader uses analytic coastal slopes and the true sloping sand 
   assert.match(COASTLINE_GLSL,/float shoreSlope\(float z\)/);
   assert.match(COASTLINE_GLSL,/float shoreRegionSlope\(float z\)/);
   assert.match(COASTLINE_GLSL,/float shoreBeachBed\(float x,float z\)/);
+  assert.doesNotMatch(COASTLINE_GLSL,/--\d/, "GLSL double-minus token is invalid in the bed-height expression");
   for(const z of [-46,-40,-34,0,34,40,46]){
     const numeric=(coastalOutline(z+.001).coast-coastalOutline(z-.001).coast)/.002;
     const t=Math.max(0,Math.min(1,(Math.abs(z)-35)/12));

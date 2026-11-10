@@ -44,7 +44,7 @@ float shoreBeachBed(float x,float z) {
   float width=5.1*available;
   float t=clamp((x-(shore(z)-width))/max(0.0001,width),0.0,1.0);
   float slope=t*t*(3.0-2.0*t)*available;
-  return -0.184+(-0.425--0.184)*slope;
+  return -0.184+(-0.241)*slope;
 }
 float shoreRegionSlope(float z) {
   float t=clamp((abs(z)-35.0)/12.0,0.0,1.0);
