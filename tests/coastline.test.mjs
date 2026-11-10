@@ -42,7 +42,8 @@ test("ocean vertex and fragment share coast profile and breakers move across sho
   assert.equal((ocean.match(/\$\{COASTLINE_GLSL\}/g)??[]).length,2);
   assert.match(ocean,/dist=mix\(60\.0,dist,shoreRegion\(w\.z\)\)/);
   assert.match(ocean,/coastWeight=shoreRegion\(vWorld\.z\)/);
-  assert.match(ocean,/moving=sin\(vDist\*2\.2\+/);
+  assert.match(ocean,/float shoreline=\(1\.0-smoothstep\(0\.0,2\.65,shoreDist\)\)\*coastWeight/);
+  assert.match(ocean,/moving=sin\(shoreDist\*2\.2\+/);
   assert.doesNotMatch(ocean,/smoothstep\(32\.0,52\.0,abs\(/);
   assert.doesNotMatch(ocean,/float shore\(float z\)\{return 13\.3/);
 });
