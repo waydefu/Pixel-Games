@@ -149,7 +149,8 @@
 
 **O-27｜每個 e2e 分片都重新下載 Chromium 與系統套件**（CONFIRMED）
 - 位置：`.github/workflows/verify.yml:87`（5 個分片各跑一次 `playwright install --with-deps`，註解記載曾經慢到超時）。
-- 修法：用 `actions/cache` 快取 `~/.cache/ms-playwright`，鍵用 `@playwright/test` 的版本；命中時只跑 `npx playwright install-deps`（或把字型套件也快取）。
+- **修正（#123 查日誌後）**：49 秒裡下載瀏覽器只佔 4 秒；其餘是 `apt update`（14 秒）加九個字型套件（下載 21 秒），慢鏡像時整步可到 4 分 35 秒（run 42767724331 手機 1/2）。所以快取瀏覽器幾乎沒用，改成 e2e 分片不帶 `--with-deps`（runner 映像已有全部共享函式庫），視覺稽核步驟自己裝字型。
+- ~~修法：用 `actions/cache` 快取 `~/.cache/ms-playwright`…~~（作廢，保留原文供對照）：用 `actions/cache` 快取 `~/.cache/ms-playwright`，鍵用 `@playwright/test` 的版本；命中時只跑 `npx playwright install-deps`（或把字型套件也快取）。
 - 效果：該步驟在 run 42766547216 的 mobile 2/2 分片實測 **49 秒**（初版寫的 15～20 秒是錯的，已更正）；快取命中後仍要裝系統套件，**能省多少 NOT MEASURED**。另可降低鏡像慢造成的失敗。風險：低；新 action 要釘 SHA。對應：#48。
 
 **O-28｜視覺稽核步驟的條件裡有兩個早已不存在的分支名；畫質永遠是 balanced；執行時還會重建一次**（CONFIRMED；初版寫「等於永遠不會執行」是錯的——PR 加上 `visual-audit` 標籤時會執行）
@@ -169,12 +170,12 @@
 - 修法（二選一）：
   1. **部署只等 build**：`verify.yml` 加一個 `e2e` 輸入（預設 `true`），`deploy-pages.yml` 傳 `false`。main 上的完整 e2e 由 `ci.yml` 的 push 觸發繼續跑，當作部署後的監看。合併到上線約 6～7 分鐘 → 約 1 分鐘（**估計，NOT MEASURED**），每次合併少 5 個工作。
   2. **保留「全綠才部署」**：只把 `ci.yml` 的 `push: main` 拿掉。上線時間不變，每次合併少 6 個工作。
-- 風險：方案 1 放寬了「每個工作都通過才發布」這個保證，改成「PR 全綠＋main 上 build 通過」；`workflow_dispatch` 手動部署也不會再跑 e2e。這是部署安全的取捨，**需要 Owner 決定**。對應：#48。
+- 風險：方案 1 放寬了「每個工作都通過才發布」這個保證，改成「PR 全綠＋main 上 build 通過」；`workflow_dispatch` 手動部署也不會再跑 e2e。這是部署安全的取捨，**需要 Owner 決定**。對應：#48。實作：[#123](https://github.com/waydefu/Pixel-Games/issues/123)（O-34 採方案 1）。
 
 **O-35｜只改文件的 PR 也跑完整的瀏覽器測試**（CONFIRMED；2026-11-10 追加）
 - 證據：PR #119 只改 `docs/`，每次推送仍跑 5 個 e2e 分片（約 25 分鐘的 runner 時間、等 6 分鐘）；本 repo 的治理與審查 PR 很多。
 - 修法：build 工作用 `git diff --name-only` 判斷變更是否全部落在 `docs/**` 與根目錄 `*.md`，是的話輸出 `e2e=false` 讓分片 `if:` 跳過；`gateDecision` 要把「e2e 因純文件而跳過」視為通過，並補單元測試。單元測試與治理檢查（會讀 `docs/`）照跑。
-- 效果：純文件 PR 約 6 分鐘 → 約 40 秒（**估計**）。風險：中——判斷寫錯會讓該跑的 e2e 被靜默跳過，所以白名單要窄（只有 `docs/**`、`*.md`），其他一律照跑；必要檢查的名稱不能變。對應：#48。
+- 效果：純文件 PR 約 6 分鐘 → 約 40 秒（**估計**）。風險：中——判斷寫錯會讓該跑的 e2e 被靜默跳過，所以白名單要窄（只有 `docs/**`、`*.md`），其他一律照跑；必要檢查的名稱不能變。對應：#48。實作：#123。
 
 ### H. 文件
 
