@@ -106,6 +106,7 @@ vec2 pixelWorldUv(){
 #ifdef USE_NORMALMAP_TANGENTSPACE
   pxPackedSurfaceNormal=texture2D(normalMap,pxUv);
   roughnessFactor*=pxPackedSurfaceNormal.a;
+  ${kind==="sand"?"#ifdef USE_COLOR\n  // Beach vertex tint already represents moisture; wet sand is less rough.\n  float wet=clamp((.99-vColor.r)/.33,0.0,1.0);\n  roughnessFactor*=mix(1.0,.64,wet);\n#endif":""}
 #endif`)
         .replace("#include <normal_fragment_maps>",`#ifdef USE_NORMALMAP_TANGENTSPACE
   vec3 pxMapN=pxPackedSurfaceNormal.xyz*2.0-1.0;
