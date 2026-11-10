@@ -79,7 +79,7 @@ varying vec3 vPxWorld;
 varying vec3 vPxNormal;
 uniform float uPxUnits;
 uniform float uPxSlope;
-vec2 pxUv;
+vec2 pxUv;\nvec4 pxPackedSurfaceNormal;
 vec2 pixelWorldUv(){
   vec3 n=normalize(vPxNormal);
   vec3 a=abs(n);
@@ -101,15 +101,21 @@ vec2 pixelWorldUv(){
         .replace("#include <map_fragment>",`#ifdef USE_MAP
   diffuseColor*=texture2D(map,pxUv);
 #endif`)
+        // Roughness is packed in normal alpha; reuse the *same* normal texture sample.
+        .replace("#include <roughnessmap_fragment>",`#include <roughnessmap_fragment>
+#ifdef USE_NORMALMAP_TANGENTSPACE
+  pxPackedSurfaceNormal=texture2D(normalMap,pxUv);
+  roughnessFactor*=pxPackedSurfaceNormal.a;
+#endif`)
         .replace("#include <normal_fragment_maps>",`#ifdef USE_NORMALMAP_TANGENTSPACE
-  vec3 pxMapN=texture2D(normalMap,pxUv).xyz*2.0-1.0;
+  vec3 pxMapN=pxPackedSurfaceNormal.xyz*2.0-1.0;
   pxMapN.xy*=normalScale;
   mat3 pxTbn=getTangentFrame(-vViewPosition,normal,pxUv);
   normal=normalize(pxTbn*pxMapN);
 #endif`);
     };
     const key0=mat.customProgramCacheKey.bind(mat);
-    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-v1";
+    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-packed-roughness-v2";
     scope.track(mat);
     materials.set(key,mat);
     return mat;
