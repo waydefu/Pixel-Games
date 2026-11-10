@@ -16,3 +16,34 @@ test("coast is broad where village exists and tapers at headland ends",()=>{
   }
   assert.throws(()=>coastalOutline(NaN),RangeError);
 });
+
+import { readFileSync } from "node:fs";
+import { coastX } from "../src/game/terrain-profile.js";
+import { SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
+
+test("coastline CPU and GLSL coefficients agree across both headland tapers",()=>{
+  const p=SHORE_PROFILE;
+  const glslValue=n=>Number.isInteger(n)?n.toFixed(1):String(n);
+  for(const n of [p.center,p.waveFrequency1,p.waveAmplitude1,p.waveFrequency2,p.waveAmplitude2,p.taperStart,p.taperEnd,p.taperShift]){
+    assert.ok(COASTLINE_GLSL.includes(glslValue(n)),`missing GLSL coefficient ${n}`);
+  }
+  for(let z=-50;z<=50;z+=0.25){
+    const basis=p.center+Math.sin(z*p.waveFrequency1)*p.waveAmplitude1+Math.sin(z*p.waveFrequency2)*p.waveAmplitude2;
+    assert.ok(Math.abs(basis-coastX(z))<1e-10,`drifted coastX at z=${z}`);
+    const t=Math.max(0,Math.min(1,(Math.abs(z)-p.taperStart)/(p.taperEnd-p.taperStart)));
+    const expected=basis-p.taperShift*t*t*(3-2*t);
+    assert.ok(Math.abs(expected-coastalOutline(z).coast)<1e-10,`coastalOutline mismatch at z=${z}`);
+  }
+  assert.match(COASTLINE_GLSL,/float shore\(float z\)/);
+  assert.match(COASTLINE_GLSL,/float shoreRegion\(float z\)/);
+});
+
+test("ocean vertex and fragment share coast profile and breakers move across shore",()=>{
+  const ocean=readFileSync(new URL("../src/game/ocean.ts",import.meta.url),"utf8");
+  assert.equal((ocean.match(/\$\{COASTLINE_GLSL\}/g)??[]).length,2);
+  assert.match(ocean,/dist=mix\(60\.0,dist,shoreRegion\(w\.z\)\)/);
+  assert.match(ocean,/coastWeight=shoreRegion\(vWorld\.z\)/);
+  assert.match(ocean,/moving=sin\(vDist\*2\.2\+/);
+  assert.doesNotMatch(ocean,/smoothstep\(32\.0,52\.0,abs\(/);
+  assert.doesNotMatch(ocean,/float shore\(float z\)\{return 13\.3/);
+});
