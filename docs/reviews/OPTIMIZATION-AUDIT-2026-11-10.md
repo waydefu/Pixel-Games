@@ -241,4 +241,4 @@
 
 ## 7. 沒有檢查的範圍
 
-`cloud-shader.ts`、`fjord.ts`、`architecture.ts` 等的完整內容（只看 grep 命中處）；自適應解析度控制器；`renderer-port.js` 的 context-loss 路徑細節；`docs/reviews/` 各報告的內容重疊程度；e2e 規格的行為斷言品質；`scripts/performance/*`；各畫質檔實際的著色器程式數；three.js 的 tree-shaking 效果；音訊實聽；任何新的真機量測。open PR #108、#112、#117 的內容未審查。
+`cloud-shader.ts`、`fjord.ts`、`architecture.ts` 等的完整內容（只看 grep 命中處）；自適應解析度控制器；`renderer-port.js` 的 context-loss 路徑細節；`docs/reviews/` 各報告的內容重疊程度；e2e 規格的行為斷言品質；`scripts/performance/*`；各畫質檔實際的著色器程式數；three.js 的 tree-shaking 效果；音訊實聽；任何新的真機量測。open PR #108、#112 的內容未審查；#117（沙灘入海坡度，`beach-profile.js`、`coastline.ts`）在本快照之後合併進 main `c47a413`，同樣不在盤點範圍內，本報告沒有引用它改到的行號。
