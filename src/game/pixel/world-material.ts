@@ -117,7 +117,7 @@ vec2 pixelWorldUv(){
 #endif`);
     };
     const key0=mat.customProgramCacheKey.bind(mat);
-    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-packed-roughness-v2";
+    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-packed-roughness-v2-"+(kind==="sand"?"wet-sand":"other");
     scope.track(mat);
     materials.set(key,mat);
     return mat;
