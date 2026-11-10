@@ -1,4 +1,5 @@
 import { coastX } from "./terrain-profile.js";
+import { BEACH_DRY_Y, BEACH_SEABED_Y } from "./beach-profile.js";
 
 /**
  * Harbour sand tapers into the headlands between |z| = 35 and 47.
@@ -28,6 +29,26 @@ float shoreWaterLimit(float z) {
   // The available beach tapers to zero at both headlands; swash cannot overrun its dry edge.
   float beachWidth=5.1*(1.0-smoothstep(${glsl(p.taperStart)},${glsl(p.taperEnd)},abs(z)));
   return shore(z)-min(${glsl(SHORE_WATER_INSET)},beachWidth*0.78);
+}
+// Analytic derivative of shore(z), so the ocean surface normal matches the curved bank.
+float shoreSlope(float z) {
+  float t=clamp((abs(z)-35.0)/12.0,0.0,1.0);
+  return 0.08450*cos(z*.13)+0.08140*cos(z*.37)-4.0*t*(1.0-t)*sign(z);
+}
+float shoreTaper(float z) {
+  return smoothstep(35.0,47.0,abs(z));
+}
+// True sand-bed height. A water trough beneath the bed must not render through the beach.
+float shoreBeachBed(float x,float z) {
+  float available=1.0-shoreTaper(z);
+  float width=5.1*available;
+  float t=clamp((x-(shore(z)-width))/max(0.0001,width),0.0,1.0);
+  float slope=t*t*(3.0-2.0*t)*available;
+  return -0.184+(-0.425--0.184)*slope;
+}
+float shoreRegionSlope(float z) {
+  float t=clamp((abs(z)-35.0)/12.0,0.0,1.0);
+  return -0.5*t*(1.0-t)*sign(z);
 }
 float shoreRegion(float z) {
   return 1.0-smoothstep(${glsl(p.taperStart)},${glsl(p.taperEnd)},abs(z));

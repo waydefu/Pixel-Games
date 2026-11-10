@@ -54,6 +54,10 @@ test("ocean limits storm crests at harbour edge and masks its water under dry la
   assert.match(ocean,/mesh\.position\.set\(140,SEA_LEVEL_Y,0\)/);
   assert.match(ocean,/vWorld\.x<shoreWaterLimit\(vWorld\.z\)/);
   assert.match(ocean,/float damp=\.06\+\.94\*smoothstep\(0\.0,9\.0,dist\)/);
-  assert.match(ocean,/float damp=\.06\+\.94\*smoothstep\(0\.0,9\.0,shoreDist\)/);
+  assert.match(ocean,/float waveDist=mix\(60\.0,max\(0\.0,rawDist\),coastWeight\)/);
+  assert.match(ocean,/vWorld\.y<=shoreBeachBed\(vWorld\.x,vWorld\.z\)/);
+  assert.match(ocean,/shapeDx\*damp\+waveShape\*dampGrad\*distDx/);
+  assert.match(ocean,/vec3 n=normalize\(vec3\(-dx,1\.0,-dz\)\)/);
+  assert.doesNotMatch(ocean,/normalize\(vec3\(-dx,1\.0,-dz\)\*uWeather\.x\)/);
   assert.match(ocean,/mirrorSampler/);
 });

@@ -59,3 +59,16 @@ test("shared water edge follows the curved beach and never exposes dry inland to
     assert.ok(coastalWaterLimit(z)<=p.coast+1e-12);
   }
 });
+
+
+test("coast water shader uses analytic coastal slopes and the true sloping sand bed",()=>{
+  assert.match(COASTLINE_GLSL,/float shoreSlope\(float z\)/);
+  assert.match(COASTLINE_GLSL,/float shoreRegionSlope\(float z\)/);
+  assert.match(COASTLINE_GLSL,/float shoreBeachBed\(float x,float z\)/);
+  for(const z of [-46,-40,-34,0,34,40,46]){
+    const numeric=(coastalOutline(z+.001).coast-coastalOutline(z-.001).coast)/.002;
+    const t=Math.max(0,Math.min(1,(Math.abs(z)-35)/12));
+    const analytic=.0845*Math.cos(z*.13)+.0814*Math.cos(z*.37)-4*t*(1-t)*Math.sign(z);
+    assert.ok(Math.abs(numeric-analytic)<1e-5,`shore derivative at z=${z}`);
+  }
+});
