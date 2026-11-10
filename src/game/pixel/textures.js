@@ -21,7 +21,9 @@ function naturalAlbedo(size,painted,light,ramp,seed) {
     const tone=clamp01(painted.tone[i]+light[i]*painted.bevel*.13+grain);
     const loc=tone*last,lo=Math.floor(loc),hi=Math.min(last,lo+1),blend=loc-lo;
     const occlusion=.94+.06*clamp01(painted.height[i]);
-    for(let c=0;c<3;c++)data[i*4+c]=Math.round((palette[lo][c]*(1-blend)+palette[hi][c]*blend)*occlusion);
+    // Preserve authored ground flowers and mineral accents while softening the base terrain.
+    const accent=painted.override.get(i);
+    for(let c=0;c<3;c++)data[i*4+c]=accent?.[c]??Math.round((palette[lo][c]*(1-blend)+palette[hi][c]*blend)*occlusion);
     data[i*4+3]=255;
   }
   return data;
