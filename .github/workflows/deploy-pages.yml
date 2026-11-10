@@ -13,12 +13,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The same pipeline CI runs (build and validate once, browser suites in parallel shards), plus the Pages artifact.
+  # Build and validate once, plus the Pages artifact. The browser suites are not repeated here: main only accepts pull requests
+  # that are up to date and green (strict branch protection), so this tree already passed them, and ci.yml runs them again on
+  # main as a post-merge check. If strict protection is ever turned off, remove `e2e: false`.
   verify-and-package:
     name: Verify and package site
     uses: ./.github/workflows/verify.yml
     with:
       pages: true
+      e2e: false
 
   deploy:
     name: Deploy verified dist to Pages

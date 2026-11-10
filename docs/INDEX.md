@@ -42,6 +42,7 @@
 | **踩坑與風險紀錄（已驗證／歷史／風險分級）** | [VISUAL-PITFALLS-LOG](governance/VISUAL-PITFALLS-LOG.md) |
 | GitHub 分支保護 | [BRANCH-PROTECTION](governance/BRANCH-PROTECTION.md) |
 | GitHub Pages 發布 | [PAGES-DEPLOYMENT](governance/PAGES-DEPLOYMENT.md) |
+| 全 repo 優化點盤點與具體修法（2026-11-10 快照，對照 #78） | [OPTIMIZATION-AUDIT-2026-11-10](reviews/OPTIMIZATION-AUDIT-2026-11-10.md) |
 | 本輪獨立程式審查 | [AUDIT-2026-11-05](reviews/INDEPENDENT-AUDIT-2026-11-05.md) |
 | **P1 視覺品質整合主報告（唯一現行研究入口）** | [VISUAL-QUALITY-INTEGRATED-RESEARCH](reviews/P1-VISUAL-QUALITY-INTEGRATED-RESEARCH-2026-11-05.md) |
 | **G3～G6 四張場景參考的美術驗收補充** | [CINEMATIC-REFERENCE-BRIEF](reviews/P1-CINEMATIC-FOUR-REFERENCE-ART-BRIEF-2026-11-05.md) |

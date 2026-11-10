@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { renderWithSingleShadowUpdate } from "./shadow-frame.js";
 
 /**
  * HD-2D frame pipeline. ONE linear-light path for every quality tier, so fog,
@@ -409,11 +410,16 @@ export function createHd2dPipeline({ renderer, scene, camera, quality = "balance
       // Passes that draw into their own targets (cloud-shadow map, the sea's mirror) run BEFORE the scene pass. Switching the
       // render target in the middle of a multisampled pass loses what was drawn so far on phone GPUs that implement
       // WEBGL_multisampled_render_to_texture (three.js notes the same limitation), which showed as blank frames.
-      if (prePass) { activeCamera.updateMatrixWorld(); prePass(renderer, scene, activeCamera); }
-      measure('scene',()=>{
-        renderer.setRenderTarget(sceneTarget);
-        renderer.clear();
-        renderer.render(scene, activeCamera);
+      // The water mirror renders the same sunlit scene before the main scene.
+      // Refresh the shadow map in the first lit render and reuse it in the
+      // second, rather than drawing an identical 1024px map twice.
+      renderWithSingleShadowUpdate(renderer, () => {
+        if (prePass) { activeCamera.updateMatrixWorld(); prePass(renderer, scene, activeCamera); }
+        measure('scene',()=>{
+          renderer.setRenderTarget(sceneTarget);
+          renderer.clear();
+          renderer.render(scene, activeCamera);
+        });
       });
 
       let bloomTexture = null;
