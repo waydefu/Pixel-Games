@@ -2,7 +2,7 @@ import {SPECIES} from './fishing-logic.js';
 
 // Stable identifiers are shared by pickups, inventory and save files.
 export const CATCH_ITEMS = Object.freeze(Object.fromEntries(SPECIES.filter(s=>!s.junk).map(s=>[s.id,{name:s.name}])));
-export const ITEMS = Object.freeze({shell:{name:'貝殼'}, driftwood:{name:'漂流木'}, stone:{name:'海石'}, ...CATCH_ITEMS});
+export const ITEMS = Object.freeze({shell:{name:'貝殼'}, driftwood:{name:'漂流木'}, stone:{name:'海石'}, wheat:{name:'小麥'}, cabbage:{name:'甘藍'}, pumpkin:{name:'南瓜'}, leek:{name:'韭蔥'}, ...CATCH_ITEMS});
 export function addCatch(inventory, result) {
   if(!result || result.junk || !Object.hasOwn(CATCH_ITEMS,result.id)) return false;
   inventory[result.id]=(inventory[result.id]??0)+1;

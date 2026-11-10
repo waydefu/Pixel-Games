@@ -1,3 +1,5 @@
+import { CROPS, PLOTS, GROW_MS, stage, plant, harvest, emptyPlots } from "./farming.js";
+import { cropGeometry } from "./landmarks.js";
 import * as THREE from "three";
 import { createRendererPort } from "../rendering/renderer-port.js";
 import { createHd2dPipeline } from "../rendering/hd2d-pipeline.js";
@@ -13,7 +15,7 @@ import { createMovementInput, isEditingTarget, matchesActionKey } from "./input.
 import { stepWalkingByElapsedTime, canOccupy, groundHeight } from "./navigation.js";
 import { hullClear } from "./rowing.js";
 import { ITEMS, PICKUPS, collect, addCatch } from "./inventory.js";
-import { readSave, writeSave, validateSave, commitImportedSave, SAVE_KEY } from "./save.js";
+import { readSave, writeSave, validateSave, upgradeSave, commitImportedSave, SAVE_KEY } from "./save.js";
 import { createCameraRig, type CameraMode } from "./camera.js";
 import { createFishingView } from "./fishing.js";
 import { createBoating } from "./boating.js";
@@ -160,6 +162,7 @@ weatherPicker.addEventListener("change",()=>world.setWeather(weatherPicker.value
 const input=createMovementInput(joystick,knob);
 const inventoryOverlay=element<HTMLElement>("#inventory-overlay");
 const inventoryOpen=()=>!inventoryOverlay.hidden;
+const farmPanel=element<HTMLElement>("#farm-panel"), farmOpen=()=>!farmPanel.hidden;
 if(performanceAudit)startup.inputReadyMs=performance.now();
 const frameMetrics=createFrameMetrics();
 // Separate from the short rolling on-screen diagnostic: gather at least 15 seconds
@@ -284,19 +287,53 @@ function startAudio(){
 for(const type of ["pointerdown","keydown","touchstart"])window.addEventListener(type,()=>{startAudio();if(soundCtx&&soundCtx.state==="suspended")void soundCtx.resume();},{passive:true});
 document.addEventListener("visibilitychange",()=>{if(!soundCtx)return;if(document.visibilityState==="hidden")void soundCtx.suspend();else void soundCtx.resume();});
 const fishing=createFishingView({
-  scene:world.scene,scope:world.scope,player:world.player,isBlocked:()=>inventoryOpen()||!settings.hidden,isAboard:()=>boating.aboard,audio:()=>sound,
+  scene:world.scene,scope:world.scope,player:world.player,isBlocked:()=>inventoryOpen()||farmOpen()||!settings.hidden,isAboard:()=>boating.aboard,audio:()=>sound,
   getCamera:()=>rig.camera,getMode:()=>rig.mode,setCameraMode,
   onCatch:result=>{if(addCatch(inventory,result)){renderInventory();saveProgress();}},
   ui:{lure:element<HTMLButtonElement>("#fish-lure"),hud:element<HTMLElement>("#fish-hud"),status:element<HTMLElement>("#fish-status"),button:element<HTMLButtonElement>("#fish-button"),count:element<HTMLElement>("#fish-count"),meter:element<HTMLElement>("#fish-meter"),power:element<HTMLElement>("#fish-power"),tension:element<HTMLElement>("#fish-tension"),distance:element<HTMLElement>("#fish-distance")},
 });
 const boating=createBoating({
   scene:world.scene,scope:world.scope,boats:world.boats,movable:world.boatsMovable,blockers:world.seaBlockers,colliders:world.colliders,
-  player:world.player,audio:()=>sound,world,rig,isBlocked:()=>inventoryOpen()||!settings.hidden,getMode:()=>rig.mode,setCameraMode,
+  player:world.player,audio:()=>sound,world,rig,isBlocked:()=>inventoryOpen()||farmOpen()||!settings.hidden,getMode:()=>rig.mode,setCameraMode,
   ui:{hud:element<HTMLElement>("#boat-hud"),status:element<HTMLElement>("#boat-status"),button:element<HTMLButtonElement>("#boat-button")},
 });
 // Pickups and saves are independent of the renderer and share stable identifiers.
 const inventory:Record<string,number>={};
 let collected:string[]=[];
+let farm:({crop:string;plantedAt:number}|null)[]=emptyPlots();
+const farmStatus=element<HTMLElement>("#farm-status"),farmActions=element<HTMLElement>("#farm-actions");
+let selectedPlot=-1, lastFarmVisual="",lastFarmUiKey="";
+const cropTypes=Object.keys(CROPS) as (keyof typeof CROPS)[];
+const cropMaterial=world.scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));
+const cropGeometries=Object.fromEntries(cropTypes.map(c=>[c,world.scope.track(cropGeometry(c))]));
+const plotBorder=world.scope.track(new THREE.InstancedMesh(world.scope.track(new THREE.BoxGeometry(1,.035,1)),world.scope.track(new THREE.MeshStandardMaterial({color:0x9b7850,roughness:1})),PLOTS.length*4));
+const plotMarker=new THREE.Object3D();
+PLOTS.forEach((p,i)=>{[[0,-1,2.25,.045],[0,1,2.25,.045],[-1.1,0,.045,2],[1.1,0,.045,2]].forEach(([x,z,w,d],j)=>{plotMarker.position.set(p.x+x,-.01,p.z+z);plotMarker.scale.set(w,1,d);plotMarker.updateMatrix();plotBorder.setMatrixAt(i*4+j,plotMarker.matrix);});});
+plotBorder.instanceMatrix.needsUpdate=true;plotBorder.computeBoundingSphere();world.scene.add(plotBorder);
+const plotMeshes=PLOTS.map(p=>{
+  const group=new THREE.Group();group.position.set(p.x,-.02,p.z);world.scene.add(group);
+  return Object.fromEntries(cropTypes.map(c=>{
+    const plants=new THREE.Group();plants.visible=false;
+    for(const [x,z] of [[-.55,-.55],[.55,-.55],[-.55,.55],[.55,.55]]){const mesh=new THREE.Mesh(cropGeometries[c],cropMaterial);mesh.position.set(x,0,z);plants.add(mesh);}
+    group.add(plants);return [c,plants];
+  })) as Record<keyof typeof CROPS,THREE.Group>;
+});
+function updateFarmVisual(){
+  const key=farm.map((p:any)=>p?`${p.crop}:${stage(p)}`:"-").join("|");if(key===lastFarmVisual)return;lastFarmVisual=key;
+  farm.forEach((p:any,i:number)=>{for(const c of cropTypes){const m=plotMeshes[i][c];m.visible=!!p&&p.crop===c;if(m.visible){const scale=[0,.5,.75,1][stage(p)];m.children.forEach(child=>child.scale.setScalar(scale));}}});
+}
+function nearPlot(){if(boating.aboard||rig.mode==="vista")return undefined;return PLOTS.map(p=>({p,d:Math.hypot(world.player.x-p.x,world.player.z-p.z)})).filter(v=>v.d<1.7).sort((a,b)=>a.d-b.d)[0]?.p;}
+function closeFarm(){farmPanel.hidden=true;selectedPlot=-1;lastFarmUiKey="";input.reset();}
+function renderFarm(){
+  const p=farm[selectedPlot];const key=p?`${selectedPlot}:${p.crop}:${stage(p)}`:`${selectedPlot}:empty`;const changed=key!==lastFarmUiKey;if(changed){lastFarmUiKey=key;farmActions.replaceChildren();}
+  if(!p){farmStatus.textContent="空田：選擇要種植的作物";if(!changed)return;for(const c of cropTypes){const b=document.createElement("button");b.type="button";b.textContent=CROPS[c].name;b.addEventListener("click",()=>{if(plant(farm,selectedPlot,c)){updateFarmVisual();saveProgress();renderFarm();}});farmActions.append(b);}return;}
+  const st=stage(p);farmStatus.textContent=CROPS[p.crop as keyof typeof CROPS].name+(st===3?"已成熟":"生長中，約剩 "+Math.ceil(Math.max(0,GROW_MS-(Date.now()-p.plantedAt))/1000)+" 秒");
+  if(st===3&&changed){const b=document.createElement("button");b.type="button";b.textContent="收割";b.addEventListener("click",()=>{if(harvest(farm,selectedPlot,inventory)){updateFarmVisual();renderInventory();saveProgress();renderFarm();}});farmActions.append(b);}
+}
+function openFarm(id:number){selectedPlot=id;farmPanel.hidden=false;releaseLook();input.reset();fishing.release();boating.resetRequest();renderFarm();element<HTMLButtonElement>("#farm-close").focus();}
+element<HTMLButtonElement>("#farm-close").addEventListener("click",closeFarm);
+window.addEventListener("keydown",e=>{if(e.key==="Escape"&&farmOpen()){e.preventDefault();closeFarm();}});
+
 const pickupButton=element<HTMLButtonElement>("#pickup-button"),inventoryToggle=element<HTMLButtonElement>("#inventory-toggle");
 const inventoryClose=element<HTMLButtonElement>("#inventory-close"),inventoryList=element<HTMLElement>("#inventory-list"),saveMessage=element<HTMLElement>("#save-message");
 const saveFile=element<HTMLInputElement>("#save-file");
@@ -320,9 +357,9 @@ function renderInventory(){
   if(!inventoryList.childElementCount)inventoryList.textContent="行囊還是空的。到海邊走走吧。";
   pickupMeshes.forEach((mesh,i)=>{mesh.visible=!collected.includes(PICKUPS[i].id);});
 }
-function saveSnapshot(){return {version:1,player:{...world.player},hour,timeAuto:timeAuto.checked,inventory:{...inventory},collected:[...collected],fishing:fishing.tally(),boatsMovable:world.boatsMovable,boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),aboard:boating.index};}
+function saveSnapshot(){return {version:2,farm:farm.map((p:any)=>p?{...p}:null),player:{...world.player},hour,timeAuto:timeAuto.checked,inventory:{...inventory},collected:[...collected],fishing:fishing.tally(),boatsMovable:world.boatsMovable,boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),aboard:boating.index};}
 function checkWorldSave(value:ReturnType<typeof saveSnapshot>){
-  validateSave(value);
+  value=upgradeSave(value);
   if(value.boats.length!==boating.sims.length || (value.aboard>=0&&(!world.boatsMovable||!value.boatsMovable)) || (value.aboard>=0&&Math.hypot(value.player.x-value.boats[value.aboard].x,value.player.z-value.boats[value.aboard].z)>5) || (value.aboard<0&&!canOccupy(value.player.x,value.player.z,world.colliders)))throw Error("存檔位置或船隻與目前世界不相容");
   if(value.boatsMovable&&world.boatsMovable){
     for(let i=0;i<value.boats.length;i++){
@@ -333,7 +370,7 @@ function checkWorldSave(value:ReturnType<typeof saveSnapshot>){
   return value;
 }
 function applySave(value:ReturnType<typeof saveSnapshot>){
-  checkWorldSave(value);Object.keys(inventory).forEach(k=>delete inventory[k]);Object.assign(inventory,value.inventory);collected=[...value.collected];
+  value=checkWorldSave(value);farm=value.farm.map((p:any)=>p?{...p}:null);lastFarmVisual="";updateFarmVisual();closeFarm();Object.keys(inventory).forEach(k=>delete inventory[k]);Object.assign(inventory,value.inventory);collected=[...value.collected];
   hour=value.hour;timeAuto.checked=value.timeAuto;showHour();world.setHour(hour);fishing.setTally(value.fishing);
   if(world.boatsMovable)boating.restore(value.boatsMovable?value.boats:boating.sims.map(s=>({x:s.state.x,z:s.state.z,heading:s.state.heading})),value.aboard);world.movePlayer(value.player.x,value.player.z,0);renderInventory();
 }
@@ -352,7 +389,7 @@ function saveProgress(){
 if(!visualShot){try{const saved=readSave(window.localStorage);if(saved)applySave(checkWorldSave(saved));}catch{saveBlocked=true;saveRecovery.hidden=false;saveMessage.textContent="現有存檔無法讀取，原始資料已保留。可匯入有效備份，或先下載原始資料再重新開始。";}}
 renderInventory();
 function setInventory(open:boolean){
-  if(open){setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
+  if(open){closeFarm();setMenu(false);releaseLook();input.reset();fishing.release();boating.resetRequest();renderInventory();}
   else{phoneFrameMetrics.reset();gameplayFrameAtMenu=null;}
   inventoryOverlay.hidden=!open;inventoryToggle.setAttribute("aria-expanded",String(open));
   if(open)inventoryClose.focus();else inventoryToggle.focus();
@@ -367,7 +404,7 @@ window.addEventListener("keydown",e=>{
   }
 });
 function nearPickup(){return !boating.aboard&&rig.mode!=="vista"?PICKUPS.find(p=>!collected.includes(p.id)&&Math.hypot(world.player.x-p.x,world.player.z-p.z)<2):undefined;}
-function takePickup(){const p=nearPickup();if(!p||inventoryOpen()||!settings.hidden)return;if(collect(inventory,collected,p.id)){renderInventory();saveProgress();}}
+function takePickup(){if(inventoryOpen()||farmOpen()||!settings.hidden)return;const plot=nearPlot();if(plot){openFarm(plot.id);return;}const p=nearPickup();if(p&&collect(inventory,collected,p.id)){renderInventory();saveProgress();}}
 window.addEventListener("keydown",e=>{if(matchesActionKey(e,"KeyG","g")&&!e.repeat&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!isEditingTarget(e.target))takePickup();});
 pickupButton.addEventListener("click",takePickup);
 element<HTMLButtonElement>("#save-export").addEventListener("click",()=>{try{downloadText(JSON.stringify(checkWorldSave(saveSnapshot()),null,2),"coastal-wander-save.json","application/json");}catch{saveMessage.textContent="無法匯出存檔。";}});
@@ -419,7 +456,7 @@ if(visualShot){
   }
 }
 canvas.addEventListener("pointerdown",e=>{
-  if(inventoryOpen()||!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
+  if(inventoryOpen()||farmOpen()||!settings.hidden||rig.mode==="quarter"||lookPointer!==null)return;
   // Touch users use the LEFT joystick and drag on the RIGHT of the canvas.
   if(e.pointerType==="touch"&&e.clientX<canvas.clientWidth*.36)return;
   lookPointer=e.pointerId;lastLookX=e.clientX;lastLookY=e.clientY;
@@ -438,7 +475,7 @@ canvas.addEventListener("pointerdown",e=>{
   e.preventDefault();
 });
 window.addEventListener("pointermove",e=>{
-  if(inventoryOpen()||rig.mode==="quarter"||!settings.hidden)return;
+  if(inventoryOpen()||farmOpen()||rig.mode==="quarter"||!settings.hidden)return;
   if(e.pointerType==="mouse"&&document.pointerLockElement===canvas){rig.look(e.movementX,e.movementY);return;}
   if(e.pointerType==="mouse"&&rig.mode==="first"&&!lockFailed)return;
   if(e.pointerId!==lookPointer)return;
@@ -482,7 +519,7 @@ function resize(){
   diagnostics.bufferWidth=buffer.width;diagnostics.bufferHeight=buffer.height;
 }
 function update(dt:number,walkingElapsed=dt){
-  if(!settings.hidden||inventoryOpen())return;
+  if(!settings.hidden||inventoryOpen()||farmOpen())return;
   const values=input.read();
   if(boating.update(dt,boatDrive??values,elapsed))return;   // boat physics retains its bounded timestep
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
@@ -585,7 +622,7 @@ async function start(){
       if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
       let cpuTime=measureCpu?performance.now():0;
       update(dt,document.visibilityState==='visible'?wallDt:0);
-      const pickup=nearPickup();pickupButton.hidden=!pickup||inventoryOpen()||!settings.hidden;pickupButton.textContent=pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
+      updateFarmVisual();if(farmOpen())renderFarm();const plot=nearPlot(),pickup=nearPickup();pickupButton.hidden=(!plot&&!pickup)||inventoryOpen()||farmOpen()||!settings.hidden;pickupButton.textContent=plot?(farm[plot.id]?(stage(farm[plot.id])===3?"農田：可收割 (G)":"農田：生長中 (G)"):"農田：種植 (G)"):pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
       if(now-lastSaveAt>5000){lastSaveAt=now;saveProgress();}
       const movementMs=measureCpu?performance.now()-cpuTime:0;
       if(measureCpu)cpuTime=performance.now();

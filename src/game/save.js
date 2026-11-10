@@ -1,10 +1,11 @@
 import {ITEMS,PICKUPS,CATCH_ITEMS} from './inventory.js';
+import {CROPS,validPlots,emptyPlots} from './farming.js';
 
 export const SAVE_KEY='pixel-games.save.v1';
 const PICKUP_BY_ID=new Map(PICKUPS.map(p=>[p.id,p]));
 
 export function validateSave(s) {
-  if(!s || s.version!==1 || !s.player || !Number.isFinite(s.player.x) || !Number.isFinite(s.player.z) || Math.abs(s.player.x)>120 || Math.abs(s.player.z)>40 || !Number.isFinite(s.hour) || s.hour<0 || s.hour>=24 || typeof s.timeAuto!=='boolean') throw Error('存檔版本或位置、時間無效');
+  if(!s || ![1,2].includes(s.version) || !s.player || !Number.isFinite(s.player.x) || !Number.isFinite(s.player.z) || Math.abs(s.player.x)>120 || Math.abs(s.player.z)>40 || !Number.isFinite(s.hour) || s.hour<0 || s.hour>=24 || typeof s.timeAuto!=='boolean') throw Error('存檔版本或位置、時間無效');
   if(!s.inventory || Array.isArray(s.inventory) || typeof s.inventory!=='object' || Object.entries(s.inventory).some(([id,n])=>!Object.hasOwn(ITEMS,id)||!Number.isSafeInteger(n)||n<1)) throw Error('存檔物品或數量無效');
   if(!Array.isArray(s.collected) || new Set(s.collected).size!==s.collected.length || s.collected.some(id=>!PICKUP_BY_ID.has(id))) throw Error('存檔拾取紀錄無效');
   // Each current pickup is a one-time object. Item quantities must match those IDs exactly.
@@ -13,12 +14,14 @@ export function validateSave(s) {
     const item=PICKUP_BY_ID.get(id).item;
     expected[item]=(expected[item]??0)+1;
   }
-  if(Object.entries(s.inventory).some(([id,count])=>!Object.hasOwn(CATCH_ITEMS,id) && expected[id]!==count) || Object.entries(expected).some(([id,count])=>s.inventory[id]!==count)) throw Error('背包數量與拾取紀錄不一致');
+  if(Object.entries(s.inventory).some(([id,n])=>!Object.hasOwn(CROPS,id)&&!Object.hasOwn(CATCH_ITEMS,id)&&n!==(expected[id]??0)) || Object.entries(expected).some(([id,count])=>s.inventory[id]!==count) || (s.version===1&&Object.keys(s.inventory).some(id=>Object.hasOwn(CROPS,id)))) throw Error('背包數量與拾取紀錄不一致');
+  if(s.version===2&&!validPlots(s.farm)) throw Error('農田資料無效');
   if(!s.fishing || !Number.isSafeInteger(s.fishing.count) || s.fishing.count<0 || (s.fishing.best!==null && (!s.fishing.best || typeof s.fishing.best.name!=='string' || !Number.isFinite(s.fishing.best.length) || s.fishing.best.length<0))) throw Error('存檔釣魚紀錄無效');
   if(Object.keys(CATCH_ITEMS).reduce((total,id)=>total+(s.inventory[id]??0),0)>s.fishing.count) throw Error('背包漁獲數量超過釣魚紀錄');
   if(typeof s.boatsMovable!=='boolean' || !Array.isArray(s.boats) || !Number.isInteger(s.aboard) || s.aboard < -1 || s.aboard>=s.boats.length || s.boats.some(b=>!b || ![b.x,b.z,b.heading].every(Number.isFinite) || (s.boatsMovable ? (b.x<14.8 || b.x>118 || Math.abs(b.z)>40) : (b.x!==0 || b.z!==0)))) throw Error('存檔船隻資料無效');
   return s;
 }
+export function upgradeSave(s) { validateSave(s); return s.version===1?{...s,version:2,farm:emptyPlots()}:s; }
 export function readSave(storage) { const raw=storage.getItem(SAVE_KEY); return raw ? validateSave(JSON.parse(raw)) : null; }
 export function writeSave(storage, save) { storage.setItem(SAVE_KEY,JSON.stringify(validateSave(save))); }
 

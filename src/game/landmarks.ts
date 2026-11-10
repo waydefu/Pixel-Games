@@ -39,7 +39,7 @@ function lean(geometry:THREE.BufferGeometry,x:number,z:number,rx:number,rz:numbe
 }
 
 /** Small merged plant models (one geometry per crop, instanced per plant). */
-function cropGeometry(crop:Crop){
+export function cropGeometry(crop:Crop){
   const parts:THREE.BufferGeometry[]=[];
   if(crop==="wheat"){
     const stalk=(x:number,z:number,rx:number,rz:number)=>{
@@ -95,30 +95,20 @@ export function buildLandmarks(k:StageKit,assets?:VillageAssets|null,fixtures?:F
 
   // ---- the farm ----
   const soil=k.solid("#5b4433",1),soilDark=k.solid("#493625",1);
-  const cropMaterial=k.scope.track(new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));
   const dummy=new THREE.Object3D();
   for(const f of FIELDS){
     k.flat(f.w,f.d,soilDark,f.x,-.15,f.z);
-    const rows=Math.floor(f.d/.62),cols=Math.floor((f.w-.5)/.5);
+    const rows=Math.floor(f.d/.62);
     // Tilled ridges, then plants along them.
     const ridge=k.scope.track(new THREE.InstancedMesh(k.scope.track(new THREE.BoxGeometry(f.w-.5,.13,.3)),soil,rows));
-    const plants=k.scope.track(new THREE.InstancedMesh(k.scope.track(cropGeometry(f.crop)),cropMaterial,rows*cols));
-    let n=0;
+
     for(let r=0;r<rows;r++){
       const z=f.z-f.d/2+.45+r*.62;
       dummy.position.set(f.x,-.08,z);dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();ridge.setMatrixAt(r,dummy.matrix);
-      for(let c=0;c<cols;c++){
-        const s=f.crop==="wheat"?.9+rng()*.4:.85+rng()*.35;
-        dummy.position.set(f.x-(f.w-.5)/2+.25+c*.5+(rng()-.5)*.1,-.02,z+(rng()-.5)*.08);
-        dummy.rotation.set(0,rng()*6.28,0);dummy.scale.set(s,f.crop==="wheat"?s*(.85+rng()*.4):s,s);dummy.updateMatrix();
-        plants.setMatrixAt(n,dummy.matrix);
-        plants.setColorAt(n,new THREE.Color().setRGB(.92+rng()*.14,.92+rng()*.14,.9+rng()*.12));
-        n++;
-      }
+
     }
-    plants.count=n;plants.instanceMatrix.needsUpdate=true;if(plants.instanceColor)plants.instanceColor.needsUpdate=true;
-    for(const m of [ridge,plants]){m.castShadow=false;m.receiveShadow=true;m.computeBoundingSphere();k.scene.add(m);}
-    plants.castShadow=false;
+    for(const m of [ridge]){m.castShadow=false;m.receiveShadow=true;m.computeBoundingSphere();k.scene.add(m);}
+
   }
   if(kit&&material){
     // Fence around the farm with a gate on the east side (toward the village).

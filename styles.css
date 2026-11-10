@@ -113,3 +113,11 @@
   .fish-hud .fish-status{max-width:100%;padding:5px 8px;font-size:12px}
   .fish-hud .fish-count{font-size:11px}
 }
+
+.farm-panel { position:fixed; z-index:40; left:50%; bottom:max(85px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:min(420px,90vw); box-sizing:border-box; padding:12px; background:#293832; color:#fff1d1; border:2px solid #c3a16c; border-radius:8px; }
+.farm-panel[hidden] { display:none; }
+.farm-panel button { min-height:44px; margin:4px; padding:8px 12px; color:#fff1d1; background:#425348; border:1px solid #d1b27b; border-radius:5px; font:inherit; }
+.icon-wheat { background:linear-gradient(90deg,#755c2a 35%,#dfc763 35% 65%,#755c2a 65%); }
+.icon-cabbage { background:radial-gradient(circle,#a4ce7e 25%,#438144 65%,#293832 68%); }
+.icon-pumpkin { background:radial-gradient(ellipse,#ed9b3e 35%,#b65b22 60%,#293832 65%); }
+.icon-leek { background:linear-gradient(90deg,#293832 30%,#e0e6b1 30% 43%,#66a657 43% 60%,#293832 60%); }

@@ -141,6 +141,18 @@
       "status": "planned",
       "pr": [],
       "paths": []
+    },
+    {
+      "id": "farming",
+      "name": "農田種植、生長與收割入包",
+      "status": "implemented",
+      "pr": [
+        108
+      ],
+      "paths": [
+        "src/game/farming.js",
+        "src/game/main.ts"
+      ]
     }
   ],
   "verificationBoundary": "implemented=已合併可辨識程式，不等於真機或完整遊戲品質驗收；釣魚紀錄不等於完整進度存檔"
