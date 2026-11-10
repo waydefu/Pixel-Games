@@ -148,9 +148,9 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         // Product rule: damp changes across the shoal and along both headland tapers.
         float q=clamp(waveDist/9.0,0.0,1.0);
         float dampGrad=.94*(6.0*q*(1.0-q))/9.0;
-        float active=step(0.0,rawDist);
-        float distDx=coastWeight*active;
-        float distDz=-coastWeight*active*shoreSlope(vWorld.z)
+        float shoreActive=step(0.0,rawDist);
+        float distDx=coastWeight*shoreActive;
+        float distDz=-coastWeight*shoreActive*shoreSlope(vWorld.z)
                     +(max(0.0,rawDist)-60.0)*shoreRegionSlope(vWorld.z);
         float p0=vWorld.x*.29+vWorld.z*.08+uTime*.85;
         float p1=-vWorld.x*.16+vWorld.z*.34+uTime*.65;
