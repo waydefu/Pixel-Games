@@ -47,3 +47,13 @@ test("sand sampling uses local Vite-bundled atlases and keeps a procedural fallb
   assert.match(src, /THREE\.NoColorSpace/);
   assert.doesNotMatch(src, /ambientcg\.com\/get\?/);
 });
+
+
+test("photo sand helper is injected after vColor is declared by Three.js color chunk",()=>{
+  const s=read("src/game/pixel/world-material.ts").toString("utf8");
+  assert.match(s,/\.replace\("#include <color_pars_fragment>",/);
+  const idx=s.indexOf('.replace("#include <color_pars_fragment>"');
+  const next=s.indexOf('.replace("#include <clipping_planes_fragment>"');
+  assert.ok(idx>0&&next>idx);
+  assert.doesNotMatch(s,/pxPackedSurfaceNormal;\s*\$\{photoHelpers\}\s*vec2 pixelWorldUv/);
+});

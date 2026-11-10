@@ -107,7 +107,6 @@ varying vec3 vPxNormal;
 uniform float uPxUnits;
 uniform float uPxSlope;
 vec2 pxUv;\nvec4 pxPackedSurfaceNormal;
-${photoHelpers}
 vec2 pixelWorldUv(){
   vec3 n=normalize(vPxNormal);
   vec3 a=abs(n);
@@ -125,6 +124,9 @@ vec2 pixelWorldUv(){
   }
   return uv/uPxUnits;
 }`)
+        // Place photo helpers AFTER color_pars_fragment, which declares vColor.
+        .replace("#include <color_pars_fragment>",`#include <color_pars_fragment>
+${photoHelpers}`)
         .replace("#include <clipping_planes_fragment>","#include <clipping_planes_fragment>\n  pxUv=pixelWorldUv();")
         .replace("#include <map_fragment>",photoMap)
         // Roughness is packed in normal alpha; reuse the *same* normal texture sample.
