@@ -42,3 +42,9 @@
 |---|---|---|
 | AgX tone mapping 的對比多項式與色彩矩陣 | [Noniv/web-ocean](https://github.com/Noniv/web-ocean)，**MIT**（AgX 本身出自 Troy Sobotka）；Noniv 的 WGSL 轉為 GLSL | `src/rendering/hd2d-pipeline.js` 的合成通道（取代原本的 ACES 擬合；`?tone=aces` 可切回做 A/B）。同一倉庫的海水體色（混濁藍綠）只作美術參考，沒有複製其 FFT 海面程式 |
 | 十雲屬雲層的做法（形態分類、天氣到雲屬占比、受光與日暈公式的思路） | [takustaqu/atmosphere](https://github.com/takustaqu/atmosphere)，**MIT**；只採用公開的技法描述與參數量級，程式碼為本專案重寫（`cloud-shader.ts`、`cloud-genera.js`） | 天空雲與雲影；天氣占比的曲線、尺度與色彩為本專案自行調校 |
+
+
+### 2026-11-10｜海岸與植被技術來源（Issue #126）
+- **NeuralSpecOcean**（bgbg108555，MIT）｜https://github.com/bgbg108555/NeuralSpecOcean — 研究它的共享海床／岸線及水深驅動碎浪構想；本次修正為自有程式實作，保留現有 Three.js `Water`、海面反射與泡沫。**未複製上游 CFD、PINN、GPU SwashRig 或 GLSL／JS 程式碼**。
+- **Grassworks / Tech Redux**｜https://grassworks.techredux.co/forest-demo — 僅研究分區植被、草葉／Billboard 與 LOD 策略；未購買、未複製商業套件與展示素材。
+- **新素材來源**：本 PR 的沙紋、草地、石板細節、松樹樹皮與 128px 程序樹葉圖集全部由本專案程式生成，沒有新增外部二進位素材。既有 Polyfork 樹模型授權維持不變。
