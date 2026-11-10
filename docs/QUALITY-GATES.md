@@ -4,7 +4,12 @@
 
 **Pipeline**：`npm run check` → `npm run assets` → `npm test` → `npm run typecheck` → `npm run build` → `npm run check:build` → `npm run test:e2e`，CI 成功才可提交合併審查。
 
-**CI 結構（2026-11-08 起）**：`.github/workflows/verify.yml` 是 CI 與 Pages 部署共用的可重用流程——`build` 只做一次安裝與 `npm run validate`（靜態檢查、單元測試、型別、建置、預算）並上傳 `dist`；`e2e` 以五個分片平行跑（桌機 3 片、手機 2 片，只裝無頭 Chromium），每片下載同一份已驗證的 `dist`。上傳／下載 artifact 用 Node 24 版本（`upload-artifact` v7.0.2、`download-artifact` v8.0.2，SHA 以 `git ls-remote` 查得並核對 `action.yml`），避免 Node 20 棄用警告：CI 的目標是**沒有警告註解的乾淨綠燈**。`ci.yml` 的 `required` 關卡名稱不變（`Build, typecheck, unit and browser tests`），任何分片失敗即失敗；`deploy-pages.yml` 也呼叫同一流程，全部通過才發布。覆蓋範圍沒有減少，只是從「兩個長的串行任務、每個都重跑單元測試」變成「建置一次、五個短任務平行」。
+**CI 結構（2026-11-08 起）**：`.github/workflows/verify.yml` 是 CI 與 Pages 部署共用的可重用流程——`build` 只做一次安裝與 `npm run validate`（靜態檢查、單元測試、型別、建置、預算）並上傳 `dist`；`e2e` 以五個分片平行跑（桌機 3 片、手機 2 片，只裝無頭 Chromium），每片下載同一份已驗證的 `dist`。上傳／下載 artifact 用 Node 24 版本（`upload-artifact` v7.0.2、`download-artifact` v8.0.2，SHA 以 `git ls-remote` 查得並核對 `action.yml`），避免 Node 20 棄用警告：CI 的目標是**沒有警告註解的乾淨綠燈**。`ci.yml` 的 `required` 關卡名稱不變（`Build, typecheck, unit and browser tests`），任何分片失敗即失敗；覆蓋範圍沒有減少，只是從「兩個長的串行任務、每個都重跑單元測試」變成「建置一次、五個短任務平行」。
+
+**加速（2026-11-10，#123）**：瀏覽器分片只在兩種情況跳過，判斷在 `scripts/pr-governance-core.mjs` 的 `e2eDecision`（有單元測試），判斷不出來一律照跑。
+1. **部署**：`deploy-pages.yml` 呼叫 `verify.yml` 時傳 `e2e: false`，建置通過就發布，不再重跑瀏覽器測試。理由是 Ruleset 為 strict 最新分支，PR 的 CI 測的就是合併後的內容；`ci.yml` 在 main 的 push 上仍跑完整分片，當作部署後的監看。**main 的瀏覽器測試若在部署後變紅，網站已經上線，要當成線上問題處理。若日後關掉 strict，必須把 `e2e: false` 拿掉。**
+2. **純文件 PR**：變更全部在 `docs/**` 或根目錄 `*.md` 時跳過分片（建置、單元測試、治理檢查照跑）；必要檢查仍會出結果。
+3. 分片不再用 `--with-deps`：runner 映像已有全部共享函式庫，該旗標實際只多跑 `apt update` 與九個字型套件（49 秒的步驟裡佔約 44 秒）。**CI 的瀏覽器因此沒有中日文字型**，文字斷言不受影響，但 CI 截圖裡的中文會是方框；視覺稽核步驟自己會裝字型。
 
 ## 自動
 
