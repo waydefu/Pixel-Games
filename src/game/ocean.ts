@@ -4,6 +4,7 @@ import type { StageKit } from "./kit.js";
 import { liveSky } from "./sky-live.js";
 import { skylineTangents, skylineBytes, SKYLINE_BINS, SKYLINE_MAX_TANGENT } from "./skyline.js";
 import { BOAT_LOCATIONS } from "./placements.js";
+import { COASTLINE_GLSL } from "./coastal-outline.js";
 
 /** How many rocks, piles and hulls can wear a foam skirt (uniform array size in the shader). */
 export const FOAM_SPOTS=40;
@@ -66,12 +67,12 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       varying vec4 mirrorCoord;
       varying vec3 vWorld;
       #include <fog_pars_vertex>
-      float shore(float z){return 13.3+sin(z*.13)*.65+sin(z*.37)*.22;}
+      ${COASTLINE_GLSL}
       void main(){
         vec3 w=(modelMatrix*vec4(position,1.0)).xyz;
         float dist=max(0.0,w.x-shore(w.z));
         // The pale-shallows-over-sand colouring belongs to the harbour only: everywhere else the sea is open water.
-        dist=mix(60.0,dist,1.0-smoothstep(32.0,52.0,abs(w.z)));
+        dist=mix(60.0,dist,shoreRegion(w.z));
         float damp=.22+.78*smoothstep(0.0,9.0,dist);
         float p0=w.x*.29+w.z*.08+uTime*.85;
         float p1=-w.x*.16+w.z*.34+uTime*.65;
@@ -126,12 +127,13 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x),
           mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x),f.y);
       }
-      float shore(float z){return 13.3+sin(z*.13)*.65+sin(z*.37)*.22;}
+      ${COASTLINE_GLSL}
       void main(){
         vec3 v=normalize(cameraPosition-vWorld);
         // Shore distance and the long-wave normal, per pixel (the same waves the vertex shader displaces).
         float vDist=max(0.0,vWorld.x-shore(vWorld.z));
-        vDist=mix(60.0,vDist,1.0-smoothstep(32.0,52.0,abs(vWorld.z)));
+        float coastWeight=shoreRegion(vWorld.z);
+        vDist=mix(60.0,vDist,coastWeight);
         float damp=.22+.78*smoothstep(0.0,9.0,vDist);
         float p0=vWorld.x*.29+vWorld.z*.08+uTime*.85;
         float p1=-vWorld.x*.16+vWorld.z*.34+uTime*.65;
@@ -186,10 +188,12 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         float cA=noise(cp+vec2(uTime*.21,uTime*.13)),cB=noise(cp*1.3-vec2(uTime*.17,uTime*.23)+4.7);
         float caustic=pow(clamp(1.0-abs(cA-cB)*5.5,0.0,1.0),5.0);
         water+=vec3(.46,.62,.54)*caustic*(1.0-smoothstep(1.5,10.0,vDist))*.18;
-        float shoreline=(1.0-smoothstep(.0,2.65,vDist))*(1.0-smoothstep(34.0,48.0,abs(vWorld.z)));
-        float moving=sin(vWorld.z*.85+uTime*1.8+noise(vWorld.xz*.5)*5.0);
+        // Breaker crests travel shoreward (-X), using distance from the ACTUAL curved coast.
+        // Two existing noise taps + one sine; no new textures, simulation passes or FFT.
+        float shoreline=(1.0-smoothstep(0.0,2.65,vDist))*coastWeight;
+        float moving=sin(vDist*2.2+vWorld.z*.30+uTime*1.8+noise(vWorld.xz*.5)*3.5);
         float foam=shoreline*smoothstep(.45,.76,
-          .55*noise(vWorld.xz*1.35+uTime*.13)+.45*(moving*.5+.5));
+          .55*noise(vWorld.xz*1.35+vec2(uTime*.13,-uTime*.08))+.45*(moving*.5+.5));
         water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
         // Foam skirts around rocks, piles and hulls, in chunky texel cells to match the pixel world.
         float spotFoam=0.0,shoal=0.0;
