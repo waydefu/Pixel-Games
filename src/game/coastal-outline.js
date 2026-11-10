@@ -14,6 +14,7 @@ export const SHORE_PROFILE = Object.freeze({
   taperStart: 35, taperEnd: 47, taperShift: 8,
 });
 const glsl = n => Number.isInteger(n) ? n.toFixed(1) : String(n);
+export const SHORE_WATER_INSET = 0.55; // metres of permitted swash beyond the curved waterline
 const p = SHORE_PROFILE;
 
 export const COASTLINE_GLSL = `
@@ -22,6 +23,9 @@ float shore(float z) {
               + sin(z*${glsl(p.waveFrequency2)})*${glsl(p.waveAmplitude2)};
   float t = clamp((abs(z)-${glsl(p.taperStart)})/${glsl(p.taperEnd-p.taperStart)}, 0.0, 1.0);
   return coast-${glsl(p.taperShift)}*t*t*(3.0-2.0*t);
+}
+float shoreWaterLimit(float z) {
+  return shore(z)-${glsl(SHORE_WATER_INSET)};
 }
 float shoreRegion(float z) {
   return 1.0-smoothstep(${glsl(p.taperStart)},${glsl(p.taperEnd)},abs(z));
@@ -38,3 +42,6 @@ export function coastalOutline(z){
   const grassLeft=inland*(1-ease)+grassRight*ease;
   return Object.freeze({grassLeft,grassRight,coast,ease});
 }
+
+/** The shader and CPU share this curved coast boundary. */
+export function coastalWaterLimit(z){return coastalOutline(z).coast-SHORE_WATER_INSET;}
