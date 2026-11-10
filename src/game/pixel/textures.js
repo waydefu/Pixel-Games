@@ -2,12 +2,41 @@
 // Every texture is tileable, seeded, and carries a matching normal map derived from
 // the same height field that drives its bevel shading, so light and paint agree.
 // Density contract: 16 texels per world unit (a 32px tile spans 2 units, a 64px tile 4).
-import { PALETTE } from "./palette.js";
+import { PALETTE, rampRgb } from "./palette.js";
 import {
   makeRng, hash2, wrap, clamp01, smoothstep, tileNoise, voronoi, bevelLight, normalFromHeight, renderRamp,
 } from "./painter.js";
 
 export const TEXELS_PER_UNIT = 16;
+// Near-field earth and bark: 32 texels/m, packed into the same colour + normal textures.
+export const NATURAL_SURFACES = Object.freeze(["cobble","grass","sand","bark","birch-bark","pine-bark"]);
+const naturalKinds=new Set(NATURAL_SURFACES);
+const NATURAL_TEXELS_PER_UNIT=32;
+
+/** Interpolate the authored pigment ramps, rather than quantising large natural surfaces into 8 hard bands. */
+function naturalAlbedo(size,painted,light,ramp,seed) {
+  const palette=rampRgb(ramp),last=palette.length-1,data=new Uint8ClampedArray(size*size*4);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=y*size+x,grain=(hash2(x,y,seed+43)-.5)*.06;
+    const tone=clamp01(painted.tone[i]+light[i]*painted.bevel*.13+grain);
+    const loc=tone*last,lo=Math.floor(loc),hi=Math.min(last,lo+1),blend=loc-lo;
+    const occlusion=.94+.06*clamp01(painted.height[i]);
+    for(let c=0;c<3;c++)data[i*4+c]=Math.round((palette[lo][c]*(1-blend)+palette[hi][c]*blend)*occlusion);
+    data[i*4+3]=255;
+  }
+  return data;
+}
+
+/** Store per-texel micro-roughness in unused normal-map alpha (no extra GPU sampler). */
+function packSurfaceRoughness(normal,size,kind,seed,height) {
+  const grain=tileNoise(size,32,seed+73,2);
+  const base=kind==="sand"?.96:kind==="grass"?.91:kind==="cobble"?.81:.89;
+  for(let i=0;i<size*size;i++){
+    const variation=(grain[i]-.5)*.12+(height[i]-.5)*(kind==="cobble"?-.10:-.035);
+    normal[i*4+3]=Math.round(clamp01(base+variation)*255);
+  }
+  return normal;
+}
 
 function fields(size) {
   return { tone: new Float32Array(size * size), height: new Float32Array(size * size), override: new Map() };
@@ -249,19 +278,19 @@ function birchBark(size, seed) {
 export const PIXEL_KINDS = Object.freeze({
   stone:       { size: 32, ramp: "stone",    normal: 1.5, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 8, wMin: 9, wMax: 15, base: 0.56, spread: 0.18, chips: 0.03 }) },
   brick:       { size: 32, ramp: "brick",    normal: 2.2, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 4, wMin: 8, wMax: 8, base: 0.54, spread: 0.2, chips: 0.05 }) },
-  cobble:      { size: 64, ramp: "stone",    normal: 1.6, slope: false, build: (s) => cobbles(64, s) },
+  cobble:      { size: 128, ramp: "stone",   normal: 1.3, slope: false, build: (s) => cobbles(128, s) },
   planks:      { size: 32, ramp: "wood",     normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [6, 6, 6, 7, 7], base: 0.46, spread: 0.14, grainAmount: 0.14 }) },
   timber:      { size: 32, ramp: "timber",   normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [8, 8, 8, 8], base: 0.5, spread: 0.14, grainAmount: 0.16 }) },
   plaster:     { size: 32, ramp: "plaster",  normal: 1.4, slope: false, build: (s) => plaster(32, s) },
   "roof-red":  { size: 32, ramp: "roofRed",  normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.55, spread: 0.2 }) },
   "roof-blue": { size: 32, ramp: "roofBlue", normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.52, spread: 0.2 }) },
   thatch:      { size: 32, ramp: "thatch",   normal: 1.6, slope: true,  build: (s) => thatch(32, s) },
-  grass:       { size: 64, ramp: "grass",    normal: 1.4, slope: false, build: (s) => grass(64, s) },
-  sand:        { size: 64, ramp: "sand",     normal: 1.2, slope: false, build: (s) => sand(64, s) },
+  grass:       { size: 128, ramp: "grass",   normal: 1.1, slope: false, build: (s) => grass(128, s) },
+  sand:        { size: 128, ramp: "sand",    normal: 1.0, slope: false, build: (s) => sand(128, s) },
   foliage:     { size: 32, ramp: "foliage",  normal: 2.0, slope: false, build: (s) => foliage(32, s) },
-  bark:        { size: 32, ramp: "bark",     normal: 1.4, slope: false, build: (s) => barkFurrows(32, s, { ramp: "bark", base: 0.5, spread: 0.2 }) },
-  "birch-bark": { size: 32, ramp: "birchbark", normal: 0.8, slope: false, build: (s) => birchBark(32, s) },
-  "pine-bark":  { size: 32, ramp: "bark", normal: 1.7, slope: false, build: (s) => barkFurrows(32, s+11, { ramp: "bark", base: 0.43, spread: 0.24 }) },
+  bark:        { size: 64, ramp: "bark",     normal: 1.25, slope: false, build: (s) => barkFurrows(64, s, { ramp: "bark", base: 0.5, spread: 0.2 }) },
+  "birch-bark": { size: 64, ramp: "birchbark", normal: 0.85, slope: false, build: (s) => birchBark(64, s) },
+  "pine-bark":  { size: 64, ramp: "bark", normal: 1.55, slope: false, build: (s) => barkFurrows(64, s+11, { ramp: "bark", base: 0.43, spread: 0.24 }) },
   rock:        { size: 32, ramp: "rock",     normal: 1.1, slope: false, build: (s) => boulder(32, s) },
   cliff:       { size: 32, ramp: "cliff",    normal: 1.6, slope: false, build: (s) => cliff(32, s) },
   canvas:      { size: 32, ramp: "canvas",   normal: 1.0, slope: false, build: (s) => canvasCloth(32, s) },
@@ -276,12 +305,17 @@ export function paintTexture(kind, seed = 1) {
   const painted = recipe.build(seed);
   const size = recipe.size;
   const light = bevelLight(painted.height, size, 1);
-  const color = renderRamp(size, painted.tone, light, PALETTE[recipe.ramp], {
-    dither: painted.dither, bevel: painted.bevel, override: painted.override.size ? painted.override : null,
-  });
+  const natural=naturalKinds.has(kind);
+  const color=natural
+    ? naturalAlbedo(size,painted,light,PALETTE[recipe.ramp],seed)
+    : renderRamp(size,painted.tone,light,PALETTE[recipe.ramp],{
+      dither:painted.dither,bevel:painted.bevel,override:painted.override.size?painted.override:null,
+    });
+  const normal=normalFromHeight(painted.height,size,recipe.normal);
+  if(natural)packSurfaceRoughness(normal,size,kind,seed,painted.height);
   return {
-    kind, seed, size, units: size / TEXELS_PER_UNIT, slope: recipe.slope,
-    color, normal: normalFromHeight(painted.height, size, recipe.normal),
+    kind,seed,size,units:size/(natural?NATURAL_TEXELS_PER_UNIT:TEXELS_PER_UNIT),slope:recipe.slope,
+    color,normal,
   };
 }
 
