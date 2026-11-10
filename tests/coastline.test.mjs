@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { coastalOutline } from "../src/game/coastal-outline.js";
+import { readFileSync } from "node:fs";
+import { coastX } from "../src/game/terrain-profile.js";
+import { coastalOutline, SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
 test("coast is broad where village exists and tapers at headland ends",()=>{
   const center=coastalOutline(0);
   assert.ok(center.coast>12&&center.coast<15);
@@ -17,9 +19,6 @@ test("coast is broad where village exists and tapers at headland ends",()=>{
   assert.throws(()=>coastalOutline(NaN),RangeError);
 });
 
-import { readFileSync } from "node:fs";
-import { coastX } from "../src/game/terrain-profile.js";
-import { SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
 
 test("coastline CPU and GLSL coefficients agree across both headland tapers",()=>{
   const p=SHORE_PROFILE;
