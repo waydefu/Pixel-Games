@@ -1,3 +1,5 @@
+import { FARM_BOUNDS } from "./navigation.js";
+
 export const clamp01 = value => Math.min(1,Math.max(0,value));
 const wave = (x,z) => Math.sin(x*.083+Math.sin(z*.039)*1.7)*.42+Math.sin(z*.065-x*.051)*.27+Math.sin(x*.17+z*.12)*.12+Math.sin(z*.215-x*.096)*.07;
 const ridge = (x,z) => Math.pow(Math.abs(Math.sin(z*.039+x*.026+wave(x,z)*.8)),.66);
@@ -86,7 +88,15 @@ export function fjordSurfaceHeight(x,z,region){
   const base=fjordHeight(x,z,region)-.16;
   const exposure=Math.min(1.75,Math.max(0,(base-9)/30));
   const crack=Math.sin(x*.145+Math.sin(z*.046)*2.1)*Math.cos(z*.17-x*.033);
-  return base+exposure*crack;
+  const height=base+exposure*crack;
+  if(region!=="mainland")return height;
+  // Include a mesh-cell margin around the field: interpolated mountain triangles
+  // must remain below the grass throughout the farm, not only at the vertices.
+  const west=smooth(FARM_BOUNDS.x0-7,FARM_BOUNDS.x0-3,x);
+  const north=smooth(FARM_BOUNDS.z0-7,FARM_BOUNDS.z0-3,z);
+  const south=1-smooth(FARM_BOUNDS.z1+3,FARM_BOUNDS.z1+7,z);
+  const farmWeight=west*north*south;
+  return height+(Math.min(height,-.21)-height)*farmWeight;
 }
 
 /**

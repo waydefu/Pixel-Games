@@ -4,6 +4,7 @@ import type { StageKit } from "./kit.js";
 import type { VillageAssets } from "./architecture.js";
 import { mulberry32 } from "./wander.js";
 import type { Fixtures } from "./torches.js";
+import { FARM_BOUNDS } from "./navigation.js";
 
 /**
  * Two things the village was missing: a church closing the western end of the promenade, and a working farm in the
@@ -18,7 +19,7 @@ export const RESERVED=Object.freeze([
 ]);
 export const isReserved=(x:number,z:number)=>RESERVED.some(r=>x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1);
 
-const FARM={x0:-49,x1:-29,z0:-33,z1:-18};
+const FARM=FARM_BOUNDS;
 type Crop="wheat"|"cabbage"|"pumpkin"|"leek";
 const FIELDS:{x:number;z:number;w:number;d:number;crop:Crop}[]=[
   {x:-43.2,z:-29.2,w:9,d:5.4,crop:"wheat"},{x:-33.6,z:-29.2,w:8.6,d:5.4,crop:"cabbage"},

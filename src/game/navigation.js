@@ -1,6 +1,9 @@
 // Walkability is gameplay state, independent of decorative Three.js meshes.
 // Bounds follow the actual authored terrain and the navigable area of the pier.
 export const WALK_BOUNDS = Object.freeze({ minX: -40, maxX: 28.85, minZ: -33, maxZ: 33 });
+// The farm predates the western walking limit and extends beyond it. Share its
+// footprint with the fence so the exception cannot drift away from the scene.
+export const FARM_BOUNDS = Object.freeze({ x0: -49, x1: -29, z0: -33, z1: -18 });
 export const PIER = Object.freeze({ minX: 13.5, maxX: 28.85, minZ: 6.0, maxZ: 10.0 });
 const PLAYER_RADIUS = 0.36;
 // The wharf's plank top is y=.275 + .035/2. Treat the walk surface,
@@ -11,7 +14,8 @@ export function groundHeight(x,z){
 }
 export function canOccupy(x, z, colliders = []) {
   if (![x,z].every(Number.isFinite)) return false;
-  if (x < WALK_BOUNDS.minX || x > WALK_BOUNDS.maxX ||
+  const inFarm = x >= FARM_BOUNDS.x0 && x <= FARM_BOUNDS.x1 && z >= FARM_BOUNDS.z0 && z <= FARM_BOUNDS.z1;
+  if ((x < WALK_BOUNDS.minX && !inFarm) || x > WALK_BOUNDS.maxX ||
       z < WALK_BOUNDS.minZ || z > WALK_BOUNDS.maxZ) return false;
   // Ocean begins east of the beach. Only the pier is walkable there.
   if (x > PIER.minX && !(z >= PIER.minZ && z <= PIER.maxZ && x <= PIER.maxX)) return false;

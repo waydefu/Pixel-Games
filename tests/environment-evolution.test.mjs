@@ -1,7 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fjordHeight,fjordSurfaceHeight,fjordMeshHeight } from "../src/game/terrain-profile.js";
+import { fjordHeight,fjordSurfaceHeight,fjordMeshHeight,FJORD_EXTENTS } from "../src/game/terrain-profile.js";
+import { FARM_BOUNDS } from "../src/game/navigation.js";
+
+test("interpolated mainland terrain stays below the farm floor",()=>{
+  const e=FJORD_EXTENTS.mainland;
+  for(let x=FARM_BOUNDS.x0;x<=-43;x+=.5)
+    for(let z=FARM_BOUNDS.z0;z<=FARM_BOUNDS.z1;z+=.5)
+      assert.ok(fjordMeshHeight(x,z,"mainland",e)<=-.187, `terrain intrudes at ${x},${z}`);
+});
+
+test("farm excavation feather transitions stay continuous around its visible western and side edges",()=>{
+  // This checks seams, not aesthetic slope quality: screenshots and real-device review remain #105.
+  const epsilon=0.001;
+  const cuts=[
+    {axis:"x",coordinate:FARM_BOUNDS.x0-7,other:-25.7},
+    {axis:"x",coordinate:FARM_BOUNDS.x0-3,other:-25.7},
+    {axis:"z",coordinate:FARM_BOUNDS.z0-7,other:-49},
+    {axis:"z",coordinate:FARM_BOUNDS.z0-3,other:-49},
+    {axis:"z",coordinate:FARM_BOUNDS.z1+3,other:-49},
+    {axis:"z",coordinate:FARM_BOUNDS.z1+7,other:-49},
+  ];
+  for(const {axis,coordinate,other} of cuts){
+    const at=v=>axis==="x"?fjordSurfaceHeight(v,other,"mainland"):fjordSurfaceHeight(other,v,"mainland");
+    const left=at(coordinate-epsilon),right=at(coordinate+epsilon);
+    assert.ok(Number.isFinite(left)&&Number.isFinite(right),`nonfinite terrain at ${axis}=${coordinate}`);
+    assert.ok(Math.abs(left-right)<0.03,`terrain seam at ${axis}=${coordinate}: ${left} -> ${right}`);
+  }
+});
 
 const read=(file)=>readFileSync(new URL("../src/game/"+file,import.meta.url),"utf8");
 
