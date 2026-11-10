@@ -72,6 +72,19 @@ export function gateDecision({verify,collaboration,runSha,currentSha}){
     return {ok:true,superseded:true,reason:"run cancelled and superseded by newer commit "+String(currentSha).slice(0,7)+"; the newer run is the one that counts"};
   return {ok:false,reason:"verify="+verify+", collaboration="+collaboration+(cancelled&&!currentSha?" (newest commit unknown, failing closed)":"")};
 }
+/**
+ * Whether the browser suites run. They are skipped only when the caller opts out, or when a pull request changes nothing but
+ * documentation (docs/ and top-level Markdown, which the build never ships). Anything that cannot be determined runs them.
+ */
+export function isDocsOnlyPath(path){return /^docs\//.test(path)||/^[^/]+\.md$/.test(path);}
+export function e2eDecision({requested,event,files}){
+  if(requested===false)return {run:false,reason:"the caller opted out"};
+  if(event!=="pull_request")return {run:true,reason:"not a pull request"};
+  if(!Array.isArray(files)||files.length===0)return {run:true,reason:"the changed files are unknown"};
+  const other=files.filter(path=>!isDocsOnlyPath(path));
+  if(other.length)return {run:true,reason:other.length+" changed file(s) outside documentation, e.g. "+other[0]};
+  return {run:false,reason:"documentation only ("+files.length+" file(s))"};
+}
 export function sharedPaths(a,b){const x=new Set(b);return [...new Set(a)].filter(p=>x.has(p)).sort();}
 export function integrationIsExplained(note,pr){
   return !!note&&!/待檢查|待確認|待處理|^無/.test(note)&&

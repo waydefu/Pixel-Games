@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {parseClaim,validateClaim,validateAcceptance,validateTaskIssue,parseIssueForm,issueExecutor,gateDecision,sharedPaths,isCorePath,analyzeCollaboration,ACCEPTANCE_FIELD_FROM} from "../scripts/pr-governance-core.mjs";
+import {parseClaim,validateClaim,validateAcceptance,validateTaskIssue,parseIssueForm,issueExecutor,gateDecision,e2eDecision,isDocsOnlyPath,sharedPaths,isCorePath,analyzeCollaboration,ACCEPTANCE_FIELD_FROM} from "../scripts/pr-governance-core.mjs";
 const body=(task="#37",integration="無")=>"- 任務: "+task+"\n- 執行端: A\n- 影響模組: governance\n"+
   "- 相依 PR: 無\n- 起始 main: main@6056e6c\n- 交集處理: "+integration+"\n";
 test("valid claim requires a real task and independent agent ID",()=>{
@@ -86,6 +86,33 @@ test("the required gate ignores a run a newer commit replaced, and nothing else"
   // the newest commit cannot be determined: fail closed
   assert.equal(gateDecision({verify:"cancelled",collaboration:"cancelled",runSha:"",currentSha:""}).ok,false);
   assert.equal(gateDecision({verify:"skipped",collaboration:"success",runSha:"old",currentSha:"new"}).ok,false);
+});
+test("browser suites are skipped only for an opted-out caller or a documentation-only pull request",()=>{
+  const pr={requested:true,event:"pull_request"};
+  assert.equal(e2eDecision({...pr,files:["docs/reviews/a.md","README.md","docs/FEATURE-STATUS.json"]}).run,false);
+  assert.equal(e2eDecision({...pr,files:["docs/a.md","src/game/main.ts"]}).run,true);
+  // a move out of docs/ lists both paths (the script diffs with --no-renames), so the new location keeps the suites on
+  assert.equal(e2eDecision({...pr,files:["docs/notes.md","src/notes.md"]}).run,true);
+  // nested Markdown, workflows, tests and anything else outside docs/ are not documentation for this purpose
+  for(const path of [".github/workflows/ci.yml",".claude/skills/ponytail/SKILL.md","e2e/a.spec.mjs","docsx/a.md","package.json","public/docs/a.md"])
+    assert.equal(isDocsOnlyPath(path),false,path);
+  // anything undetermined runs them: unknown or empty file list, any event other than a pull request
+  assert.equal(e2eDecision({...pr,files:null}).run,true);
+  assert.equal(e2eDecision({...pr,files:[]}).run,true);
+  assert.equal(e2eDecision({requested:true,event:"push",files:["docs/a.md"]}).run,true);
+  assert.equal(e2eDecision({requested:true,event:"workflow_dispatch",files:null}).run,true);
+  // the Pages deploy opts out explicitly
+  assert.equal(e2eDecision({requested:false,event:"push",files:null}).run,false);
+});
+test("only the Pages deploy opts out of the browser suites, and main still runs them",()=>{
+  const read=name=>readFileSync(new URL("../.github/workflows/"+name,import.meta.url),"utf8");
+  const verify=read("verify.yml"),ci=read("ci.yml"),deploy=read("deploy-pages.yml");
+  assert.match(verify,/e2e:\n\s+description:[^\n]+\n\s+type: boolean\n\s+default: true/);
+  assert.match(verify,/if: \$\{\{ needs\.build\.outputs\.e2e == 'true' \}\}/);
+  assert.match(verify,/run: node scripts\/ci-e2e-scope\.mjs/);
+  assert.match(deploy,/e2e: false/);
+  assert.doesNotMatch(ci,/e2e: false/);
+  assert.match(ci,/push:\n\s+branches: \[main\]/);   // the post-merge browser run that the deploy no longer waits for
 });
 test("the required check keeps its name and runs the gate script",()=>{
   const ci=readFileSync(new URL("../.github/workflows/ci.yml",import.meta.url),"utf8");

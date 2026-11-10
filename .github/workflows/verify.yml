@@ -2,7 +2,8 @@ name: Verify (reusable)
 
 # One build-and-test pipeline shared by CI and the Pages deploy:
 #   build  : install, validate (static checks, unit tests, types, production build, bundle budget) ONCE, upload dist
-#   e2e    : the browser suites, sharded so five jobs run in parallel instead of two long serial ones
+#   e2e    : the browser suites, sharded so five jobs run in parallel instead of two long serial ones. Skipped when the caller
+#            opts out (`e2e: false`) or when a pull request changes documentation only (scripts/ci-e2e-scope.mjs).
 # Callers: .github/workflows/ci.yml and .github/workflows/deploy-pages.yml (the latter with `pages: true`).
 on:
   workflow_call:
@@ -11,6 +12,10 @@ on:
         description: Also package dist as the GitHub Pages artifact (published by the caller only after every job passes)
         type: boolean
         default: false
+      e2e:
+        description: Run the browser suites. The Pages deploy passes false, because strict branch protection means the same tree already passed them on its pull request, and ci.yml still runs them on main after the merge.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -20,16 +25,24 @@ jobs:
     name: Build, typecheck and unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    outputs:
+      e2e: ${{ steps.scope.outputs.e2e }}
     steps:
       - name: Checkout pinned v7.0.1 (Node 24)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 2 # the merge commit and its first parent, so the scope step can list what the pull request changes
       - name: Setup Node 26 LTS (pinned v7.1.0)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "26"
           cache: npm
+      - name: Decide whether the browser suites are needed
+        id: scope
+        env:
+          E2E_REQUESTED: ${{ inputs.e2e }}
+        run: node scripts/ci-e2e-scope.mjs
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Static, asset, unit, TypeScript, Vite and bundle checks
@@ -50,6 +63,7 @@ jobs:
   e2e:
     name: E2E ${{ matrix.project }} ${{ matrix.shard }}/${{ matrix.total }}
     needs: build
+    if: ${{ needs.build.outputs.e2e == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -78,13 +92,14 @@ jobs:
         with:
           name: dist
           path: dist
-      - name: Install the headless Chromium shell with system dependencies
-        # Only the headless shell is needed (not full Chromium). The Ubuntu mirror is occasionally slow (21 MB of fonts took
-        # >2 min and hit an old 150 s cap twice in a row): allow 300 s per attempt and retry once. A real failure (missing
-        # package, no network) still fails the step.
+      - name: Install the headless Chromium shell
+        # Only the headless shell is needed (not full Chromium), and no `--with-deps`: the ubuntu-24.04 image already has every
+        # shared library, so that flag only added an `apt update` and nine font packages (about 44 s of a 49 s step, and the slow
+        # mirror twice hit an old time limit). If a future image drops a library the browser fails to start and every test
+        # fails loudly; put `--with-deps` back then. The visual audit below installs the fonts itself.
         run: |
           for attempt in 1 2; do
-            if timeout --signal=TERM --kill-after=10s 300s npx playwright install --with-deps --only-shell chromium; then exit 0; fi
+            if timeout --signal=TERM --kill-after=10s 300s npx playwright install --only-shell chromium; then exit 0; fi
             echo "Chromium install attempt $attempt failed" >&2
           done
           exit 1
@@ -94,7 +109,10 @@ jobs:
       # source-backed visual baseline without charging every tiny code change.
       - name: Capture G2 visual audit PNG and metrics (opt-in)
         if: ${{ matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
-        run: npm run visual:audit
+        # Screenshots need the CJK fonts that the test shards no longer install.
+        run: |
+          npx playwright install-deps chromium
+          npm run visual:audit
         env:
           # G4 must actually render its HDR/DoF path in the captured screenshots.
           VISUAL_AUDIT_QUALITY: ${{ github.head_ref == 'feat/g4-cinematic-post-and-visual-overhaul-20261105' && 'high' || 'balanced' }}

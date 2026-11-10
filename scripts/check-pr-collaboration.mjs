@@ -4,8 +4,8 @@ if(process.env.GITHUB_EVENT_NAME!=="pull_request"){
   console.log("SKIP: GitHub overlap scan is only for pull requests.");
 }else{
   const event=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
-  const current=event.pull_request,repo=process.env.GITHUB_REPOSITORY,token=process.env.GITHUB_TOKEN;
-  if(!current?.number||!repo||!token)throw Error("Missing read-only GitHub PR context");
+  const fromEvent=event.pull_request,repo=process.env.GITHUB_REPOSITORY,token=process.env.GITHUB_TOKEN;
+  if(!fromEvent?.number||!repo||!token)throw Error("Missing read-only GitHub PR context");
   const root="https://api.github.com/repos/"+repo;
   const headers={"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,
     "X-GitHub-Api-Version":"2022-11-28"};
@@ -29,6 +29,9 @@ if(process.env.GITHUB_EVENT_NAME!=="pull_request"){
     }
     throw Error("PR pagination limit exceeded; cannot validate overlaps safely");
   }
+  // The event payload is frozen when the run is created, and "re-run" reuses it, so a PR body fixed after a red run would still
+  // fail on re-run. Read the current PR instead; the payload is only the fallback.
+  const current=await request("/pulls/"+fromEvent.number).catch(()=>fromEvent);
   const peers=(await all("/pulls?state=open")).filter(p=>p.number!==current.number);
   const paths=new Map();
   for(const p of [current,...peers])

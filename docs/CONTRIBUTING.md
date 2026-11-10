@@ -57,6 +57,7 @@
 
 - Branch ruleset、必要 CI 和最新 main 合併檢查均通過；**只靠綠燈不等於遊戲好看或手機穩定**。
 - 必要檢查「Build, typecheck, unit and browser tests」由 `scripts/check-gate.mjs` 判斷：連續推送時**被新提交取代而取消**的舊執行視為過時、不標紅；任何真失敗、或最新提交上被取消／查不到最新提交，仍然失敗。看到紅燈先確認是不是最新提交的結果。
+- 只改 `docs/**` 或根目錄 `*.md` 的 PR 不跑瀏覽器分片；合併後 Pages 在建置通過時就發布，main 上的瀏覽器測試是部署後的監看（細節與前提見 [品質關卡](QUALITY-GATES.md)）。**main 變紅＝線上可能有問題**，優先處理。
 - Core overlap 完成整合回歸，且 Owner 對當次 PR 給合併授權；不要自行修改 ruleset 迴避。
 - 合併後由 PR 結案關聯 Issue，並記下實際完成與待驗收的差異。若有新已落地功能，同 PR 更新 [功能台帳](FEATURE-STATUS.json)；若有重大決策變更，同 PR 更新 [決策效力表](decisions/DECISION-REGISTER.md)。
 - 新端下一次開工以 GitHub 即時狀態接手，不用每天手寫「最新 PR」而形成第二套過時資料。若 CI／Pages／人工驗收沒過，Issue 保留或另外開驗收 Issue。
