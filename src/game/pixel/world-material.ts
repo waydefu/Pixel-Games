@@ -11,6 +11,7 @@ type Tracker={track:<T extends{dispose:()=>void}>(item:T)=>T};
  * built, merged or scaled. Magnification is always NEAREST (crisp texels); minification
  * uses mipmaps so distance does not shimmer.
  *
+ *  - nearby natural ground and bark: denser 32 texels/unit; built surfaces stay 16 texels/unit
  *  - ground (up-facing): projected on X/Z
  *  - walls: X or Z, oriented so up stays up and text never mirrors
  *  - roof-like kinds (`slope`): projected along the slope so tile rows follow the ridge

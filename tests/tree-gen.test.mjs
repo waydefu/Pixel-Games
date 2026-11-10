@@ -101,3 +101,20 @@ test("natural terrain PBR reuses the packed normal sample for roughness",()=>{
   assert.match(source,/pxMapN=pxPackedSurfaceNormal\.xyz/);
   assert.doesNotMatch(source,/new THREE\.DataTexture\(.+roughness/);
 });
+
+
+test("natural colour interpolation retains intentional meadow wildflower accents",()=>{
+  const grass=paintTexture("grass",3).color;
+  const flowerSet=new Set(["246,232,190","250,205,90","226,150,176","168,190,245"]);
+  let found=0;
+  for(let i=0;i<grass.length;i+=4){
+    if(flowerSet.has(`${grass[i]},${grass[i+1]},${grass[i+2]}`))found++;
+  }
+  assert.ok(found>=3,`meadow flowers missing from natural albedo: ${found}`);
+});
+
+test("wet sand uses existing beach tint for less reflective roughness at no extra sampler",()=>{
+  const code=readFileSync(new URL("../src/game/pixel/world-material.ts",import.meta.url),"utf8");
+  assert.match(code,/kind==="sand"/);
+  assert.match(code,/roughnessFactor\*=mix\(1\.0,\.64,wet\)/);
+});
