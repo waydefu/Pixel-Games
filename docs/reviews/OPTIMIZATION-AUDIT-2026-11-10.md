@@ -150,16 +150,31 @@
 **O-27｜每個 e2e 分片都重新下載 Chromium 與系統套件**（CONFIRMED）
 - 位置：`.github/workflows/verify.yml:87`（5 個分片各跑一次 `playwright install --with-deps`，註解記載曾經慢到超時）。
 - 修法：用 `actions/cache` 快取 `~/.cache/ms-playwright`，鍵用 `@playwright/test` 的版本；命中時只跑 `npx playwright install-deps`（或把字型套件也快取）。
-- 效果：每個分片省約 15～20 秒（本次 CI 記錄中該步驟耗時），並降低鏡像慢造成的失敗。風險：低；新 action 要釘 SHA。對應：#48。
+- 效果：該步驟在 run 42766547216 的 mobile 2/2 分片實測 **49 秒**（初版寫的 15～20 秒是錯的，已更正）；快取命中後仍要裝系統套件，**能省多少 NOT MEASURED**。另可降低鏡像慢造成的失敗。風險：低；新 action 要釘 SHA。對應：#48。
 
-**O-28｜視覺稽核步驟的觸發條件是兩個早已不存在的分支名，等於永遠不會執行；執行時還會重建一次**（CONFIRMED）
+**O-28｜視覺稽核步驟的條件裡有兩個早已不存在的分支名；畫質永遠是 balanced；執行時還會重建一次**（CONFIRMED；初版寫「等於永遠不會執行」是錯的——PR 加上 `visual-audit` 標籤時會執行）
 - 位置：`.github/workflows/verify.yml:96-97`（條件含 `feat/g2-reproducible-visual-audit…`、`feat/g4-cinematic-post…`）、`package.json:22`（`visual:audit` 先 `npm run build`）。
-- 修法：觸發改成 PR 標籤（repo 已有 `visual-audit` 標籤）或 `workflow_dispatch`；步驟直接跑 `node scripts/run-visual-audit.mjs`，用已下載的 `dist`；加 `?mirror=1&fullres=1` 走完整畫質路徑，產物上傳、**不擋合併**。
+- 現況：條件是「分支名＝`feat/g2-…`」**或**「PR 有 `visual-audit` 標籤」，所以標籤觸發是有效的；失效的是分支名那一半，以及 `VISUAL_AUDIT_QUALITY` 只在 `feat/g4-…` 分支才是 `high`（現在永遠是 `balanced`）。
+- 修法：刪掉兩個分支名條件，只留標籤（可再加 `workflow_dispatch`）；畫質改由標籤或輸入決定；步驟直接跑 `node scripts/run-visual-audit.mjs`，用已下載的 `dist`；加 `?mirror=1&fullres=1` 走完整畫質路徑，產物上傳、**不擋合併**。
 - 效果：補上 CI 看不到完整畫質路徑的盲區（PV-036）的一部分。對應：#48 第 1 項、[#70](https://github.com/waydefu/Pixel-Games/issues/70)。
 
 **O-29｜重試才通過的測試沒有任何紀錄**（CONFIRMED；Owner 已決定暫不開 `failOnFlakyTests`）
 - 位置：`playwright.config.mjs:10-11`（`retries:1`、reporter `line`）。
 - 修法：維持不擋，但**讓它看得見**，作法見 §6 的 Q3。對應：#48 第 3 項。
+
+**O-34｜每次合併進 main，整套驗證跑兩遍；部署要等第二遍的瀏覽器測試跑完**（CONFIRMED；2026-11-10 追加）
+- 位置：`.github/workflows/ci.yml:4-5`（`push: branches:[main]`）與 `.github/workflows/deploy-pages.yml:4-5,17-21`——兩個 workflow 在同一次 push 各呼叫一次 `verify.yml`（1 個 build＋5 個 e2e 分片）。
+- 實測（run 42766547216，PR #119）：build 工作 28 秒（其中 `npm run validate` 7 秒）；e2e 分片 3.5～5.5 分鐘（mobile 2/2：安裝瀏覽器 49 秒、測試 3 分 57 秒）。整體約 6 分鐘，**八成以上是 SwiftShader 上的瀏覽器測試**。
+- 問題：(1) 合併後 12 個工作裡有 6 個是重複的；(2) 合併到上線要等約 6 分鐘的 e2e，而同一份內容在 PR 上已經跑過——Ruleset 是 strict 最新分支（`docs/governance/BRANCH-PROTECTION.md:5`），PR 的 CI 測的就是合併後的內容。
+- 修法（二選一）：
+  1. **部署只等 build**：`verify.yml` 加一個 `e2e` 輸入（預設 `true`），`deploy-pages.yml` 傳 `false`。main 上的完整 e2e 由 `ci.yml` 的 push 觸發繼續跑，當作部署後的監看。合併到上線約 6～7 分鐘 → 約 1 分鐘（**估計，NOT MEASURED**），每次合併少 5 個工作。
+  2. **保留「全綠才部署」**：只把 `ci.yml` 的 `push: main` 拿掉。上線時間不變，每次合併少 6 個工作。
+- 風險：方案 1 放寬了「每個工作都通過才發布」這個保證，改成「PR 全綠＋main 上 build 通過」；`workflow_dispatch` 手動部署也不會再跑 e2e。這是部署安全的取捨，**需要 Owner 決定**。對應：#48。
+
+**O-35｜只改文件的 PR 也跑完整的瀏覽器測試**（CONFIRMED；2026-11-10 追加）
+- 證據：PR #119 只改 `docs/`，每次推送仍跑 5 個 e2e 分片（約 25 分鐘的 runner 時間、等 6 分鐘）；本 repo 的治理與審查 PR 很多。
+- 修法：build 工作用 `git diff --name-only` 判斷變更是否全部落在 `docs/**` 與根目錄 `*.md`，是的話輸出 `e2e=false` 讓分片 `if:` 跳過；`gateDecision` 要把「e2e 因純文件而跳過」視為通過，並補單元測試。單元測試與治理檢查（會讀 `docs/`）照跑。
+- 效果：純文件 PR 約 6 分鐘 → 約 40 秒（**估計**）。風險：中——判斷寫錯會讓該跑的 e2e 被靜默跳過，所以白名單要窄（只有 `docs/**`、`*.md`），其他一律照跑；必要檢查的名稱不能變。對應：#48。
 
 ### H. 文件
 
@@ -180,7 +195,7 @@
 
 **後續 Issue（2026-11-10，Owner 回覆「你決定就行」後由執行端 A 決定）**
 - 開 [#121](https://github.com/waydefu/Pixel-Games/issues/121)「每幀配置清理（O-05～O-10）」與 [#122](https://github.com/waydefu/Pixel-Games/issues/122)「陰影相機對齊紋素與按需更新（O-11，排在 #112 之後）」。
-- CI 三項（O-27～O-29）**不另開**，以留言併入 [#48](https://github.com/waydefu/Pixel-Games/issues/48)。
+- CI 項目（O-27～O-29，以及追加的 O-34、O-35）**不另開**，以留言併入 [#48](https://github.com/waydefu/Pixel-Games/issues/48)。
 - 其餘 O-xx **不開 Issue**，併入各項「對應」欄列出的既有 Issue；要做時再從本報告取修法。
 - `development-task.yml` 自動加標籤：**決定不做**。Issue 表單的 `labels:` 只能是固定值，沒辦法依下拉選項帶出優先級或領域；要做到就得多一個 workflow，對兩個執行端的規模不划算。開單時手動加標籤即可。
 
@@ -210,7 +225,7 @@
 | F-11 GLB 冷啟動（#66） | O-03、O-04、O-13 |
 | F-14 依賴掃描（#67） | §1：目前 0 弱點、兩個小版本落後 |
 | F-15 台帳新鮮度（#49） | O-30～O-33 |
-| **#78 沒有涵蓋** | O-01、O-02（分包與預算）、O-05～O-10（每幀配置）、O-23（未使用匯出）、O-27～O-29（CI） |
+| **#78 沒有涵蓋** | O-01、O-02（分包與預算）、O-05～O-10（每幀配置）、O-23（未使用匯出）、O-27～O-29、O-34、O-35（CI） |
 | F-01 GameClock（#59）、F-16 產品功能 | 本報告未涉及 |
 
 ## 6. 線上查證（Sonnet 子代理，2026-11-10）
