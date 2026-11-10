@@ -54,7 +54,8 @@ test("shared water edge follows the curved beach and never exposes dry inland to
   assert.match(COASTLINE_GLSL,/float shoreWaterLimit\(float z\)/);
   for(let z=-47;z<=47;z+=.25){
     const p=coastalOutline(z);
-    assert.ok(Math.abs(coastalWaterLimit(z)-(p.coast-SHORE_WATER_INSET))<1e-12);
-    assert.ok(coastalWaterLimit(z)>p.grassRight||p.ease>.89,`water limit may invade dry grass at z=${z}`);
+    assert.ok(Math.abs(coastalWaterLimit(z)-(p.coast-Math.min(SHORE_WATER_INSET,(p.coast-p.grassRight)*.78)))<1e-12);
+    assert.ok(coastalWaterLimit(z)>=p.grassRight-1e-12,`water limit invades dry grass at z=${z}`);
+    assert.ok(coastalWaterLimit(z)<=p.coast+1e-12);
   }
 });

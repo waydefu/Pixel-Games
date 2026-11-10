@@ -25,7 +25,9 @@ float shore(float z) {
   return coast-${glsl(p.taperShift)}*t*t*(3.0-2.0*t);
 }
 float shoreWaterLimit(float z) {
-  return shore(z)-${glsl(SHORE_WATER_INSET)};
+  // The available beach tapers to zero at both headlands; swash cannot overrun its dry edge.
+  float beachWidth=5.1*(1.0-smoothstep(${glsl(p.taperStart)},${glsl(p.taperEnd)},abs(z)));
+  return shore(z)-min(${glsl(SHORE_WATER_INSET)},beachWidth*0.78);
 }
 float shoreRegion(float z) {
   return 1.0-smoothstep(${glsl(p.taperStart)},${glsl(p.taperEnd)},abs(z));
@@ -44,4 +46,7 @@ export function coastalOutline(z){
 }
 
 /** The shader and CPU share this curved coast boundary. */
-export function coastalWaterLimit(z){return coastalOutline(z).coast-SHORE_WATER_INSET;}
+export function coastalWaterLimit(z){
+  const o=coastalOutline(z),beachWidth=o.coast-o.grassRight;
+  return o.coast-Math.min(SHORE_WATER_INSET,beachWidth*.78);
+}
