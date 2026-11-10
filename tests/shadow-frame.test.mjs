@@ -50,3 +50,20 @@ test("the pipeline covers prepasses and the main scene in one shadow-update scop
   assert.match(pipeline, /renderWithSingleShadowUpdate\(renderer, \(\) => \{\s*if \(prePass\)/);
   assert.match(pipeline, /if \(prePass\)[\s\S]*measure\('scene'/);
 });
+
+test("unlit cloud pass leaves the pending update for the first sunlit draw", () => {
+  const shadowMap = { enabled: true, autoUpdate: true, needsUpdate: false };
+  const refreshed = [];
+  const value = renderWithSingleShadowUpdate({ shadowMap }, () => {
+    assert.equal(shadowMap.autoUpdate, false);
+    assert.equal(shadowMap.needsUpdate, true);
+    sceneRender(shadowMap, "cloud shadow", false, refreshed);
+    assert.equal(shadowMap.needsUpdate, true, "an unlit prepass must not consume the pending shadow refresh");
+    sceneRender(shadowMap, "sunlit scene", true, refreshed);
+    assert.equal(shadowMap.needsUpdate, false);
+    return "rendered";
+  });
+  assert.equal(value, "rendered");
+  assert.deepEqual(refreshed, ["sunlit scene"]);
+  assert.equal(shadowMap.autoUpdate, true);
+});
