@@ -63,7 +63,7 @@ test("the sea is endless: a huge plane under the detailed one, and open water ou
   const ocean = read("src/game/ocean.ts");
   assert.match(ocean, /endless-sea/);
   assert.match(ocean, /PlaneGeometry\(9000,9000/);
-  assert.match(ocean, /dist=mix\(60\.0,dist,shoreRegion\(w\.z\)\)/, "pale shallows only inside the harbour");
+  assert.match(ocean, /float vDist=mix\(60\.0,shoreDist,coastWeight\)/, "pale shallows only inside the harbour");
   assert.match(read("src/game/coastal-outline.js"), /float shoreRegion\(float z\)/, "the coastal region must follow the tapered headlands");
 });
 

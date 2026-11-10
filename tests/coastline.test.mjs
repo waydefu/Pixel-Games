@@ -51,7 +51,7 @@ test("ocean vertex and fragment share coast profile and breakers move across sho
 
 test("shared water edge follows the curved beach and never exposes dry inland to the infinite sea",()=>{
   assert.ok(SHORE_WATER_INSET>0&&SHORE_WATER_INSET<1);
-  assert.match(COASTLINE_GLSL,/float shoreWaterLimit\\(float z\\)/);
+  assert.match(COASTLINE_GLSL,/float shoreWaterLimit\(float z\)/);
   for(let z=-47;z<=47;z+=.25){
     const p=coastalOutline(z);
     assert.ok(Math.abs(coastalWaterLimit(z)-(p.coast-SHORE_WATER_INSET))<1e-12);
