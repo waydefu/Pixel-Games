@@ -34,7 +34,7 @@
 
 **O-01｜three.js 與遊戲程式在同一個 chunk，任何小改動都讓使用者重抓 313 kB**（CONFIRMED）
 - 位置：`vite.config.*` 無分包設定；全專案 `import * as THREE from "three"`。
-- 修法：把 `three`（與 `three/addons`）拆成獨立 chunk，遊戲程式另一個。設定寫法見 §6-Q2c。`scripts/check-build.mjs` 的預算改成**分開檢查**（例如 vendor ≤ 260 kB、game ≤ 90 kB gzip），否則總量預算會掩蓋遊戲程式變胖。
+- 修法：把 `three`（與 `three/addons`）拆成獨立 chunk，遊戲程式另一個。設定寫法見 §6 的 Q2(c)。`scripts/check-build.mjs` 的預算改成**分開檢查**（例如 vendor ≤ 260 kB、game ≤ 90 kB gzip），否則總量預算會掩蓋遊戲程式變胖。
 - 效果：遊戲程式更新時，使用者只重抓遊戲 chunk。**但 Pages 的 `max-age=600` 仍會每 10 分鐘重新驗證**（回 304，不重傳內容），所以效益是省流量，不是省請求數。驗證：連續兩次部署後看 vendor chunk 檔名雜湊不變。
 - 風險：低；需確認 `check-build` 的「單一入口」檢查仍成立。對應：無既有 Issue（可併入 #66 冷啟動）。
 
@@ -50,7 +50,7 @@
 
 **O-04｜GLB 幾何高度冗餘**（CONFIRMED 現象／修法效益 HYPOTHESIS）
 - 證據：3.01 MB gzip 後只剩 455 kB（壓掉 85%），代表大量重複頂點或未量化的 float。
-- 修法：用 glTF-Transform 做 `weld`＋`dedup`＋`quantize`（必要時 meshopt，見 §6-Q2b）。**傳輸量已被 Pages 的 gzip 吃掉大半**，主要效益在解析時間與 GPU 記憶體。
+- 修法：用 glTF-Transform 做 `weld`＋`dedup`＋`quantize`（必要時 meshopt，見 §6 的 Q2(b)）。**傳輸量已被 Pages 的 gzip 吃掉大半**，主要效益在解析時間與 GPU 記憶體。
 - 風險：授權（CC BY 4.0 允許修改，但 `assets/manifest.json` 的 SHA256 與 `docs/ASSET-CREDITS.md` 的修改說明要同步）。對應：#66。
 
 ### B. 每幀 CPU（都是小項，合併成一個 PR 即可）
@@ -100,7 +100,7 @@
 **O-16｜多重取樣目標的擴充只能靠除錯參數關閉**（CONFIRMED 現況／根因 HYPOTHESIS）
 - 位置：`src/game/main.ts:503-507`（`?rtt=0` 改寫 `renderer.extensions.has`）。
 - 現況：PR #34 已把雲影與反射移到場景 pass 之前，使用者回報空白幀消失；但根因仍是推論（PV-035），而 `?rtt=0` 是對 three.js 內部的猴子補丁。
-- 修法：見 §6-Q1；在真機用 `?rtt=0`／`?reflect=0` 的快照確認前，**不要**把它改成預設。對應：#46。
+- 修法：見 §6 的 Q1；在真機用 `?rtt=0`／`?reflect=0` 的快照確認前，**不要**把它改成預設。對應：#46。
 
 ### D. 資源生命週期
 
@@ -159,7 +159,7 @@
 
 **O-29｜重試才通過的測試沒有任何紀錄**（CONFIRMED；Owner 已決定暫不開 `failOnFlakyTests`）
 - 位置：`playwright.config.mjs:10-11`（`retries:1`、reporter `line`）。
-- 修法：維持不擋，但**讓它看得見**，作法見 §6-Q3。對應：#48 第 3 項。
+- 修法：維持不擋，但**讓它看得見**，作法見 §6 的 Q3。對應：#48 第 3 項。
 
 ### H. 文件
 
@@ -172,17 +172,16 @@
 
 ## 3. Issue 整理
 
-**本次已做（都是我建立的 Issue，或只留言）**
-- 關閉 #55（11-08 的手寫進度快照，已過時，且違反「不維護第二份最新清單」）。
-- #46、#48 改標題，反映現況（60 fps 實測；總關卡誤報已處理）。
-- #49 補上逐項核對後的實際缺口。
+**已做（2026-11-10，後三項依 Owner「按建議來」的指示）**
+- 關閉 #55（11-08 的手寫進度快照，已過時，且違反「不維護第二份最新清單」）；#46、#48 改標題反映現況；#49 補上逐項核對後的實際缺口。
+- **驗收總清單 #120**：把分散的真機與人工驗收收成一張檢查表（手機 9 列、桌面 3 列），#45、#53、#57、#111 掛為子 Issue。之後新的「真機 NOT RUN」加一列到 #120，不再各開一張。
+- **關閉 #105、#94**：修復與功能已由 PR #106、#95 合併；兩個 PR 標為 NOT RUN 的人工與真機項目已移到 #120。
+- **標籤**：所有開啟中的 Issue 都已上標籤——優先級 `P1`／`P2`（照標題與內文既有的優先級，沒有改任何人的優先級）、領域 `render`／`gameplay`／`engine`／`governance`／`ci`、`驗收`。`engine` 是原建議之外新增的，用在 GameClock、音訊生命週期、`main.ts` 拆分、型別檢查這類核心程式項目。新標籤是灰色、沒有說明文字，顏色可在 GitHub 介面調整。
 
-**建議 Owner 決定（我沒有動）**
-1. **已有合併 PR 卻還開著**：#105（PR #106 已合併）、#94（PR #95 已合併）。若只是等真機驗收，建議改成或另開「[驗收]」Issue，原單關閉；否則直接關閉。
-2. **42 張開啟中的 Issue 沒有任何標籤**，優先級只寫在標題裡，無法篩選。建議建立 `P0`／`P1`／`P2`、`驗收`、`render`、`gameplay`、`governance`、`ci` 標籤；`development-task.yml` 的優先級下拉可改成自動加標籤。repo 已有 `visual-audit`、`documentation`、`bug` 標籤但沒有被使用。
-3. **驗收類 Issue 累積**：#45、#53、#57、#111 都在等同一台手機。建議合成一張「真機驗收清單」的檢查表（每列連回原 Issue），一次測完逐列回填。
-4. #54（滑鼠鎖定疑慮）建立後無任何動靜、也無人能在真實桌面重現；建議標 `question`，下次桌面測試時順手驗一次，否則關閉。
-5. 本報告**沒有**為 O-01～O-33 逐項開 Issue。建議只開三張：「每幀配置清理（O-05～O-10）」「陰影相機對齊與更新策略（O-11，排在 #112 之後）」「CI：瀏覽器快取、視覺稽核觸發、flaky 可見（O-27～O-29，可直接併入 #48）」，其餘併入表中對應的既有 Issue。
+**仍建議 Owner 決定**
+1. `development-task.yml` 的優先級下拉改成自動加標籤（需要改範本，屬治理變更）。
+2. #54（滑鼠鎖定疑慮）已標 `question` 並列入 #120 桌面區；下次桌面測試驗一次，仍無法重現就關閉。
+3. 本報告**沒有**為 O-01～O-33 逐項開 Issue。建議只開三張：「每幀配置清理（O-05～O-10）」「陰影相機對齊與更新策略（O-11，排在 #112 之後）」「CI：瀏覽器快取、視覺稽核觸發、flaky 可見（O-27～O-29，可直接併入 #48）」，其餘併入表中對應的既有 Issue。
 
 ## 4. 建議順序
 
@@ -208,13 +207,37 @@
 | **#78 沒有涵蓋** | O-01、O-02（分包與預算）、O-05～O-10（每幀配置）、O-23（未使用匯出）、O-27～O-29（CI） |
 | F-01 GameClock（#59）、F-16 產品功能 | 本報告未涉及 |
 
-## 6. 線上查證（Sonnet 子代理）
+## 6. 線上查證（Sonnet 子代理，2026-11-10）
 
-> 本節待補：子代理因額度上限中斷後已恢復執行，結果回來後補上來源連結。在補上之前，下列三項的修法只依本機可核實的事實撰寫。
+> 子代理只查線上資料、未接觸 repo。下列「未找到／未驗證」是它自己的標註，照實保留；**這些來源我沒有逐一重新開啟核對**，引用前請自行點開。
 
-- **Q1（O-16）**：本機 `node_modules/three/build/three.module.js` 可核實：`useMultisampledRTT()` 在目標有 `samples>0`、擴充存在、且內部旗標 `__useRenderToTexture!==false` 時啟用；該旗標只在 `setRenderTargetTextures`（外部貼圖）路徑被設為 `false`，並附註解說明「中途 flush＋外部深度緩衝時此擴充無法正常運作」。**沒有公開 API 可讓單一 render target 退出**。
-- **Q2c（O-01）**：建置輸出本身提示使用 `build.rolldownOptions.output.codeSplitting`。
-- **Q3（O-29）**：待補。
+**Q1（O-16）多重取樣渲染到貼圖與中途切換渲染目標**
+- **沒有找到**記載「巢狀渲染後返回會丟失內容」的 Adreno／Mali／Chrome 官方錯誤報告（子代理沒有直接搜尋 Chromium／ANGLE 的 tracker）；Khronos 規格頁回傳 403，未能引用原文。所以 PV-035 的根因**仍是假說**，線上查證沒有把它升級成已證實。
+- three.js 的防護是目前唯一的一手證據：`WebGLRenderer.js` 有註解「The multisample_render_to_texture extension doesn't work properly if there are midframe flushes and an external depth buffer. Disable use of the extension.」並設 `__useRenderToTexture = false`（[dev 原始碼](https://raw.githubusercontent.com/mrdoob/three.js/dev/src/renderers/WebGLRenderer.js)；啟用條件見 [WebGLTextures.js](https://raw.githubusercontent.com/mrdoob/three.js/dev/src/renderers/webgl/WebGLTextures.js)）。本機 `node_modules/three` 可核實同一段。
+- 相關但不同的問題：[three.js #28131](https://github.com/mrdoob/three.js/issues/28131)（此擴充存在時雙面透射材質出錯，仍開啟）。
+- **沒有公開 API** 可讓單一 render target 退出此擴充；`__useRenderToTexture` 是內部屬性。受支援的避開方式只有 `samples = 0`。
+- **具體作法**：維持 PR #34 的結構（不在場景 pass 途中切換目標）；`?rtt=0` 只當診斷用；若真機 `?rtt=0` 對照顯示仍需要關閉，再評估「該檔改用 `samples=0`＋後處理抗鋸齒」而不是依賴內部屬性。
+
+**Q2（O-01、O-04）下載量**
+- (b) glTF-Transform 文件**沒有**給 meshopt 的典型節省比例（[meshopt](https://gltf-transform.dev/modules/functions/functions/meshopt)、[CLI](https://gltf-transform.dev/cli)）。因為線上已有 gzip，真正的效益是「gzip 之後的差額」，**必須拿這 21 個檔案實測**。three.js 端要加 `loader.setMeshoptDecoder(MeshoptDecoder)`（子代理量到解碼器約 29 kB、gzip 約 7.7 kB；這個 API 名稱它是憑記憶寫的，未查文件）——解碼器本身會吃掉 JS 預算的一部分。
+- (c) Vite 文件只說 `build.rolldownOptions` 會併入 Rolldown 選項（[Vite build options](https://vite.dev/config/build-options)）；設定形狀在 [Rolldown `output.codeSplitting`](https://rolldown.rs/reference/OutputOptions.codeSplitting)：
+  ```js
+  build: { rolldownOptions: { output: { codeSplitting: { groups: [
+    { name: "three", test: /node_modules[\\/]three/, priority: 20 },
+  ] } } } }
+  ```
+- **具體作法**：O-01 用上面的 `groups` 設定，建置後確認輸出兩個 JS 檔，再把 `check-build.mjs` 改成分別檢查。O-04 先對一兩個最大的 GLB 試 `weld`＋`quantize`，比較 gzip 後大小與載入時間，再決定要不要引入 meshopt。
+
+**Q3（O-29）讓重試才通過的測試看得見，但不擋合併**
+- Playwright 把「先失敗、重試後通過」算成獨立的 `flaky` 結果，**預設不會讓執行失敗**；`failOnFlakyTests`／`--fail-on-flaky-tests` 才是會失敗的選項（[retries](https://playwright.dev/docs/test-retries)、[TestConfig](https://playwright.dev/docs/api/class-testconfig)、[TestCase.outcome](https://playwright.dev/docs/api/class-testcase)）。
+- JSON reporter 的 `onlyFailures: true` 會保留失敗與 flaky 的測試（[reporters](https://playwright.dev/docs/test-reporters)）；`github` reporter 是否會為 flaky 產生標註，子代理**沒有查到**。
+- **具體作法**（不設 `failOnFlakyTests`，符合 #48 的決定）：
+  ```js
+  reporter: process.env.CI
+    ? [["line"], ["json", { outputFile: "test-results/results.json", onlyFailures: true }]]
+    : "list",
+  ```
+  CI 多一個步驟讀 `results.json`，有 flaky 就印 `::warning::` 並把檔案上傳成 artifact。注意：`::warning::` 會產生警告標註，與 PR #33 時「乾淨的綠」的要求有取捨，上線前請 Owner 確認要標註還是只留 artifact。
 
 ## 7. 沒有檢查的範圍
 
