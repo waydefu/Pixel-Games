@@ -131,9 +131,10 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       void main(){
         vec3 v=normalize(cameraPosition-vWorld);
         // Shore distance and the long-wave normal, per pixel (the same waves the vertex shader displaces).
-        float vDist=max(0.0,vWorld.x-shore(vWorld.z));
+        float shoreDist=max(0.0,vWorld.x-shore(vWorld.z));
         float coastWeight=shoreRegion(vWorld.z);
-        vDist=mix(60.0,vDist,coastWeight);
+        // Only colour/normal blending fades offshore; foam must use the actual shore distance.
+        float vDist=mix(60.0,shoreDist,coastWeight);
         float damp=.22+.78*smoothstep(0.0,9.0,vDist);
         float p0=vWorld.x*.29+vWorld.z*.08+uTime*.85;
         float p1=-vWorld.x*.16+vWorld.z*.34+uTime*.65;
@@ -190,8 +191,8 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
         water+=vec3(.46,.62,.54)*caustic*(1.0-smoothstep(1.5,10.0,vDist))*.18;
         // Breaker crests travel shoreward (-X), using distance from the ACTUAL curved coast.
         // Two existing noise taps + one sine; no new textures, simulation passes or FFT.
-        float shoreline=(1.0-smoothstep(0.0,2.65,vDist))*coastWeight;
-        float moving=sin(vDist*2.2+vWorld.z*.30+uTime*1.8+noise(vWorld.xz*.5)*3.5);
+        float shoreline=(1.0-smoothstep(0.0,2.65,shoreDist))*coastWeight;
+        float moving=sin(shoreDist*2.2+vWorld.z*.30+uTime*1.8+noise(vWorld.xz*.5)*3.5);
         float foam=shoreline*smoothstep(.45,.76,
           .55*noise(vWorld.xz*1.35+vec2(uTime*.13,-uTime*.08))+.45*(moving*.5+.5));
         water=mix(water,vec3(.72,.80,.74),clamp(foam*.52,0.0,.47));
