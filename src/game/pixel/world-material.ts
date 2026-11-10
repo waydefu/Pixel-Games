@@ -53,6 +53,7 @@ export function createPixelMaterialFactory(scope:Tracker){
     const cached=materials.get(key);
     if(cached)return cached;
     const tex=entry(kind,seed);
+    let sandAtlasReady=false;
     const mat=new THREE.MeshStandardMaterial({
       map:tex.color,normalMap:tex.normal,normalScale:new THREE.Vector2(1,1),
       roughness:.95,metalness:0,side:THREE.FrontSide,
@@ -60,7 +61,32 @@ export function createPixelMaterialFactory(scope:Tracker){
     const prior=mat.onBeforeCompile;
     mat.onBeforeCompile=(shader,renderer)=>{
       prior(shader,renderer);
-      shader.uniforms.uPxUnits={value:tex.units};
+      const photo=kind==="sand"&&sandAtlasReady;
+      const photoHelpers=photo?`
+vec2 sandAtlasUv(float slot){
+  vec2 uv=fract(pxUv);
+  return vec2((4.0+504.0*uv.x+512.0*slot)/1024.0,(4.0+504.0*uv.y)/512.0);
+}
+float sandWetBlend(){
+#ifdef USE_COLOR
+  return smoothstep(.20,.80,clamp((.99-vColor.r)/.33,0.0,1.0));
+#else
+  return 0.0;
+#endif
+}
+`:"";
+      const photoMap=photo?`#ifdef USE_MAP
+  diffuseColor*=mix(texture2D(map,sandAtlasUv(0.0)),texture2D(map,sandAtlasUv(1.0)),sandWetBlend());
+#endif`:`#ifdef USE_MAP
+  diffuseColor*=texture2D(map,pxUv);
+#endif`;
+      const photoNormalFetch=photo
+        ?"mix(texture2D(normalMap,sandAtlasUv(0.0)),texture2D(normalMap,sandAtlasUv(1.0)),sandWetBlend())"
+        :"texture2D(normalMap,pxUv)";
+      const photoRipple=photo
+        ?"pxMapN.x+=.032*cos(vPxWorld.x*12.6+.24*sin(vPxWorld.z*.8));"
+        :"";
+      shader.uniforms.uPxUnits={value:photo?1.8:tex.units};
       shader.uniforms.uPxSlope={value:tex.slope?1:0};
       shader.vertexShader=shader.vertexShader
         .replace("#include <common>","#include <common>\nvarying vec3 vPxWorld;\nvarying vec3 vPxNormal;")
@@ -81,6 +107,7 @@ varying vec3 vPxNormal;
 uniform float uPxUnits;
 uniform float uPxSlope;
 vec2 pxUv;\nvec4 pxPackedSurfaceNormal;
+${photoHelpers}
 vec2 pixelWorldUv(){
   vec3 n=normalize(vPxNormal);
   vec3 a=abs(n);
@@ -99,27 +126,55 @@ vec2 pixelWorldUv(){
   return uv/uPxUnits;
 }`)
         .replace("#include <clipping_planes_fragment>","#include <clipping_planes_fragment>\n  pxUv=pixelWorldUv();")
-        .replace("#include <map_fragment>",`#ifdef USE_MAP
-  diffuseColor*=texture2D(map,pxUv);
-#endif`)
+        .replace("#include <map_fragment>",photoMap)
         // Roughness is packed in normal alpha; reuse the *same* normal texture sample.
         .replace("#include <roughnessmap_fragment>",`#include <roughnessmap_fragment>
 #ifdef USE_NORMALMAP_TANGENTSPACE
-  pxPackedSurfaceNormal=texture2D(normalMap,pxUv);
+  pxPackedSurfaceNormal=${photoNormalFetch};
   roughnessFactor*=pxPackedSurfaceNormal.a;
   ${kind==="sand"?"#ifdef USE_COLOR\n  // Beach vertex tint already represents moisture; wet sand is less rough.\n  float wet=clamp((.99-vColor.r)/.33,0.0,1.0);\n  roughnessFactor*=mix(1.0,.64,wet);\n#endif":""}
 #endif`)
         .replace("#include <normal_fragment_maps>",`#ifdef USE_NORMALMAP_TANGENTSPACE
   vec3 pxMapN=pxPackedSurfaceNormal.xyz*2.0-1.0;
-  pxMapN.xy*=normalScale;
+  pxMapN.xy*=normalScale;\n  ${photoRipple}
   mat3 pxTbn=getTangentFrame(-vViewPosition,normal,pxUv);
   normal=normalize(pxTbn*pxMapN);
 #endif`);
     };
     const key0=mat.customProgramCacheKey.bind(mat);
-    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-packed-roughness-v2-"+(kind==="sand"?"wet-sand":"other");
+    mat.customProgramCacheKey=()=>key0()+"|pixel-world-uv-packed-roughness-v3-"+(kind==="sand"?(sandAtlasReady?"cc0-photo-atlas":"procedural-fallback"):"other");
     scope.track(mat);
     materials.set(key,mat);
+    if(kind==="sand"){
+      // Vite emits both local scans under the Pages base URL: no runtime third-party CDN.
+      // Keep the previous procedural texture until both photos have loaded successfully.
+      const loader=new THREE.TextureLoader();
+      const albedoUrl=new URL("../../../assets/materials/ambientcg-sand-albedo.webp",import.meta.url).href;
+      const normalUrl=new URL("../../../assets/materials/ambientcg-sand-normal-roughness.png",import.meta.url).href;
+      let loaded=0,failed=false;
+      const complete=()=>{
+        if(failed||++loaded!==2)return;
+        sandAtlasReady=true;
+        mat.map=colorPhoto;
+        mat.normalMap=normalPhoto;
+        mat.needsUpdate=true;
+      };
+      const onError=(cause:unknown)=>{
+        failed=true;
+        console.warn("Local CC0 beach atlas failed; using procedural sand",cause);
+      };
+      const colorPhoto=scope.track(loader.load(albedoUrl,complete,undefined,onError));
+      const normalPhoto=scope.track(loader.load(normalUrl,complete,undefined,onError));
+      colorPhoto.colorSpace=THREE.SRGBColorSpace;
+      normalPhoto.colorSpace=THREE.NoColorSpace;
+      for(const texture of [colorPhoto,normalPhoto]){
+        texture.wrapS=texture.wrapT=THREE.ClampToEdgeWrapping;
+        texture.magFilter=THREE.LinearFilter;
+        texture.minFilter=THREE.LinearMipmapLinearFilter;
+        texture.generateMipmaps=true;
+        texture.anisotropy=4;
+      }
+    }
     return mat;
   }
   return {material,kinds:PIXEL_KIND_NAMES};
