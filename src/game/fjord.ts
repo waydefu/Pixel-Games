@@ -285,10 +285,16 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // audit: ?cloudOnly=Cu shows one genus; ?cloudMix=Cu:.7,Sc:.5 forces the mix (see cloud-genera.js for the codes)
   const auditQuery=new URLSearchParams(typeof location!=="undefined"?location.search:"");
   const cloudOnly=(()=>{const c=auditQuery.get("cloudOnly");const i=GENERA.findIndex(g=>g.code.toLowerCase()===(c??"").toLowerCase());return i;})();
+  // Explicit High-only PoC: ?cuProjection=slab. The validated legacy sky/shadow stay the default.
+  const cuProjection=auditQuery.get("cuProjection")==="slab"?1:0;
+  // Same-build A/B for waterfall repair: &cuHorizon=legacy restores #104 behavior.
+  const cuHorizon=auditQuery.get("cuHorizon")==="legacy"?0:1;
+  // Opt-in slab lighting A/B; no change to High defaults until visual and GPU gates pass.
+  const cuLighting=auditQuery.get("cuLighting")==="volume"?1:0;
   const forcedMix=(()=>{const m=auditQuery.get("cloudMix");if(!m)return null;const out=new Array(10).fill(0);for(const part of m.split(",")){const [code,v]=part.split(":");const i=GENERA.findIndex(g=>g.code.toLowerCase()===code.trim().toLowerCase());if(i>=0)out[i]=Math.min(1,Math.max(0,Number(v)||0));}return out;})();
   const cloudUniforms={
     uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
-    uNoise:{value:noiseTexture},uGen:{value:new Array(10).fill(0)},uOnly:{value:cloudOnly},
+    uNoise:{value:noiseTexture},uGen:{value:new Array(10).fill(0)},uOnly:{value:cloudOnly},uCuProjection:{value:cuProjection},uCuHorizon:{value:cuHorizon},uCuLighting:{value:cuLighting},
     uSunDirection:skyUniforms.uSunDirection,uHorizon:skyUniforms.uHorizon,uZenith:{value:liveSky.zenith},uMid:{value:liveSky.mid},uSunColor:skyUniforms.uSunColor,
     uTwilight:skyUniforms.uTwilight,uNightC:skyUniforms.uNightC,uWeatherDark:skyUniforms.uWeatherDark,uWeatherFlash:skyUniforms.uWeatherFlash,
   };
@@ -299,7 +305,7 @@ export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
   // ground shadows: the same layers seen from the sun (cloud-shadow.ts)
   const shadow=createCloudShadow({scene:k.scene,scope:k.scope,cloudField,gen:cloudUniforms.uGen,
     uniforms:{uTime:skyUniforms.uTime,uCloudAmount:skyUniforms.uCloudAmount,uCloudDetailLevel:skyUniforms.uCloudDetailLevel,uCloudWind:cloudField.uniforms.uCloudWind,
-      uNoise:cloudUniforms.uNoise,uGen:cloudUniforms.uGen,uSunDirection:skyUniforms.uSunDirection}});
+      uNoise:cloudUniforms.uNoise,uGen:cloudUniforms.uGen,uCuProjection:cloudUniforms.uCuProjection,uCuHorizon:cloudUniforms.uCuHorizon,uSunDirection:skyUniforms.uSunDirection}});
   const cloudDome=new THREE.Mesh(k.scope.track(new THREE.SphereGeometry(790,36,20)),cloudShader);
   cloudDome.name="sky-moving-cloud-sheet";
   cloudDome.renderOrder=-999;
