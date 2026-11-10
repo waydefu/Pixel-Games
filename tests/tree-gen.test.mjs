@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateTree, triangleCount, TREE_SPECIES } from "../src/game/pixel/tree-gen.js";
-import { paintLeafSheet, LEAF_SPECIES } from "../src/game/pixel/textures.js";
+import { paintLeafSheet, LEAF_SPECIES, LEAF_CELL, LEAF_SHEET, sandRippleHeight, paintTexture } from "../src/game/pixel/textures.js";
 
 const finite = a => a.every(Number.isFinite);
 
@@ -55,4 +55,23 @@ test("leaf sprite sheets are cutout RGBA drawn from the shared palette", () => {
     assert.ok(opaque > 600 && transparent > 600, `${species}: cutout with real transparency`);
     assert.ok(colors.size <= 9, `${species}: palette-limited (${colors.size} colours)`);
   }
+});
+
+
+test("detailed near foliage uses 128px shared 2x2 atlas and a pine-specific bark",()=>{
+  assert.equal(LEAF_CELL,64);assert.equal(LEAF_SHEET,128);
+  for(const species of LEAF_SPECIES)assert.equal(paintLeafSheet(species,1).color.length,128*128*4);
+  const pine=paintTexture("pine-bark",1);assert.equal(pine.color.length,32*32*4);
+});
+
+test("sand ridges run along the coast (Z) instead of pointing offshore (X)",()=>{
+  let cross=0,along=0;
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++){
+    cross+=Math.abs(sandRippleHeight(x+1,y,64)-sandRippleHeight(x,y,64));
+    along+=Math.abs(sandRippleHeight(x,y+1,64)-sandRippleHeight(x,y,64));
+  }
+  assert.ok(cross>along*3,`ripple axis wrong: ${cross} vs ${along}`);
+  assert.ok(Math.abs(sandRippleHeight(0,11,64)-sandRippleHeight(64,11,64))<1e-12);
+  assert.ok(Math.abs(sandRippleHeight(11,0,64)-sandRippleHeight(11,64,64))<1e-12);
+  assert.equal(paintTexture("sand",5).size,64);
 });

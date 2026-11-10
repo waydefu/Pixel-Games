@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { coastX } from "../src/game/terrain-profile.js";
-import { coastalOutline, SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
+import { coastalOutline, coastalWaterLimit, SHORE_WATER_INSET, SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
 test("coast is broad where village exists and tapers at headland ends",()=>{
   const center=coastalOutline(0);
   assert.ok(center.coast>12&&center.coast<15);
@@ -40,10 +40,21 @@ test("coastline CPU and GLSL coefficients agree across both headland tapers",()=
 test("ocean vertex and fragment share coast profile and breakers move across shore",()=>{
   const ocean=readFileSync(new URL("../src/game/ocean.ts",import.meta.url),"utf8");
   assert.equal((ocean.match(/\$\{COASTLINE_GLSL\}/g)??[]).length,2);
-  assert.match(ocean,/dist=mix\(60\.0,dist,shoreRegion\(w\.z\)\)/);
+  assert.match(ocean,/float damp=\.06\+\.94\*smoothstep\(0\.0,9\.0,dist\)/);
   assert.match(ocean,/coastWeight=shoreRegion\(vWorld\.z\)/);
   assert.match(ocean,/float shoreline=\(1\.0-smoothstep\(0\.0,2\.65,shoreDist\)\)\*coastWeight/);
   assert.match(ocean,/moving=sin\(shoreDist\*2\.2\+/);
   assert.doesNotMatch(ocean,/smoothstep\(32\.0,52\.0,abs\(/);
   assert.doesNotMatch(ocean,/float shore\(float z\)\{return 13\.3/);
+});
+
+
+test("shared water edge follows the curved beach and never exposes dry inland to the infinite sea",()=>{
+  assert.ok(SHORE_WATER_INSET>0&&SHORE_WATER_INSET<1);
+  assert.match(COASTLINE_GLSL,/float shoreWaterLimit\\(float z\\)/);
+  for(let z=-47;z<=47;z+=.25){
+    const p=coastalOutline(z);
+    assert.ok(Math.abs(coastalWaterLimit(z)-(p.coast-SHORE_WATER_INSET))<1e-12);
+    assert.ok(coastalWaterLimit(z)>p.grassRight||p.ease>.89,`water limit may invade dry grass at z=${z}`);
+  }
 });
