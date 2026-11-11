@@ -13,6 +13,12 @@ export const VISUAL_SHOTS=Object.freeze([
   supported("shot-07-dusk","quarter",9,4.2,0,0,"desktop",18.9),
   supported("shot-08-night-moon","first",24,8,-1.5708,.42,"desktop",21.2),
   supported("shot-09-sunrise-mountain","first",14.5,8,1.5708,.10,"desktop",6.3),
+  supported("shot-11-grass-quarter","quarter",2,7,0,0),
+  supported("shot-12-grass-close","first",-2,8,-1.5708,-.55),
+  supported("shot-13-grass-shore","first",5,9,-1.5708,-.42),
+  supported("shot-14-grass-west","first",-16,-17,0,-.55),
+  supported("shot-15-grass-field","first",-10,18,0,-.55),
+  supported("shot-16-grass-coast","first",5,-6,-1.5708,-.55),
   supported("shot-10-sunset-sea","first",24,8,-1.5708,.06,"desktop",17.8),
 ]);
 export function getVisualShot(id){
