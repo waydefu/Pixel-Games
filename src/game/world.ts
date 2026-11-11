@@ -21,6 +21,7 @@ import { cloudMix, weatherToCloudInputs } from "./cloud-genera.js";
 import { createWeatherView } from "./weather-view.js";
 import { groundHeight } from "./navigation.js";
 import { createCloudField } from "./cloud-field.js";
+import { cloudLighting, cloudShadowBase } from "./cloud-lighting.js";
 
 /**
  * The game's one and only scene. Old test geometry and electric street lamps
@@ -47,7 +48,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   const fjord=buildFjordLandscape(kit,cloudField,environment.applyMountainGrass);
   // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
   const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
-  let cloudStrength=.48;
+  let cloudStrength=cloudShadowBase("balanced");
   const travellerCanvas=createTravellerAtlas();
   const spriteTexture=scope.track(new THREE.CanvasTexture(travellerCanvas));
   configurePixelTexture(THREE,spriteTexture);
@@ -122,7 +123,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     const lamp=.12+.88*liveSky.lampGlow;
     kit.emissives.forEach((m,i)=>{m.emissiveIntensity=emissiveBase[i]*lamp;});
     spriteMaterial.emissiveIntensity=.30+.32*liveSky.dayLight.value;
-    cloudField.setStrength(cloudStrength*liveSky.dayLight.value);
+    cloudField.setStrength(cloudLighting(cloudStrength,liveSky.dayLight.value,liveSky.weatherDark.value,cloudField.sunOcclusion()).groundStrength);
     environment.applySky({x:player.x,z:player.z});
   }
   const wind=createWind();
@@ -139,7 +140,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     wind.setClimate(W.wind);
     fjord.setCloudAmount(1);fjord.setCloudMix(cloudMix(weatherToCloudInputs(W)));
     (scene.fog as THREE.FogExp2).density=FOG_DENSITY*(1+W.fog*3.2+W.rain*.8);
-    environment.hemiScale(1-.3*W.dark+W.flash*2.2);
+    // Skylight continues filling shadows even when the weather removes some direct sun.
     environment.setSeaWeather(1+.9*W.storm+.35*W.rain,W.dark*(.6+.4*W.storm));
     wind.update(time);
     cloudField.uniforms.uPlayerPos.value.set(player.x,0,player.z);
@@ -148,9 +149,10 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     cloudField.setWind(wind.state.aloftDriftX,wind.state.aloftDriftZ,wind.state.strength);
     // A cloud between the sun and the traveller takes most of the direct light (and the shadows soften with it).
     fjord.setShadowCenter(player.x,player.z);
-    cloudField.setStrength(cloudStrength*liveSky.dayLight.value*(1-.8*W.dark));   // a dark sky is already dim: its clouds add little shadow
-    const occ=cloudField.sunOcclusion()*liveSky.dayLight.value;
-    transmit+=((1-.78*occ)*(1-.85*W.dark)-transmit)*.04;
+    const lighting=cloudLighting(cloudStrength,liveSky.dayLight.value,W.dark,cloudField.sunOcclusion());
+    cloudField.setStrength(lighting.groundStrength);
+    environment.hemiScale(lighting.hemisphereScale+W.flash*2.2);
+    transmit+=(lighting.sunTransmission-transmit)*.04;
     environment.setSunTransmit(transmit);
     weatherView.update({dt:.016,time,cam:lastCamera,wind:{x:wind.state.dx,z:wind.state.dz},windStrength:wind.state.strength,rain:W.rain,flash:W.flash,dark:W.dark,bolt:weather.bolt,light:liveSky.dayLight.value});
     lights.update(player,liveSky.lampGlow,time);
@@ -174,7 +176,8 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     // Basic level there, and the cloud shadows are off. `?mirror=1` keeps the full tier.
     const heavy:"basic"|"balanced"|"high"=softwareGpu?"basic":quality;
     const forcedShadow=Number.parseFloat(new URLSearchParams(window.location.search).get("cloudShadow")??"");   // audit: ?cloudShadow=.5 shows the shadows at full strength
-    cloudField.setStrength((Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48)*liveSky.dayLight.value);
+    cloudStrength=cloudShadowBase(quality,forcedShadow);
+    cloudField.setStrength(cloudLighting(cloudStrength,liveSky.dayLight.value,liveSky.weatherDark.value,cloudField.sunOcclusion()).groundStrength);
     fjord.setSkyQuality(heavy);
     fjord.setShadowQuality(quality,!softwareGpu);
     weatherView.setQuality(heavy);
@@ -183,7 +186,6 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     environment.setFoliageDensity(density);
     townTreeKit.setQuality(heavy);
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu&&new URLSearchParams(window.location.search).get("reflect")!=="0");   // the mirror render is a second pass: not on the basic tier
-    cloudStrength=Number.isFinite(forcedShadow)?forcedShadow:quality==="basic"?.34:quality==="high"?.55:.48;
   }
   /** Everything that draws into its own render target is drawn here, BEFORE the frame pipeline's scene pass (see cloud-shadow.ts). */
   function prePass(renderer:THREE.WebGLRenderer,camera:THREE.Camera,measure?:(name:string,run:()=>void)=>void){
