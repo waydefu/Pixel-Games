@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { grassSuitability, grassEdgeHeight } from "../src/game/grass-placement.js";
+import { grassSuitability, grassEdgeHeight, grassQualityDensity } from "../src/game/grass-placement.js";
 import { coastalOutline } from "../src/game/coastal-outline.js";
 import { BEACH_DRY_Y } from "../src/game/beach-profile.js";
 
@@ -20,4 +20,11 @@ test("grass and sand geometry meet without a gap",()=>{
   assert.equal(grassEdgeHeight(0),-.187);
   assert.ok(Math.abs(grassEdgeHeight(1)-BEACH_DRY_Y)<1e-12);
   assert.ok(grassEdgeHeight(.98)>grassEdgeHeight(.94));
+});
+
+test("basic reduces nearby grass while balanced and high preserve the visual density",()=>{
+  assert.ok(grassQualityDensity(.36)<.36);
+  assert.equal(grassQualityDensity(.7),.7);
+  assert.equal(grassQualityDensity(1),1);
+  assert.equal(grassQualityDensity(0),0);
 });
