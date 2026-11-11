@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { generateTree, TREE_SPECIES } from "./pixel/tree-gen.js";
-import { paintLeafSheet, LEAF_SHEET } from "./pixel/textures.js";
+import { paintNaturalLeafSheet, NATURAL_FOLIAGE_SIZE } from "./natural-foliage-atlas.js";
 import type { StageKit } from "./kit.js";
 import type { CloudField } from "./cloud-field.js";
 
@@ -8,8 +8,8 @@ export type TreeSpecies="oak"|"birch"|"pine";
 export type TreeItem={x:number;y?:number;z:number;scale:number;rotation:number;tint?:THREE.Color};
 
 /**
- * Procedural pixel-art trees: tapered branches carrying many small leaf cards drawn with the shared
- * palette (see pixel/tree-gen.js and pixel/textures.js). Foliage is lit as a soft volume (normals point
+ * Procedural trees: tapered branches carry clustered leaf cards with antialiased, naturally
+ * shaded leaflets (see pixel/tree-gen.js and natural-foliage-atlas.js). Foliage is lit as a soft volume (normals point
  * away from the crown centre), leaves are cutout with alpha-to-coverage (the pipeline renders with MSAA),
  * and the whole crown sways with the same wind as the clouds. Instanced: a handful of draw calls per set.
  */
@@ -33,10 +33,10 @@ function build(k:StageKit,clouds:CloudField){
   function leafMaterial(species:TreeSpecies){
     let material=leafMaterials.get(species);
     if(material)return material;
-    const sheet=paintLeafSheet(species,1);
-    const texture=k.scope.track(new THREE.DataTexture(flipRows(sheet.color,LEAF_SHEET),LEAF_SHEET,LEAF_SHEET,THREE.RGBAFormat));
+    const sheet=paintNaturalLeafSheet(species,1);
+    const texture=k.scope.track(new THREE.DataTexture(flipRows(sheet.color,NATURAL_FOLIAGE_SIZE),NATURAL_FOLIAGE_SIZE,NATURAL_FOLIAGE_SIZE,THREE.RGBAFormat));
     texture.colorSpace=THREE.SRGBColorSpace;
-    texture.magFilter=THREE.NearestFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;
+    texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;
     texture.generateMipmaps=true;texture.anisotropy=4;texture.needsUpdate=true;
     material=k.scope.track(new THREE.MeshStandardMaterial({
       map:texture,vertexColors:true,alphaTest:.42,alphaToCoverage:true,roughness:1,metalness:0,side:THREE.FrontSide,
@@ -61,7 +61,7 @@ function build(k:StageKit,clouds:CloudField){
   float flutter=sin(uCloudWind.x*9.0+position.x*7.0+position.z*5.0+position.y*3.0);
   transformed+=vec3(flutter,flutter*.6,-flutter)*.022*windTip;`);
     };
-    material.customProgramCacheKey=()=>"tree-leaves-v2-"+species;
+    material.customProgramCacheKey=()=>"tree-leaves-natural-v3-"+species;
     leafMaterials.set(species,material);
     return material;
   }
@@ -109,7 +109,7 @@ function build(k:StageKit,clouds:CloudField){
       mesh.userData.dynamic=true;mesh.frustumCulled=false; // instance bounds are not tracked; sets are small
       k.scene.add(mesh);
     }
-    trunkMesh.name="tree-trunks-"+species;leafMesh.name="tree-leaves-v2-"+species;
+    trunkMesh.name="tree-trunks-"+species;leafMesh.name="tree-leaves-natural-v3-"+species;
     return {trunk:trunkMesh,leaves:leafMesh,height,crownRadius};
   }
   return {plant,variant,species:TREE_SPECIES};
