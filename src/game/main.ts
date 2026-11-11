@@ -197,7 +197,7 @@ if(performanceAudit){
   document.addEventListener("visibilitychange",()=>{if(perfSamples&&document.visibilityState!=="visible")perfHidden=true;});
   window.addEventListener("blur",()=>{if(perfSamples)perfHidden=true;});
 }
-Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,weather:world.weather.state.preset,grade:pipelineInfo.quality})},configurable:false});
+Object.defineProperty(window,"__pixelGame",{value:{read:()=>({...diagnostics,boat:boating.aboard?{...boating.boat(boating.index)}:null,player:{...world.player},audio:soundCtx?soundCtx.state:"off",menuOpen:!settings.hidden,frame:frameMetrics.summary(),renderStats:host?.stats()??null,renderScale:host?.scale??1,npc:world.npcPositions(),pipeline:host?.effects??"off",hdr:pipelineInfo.hdr,weather:world.weather.state.preset,grade:pipelineInfo.quality})},configurable:false});
 let host:ReturnType<typeof createRendererPort>|null=null;
 const pipelineInfo={hdr:false,quality:"balanced"};
 let focusPipeline:(distance:number,active:boolean)=>void=()=>{};

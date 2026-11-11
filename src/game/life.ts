@@ -5,6 +5,7 @@ import { groundHeight } from "./navigation.js";
 import { createWanderer, facingRow, mulberry32 } from "./wander.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paintVillagerSheet, paintAnimalSheet, VILLAGERS, NPC_FRAME } from "./pixel/npc.js";
+import { NPC_RADIUS, VILLAGER_START_INDICES, spriteFootInset, spriteCenterY, separateNpcActors } from "./npc-spacing.js";
 
 /**
  * A living harbour: villagers strolling the promenade, a dog, chickens and a cat, seagulls riding the sea breeze and
@@ -14,6 +15,7 @@ import { paintVillagerSheet, paintAnimalSheet, VILLAGERS, NPC_FRAME } from "./pi
 type Actor={
   mesh:THREE.Mesh;material:THREE.MeshStandardMaterial;texture:THREE.CanvasTexture;
   wanderer:ReturnType<typeof createWanderer>;row:number;frame:number;half:number;
+  size:number;radius:number;footInset:number;prevX:number;prevZ:number;
 };
 
 function sheetTexture(scope:StageKit["scope"],sheet:{width:number;height:number;data:Uint8ClampedArray}){
@@ -37,28 +39,35 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
   const actors:Actor[]=[];
   const screenRight=new THREE.Vector3(1,0,0),screenUp=new THREE.Vector3(0,0,-1),viewDir=new THREE.Vector3(),camPos=new THREE.Vector3();
 
-  function addActor(sheet:{width:number;height:number;data:Uint8ClampedArray},size:number,wanderer:ReturnType<typeof createWanderer>){
+  function addActor(sheet:{width:number;height:number;data:Uint8ClampedArray},size:number,wanderer:ReturnType<typeof createWanderer>,radius:number){
+    const footInset=spriteFootInset(sheet,NPC_FRAME);
     const texture=sheetTexture(scope,sheet);
     const material=scope.track(new THREE.MeshStandardMaterial({
-      map:texture,transparent:true,alphaTest:.4,side:THREE.DoubleSide,roughness:1,
+      // Sprite sheets contain only fully opaque/transparent texels. A cutout renders
+      // with true depth testing instead of incorrectly blending two overlapping quads.
+      map:texture,transparent:false,alphaTest:.5,side:THREE.DoubleSide,roughness:1,
       emissive:"#ffffff",emissiveMap:texture,emissiveIntensity:.55,
     }));
     const mesh=new THREE.Mesh(scope.track(new THREE.PlaneGeometry(size,size)),material);
     mesh.userData.dynamic=true;mesh.castShadow=false;mesh.receiveShadow=false;
+    const start=wanderer.state;
+    mesh.position.set(start.x,spriteCenterY(groundHeight(start.x,start.z),size,footInset),start.z);
     k.scene.add(mesh);
-    actors.push({mesh,material,texture,wanderer,row:0,frame:0,half:size/2});
+    actors.push({mesh,material,texture,wanderer,row:0,frame:0,half:size/2,
+      size,radius,footInset,prevX:start.x,prevZ:start.z});
   }
 
   // Five villagers on the promenade, at different paces and starting points.
   VILLAGERS.forEach((_,i)=>{
-    const start=STREET[(i*2+1)%STREET.length];
-    addActor(paintVillagerSheet(i),2.3,createWanderer({x:start[0],z:start[1],waypoints:STREET,speed:.62+i*.09,pause:[2.5,7],seed:100+i*17}));
+    const start=STREET[VILLAGER_START_INDICES[i]];
+    addActor(paintVillagerSheet(i),2.3,createWanderer({x:start[0],z:start[1],waypoints:STREET,speed:.62+i*.09,pause:[2.5,7],seed:100+i*17}),NPC_RADIUS.villager);
   });
   // A dog that trots about the town square, chickens in the grass by the well, a cat on the street edge.
-  addActor(paintAnimalSheet("dog"),1.5,createWanderer({x:-6,z:3,home:{x:-6,z:3},radius:5,speed:1.15,pause:[1,4],seed:7}));
+  addActor(paintAnimalSheet("dog"),1.5,createWanderer({x:-6,z:3,home:{x:-6,z:3},radius:5,speed:1.15,pause:[1,4],seed:7}),NPC_RADIUS.dog);
   for(let i=0;i<3;i++)
-    addActor(paintAnimalSheet("chicken"),1.0,createWanderer({x:-9+i*1.5,z:5.5,home:{x:-9,z:6},radius:2.6,speed:.5,pause:[.5,2.5],seed:31+i}));
-  addActor(paintAnimalSheet("cat"),1.2,createWanderer({x:-15,z:-4.4,home:{x:-16,z:-4.2},radius:2.2,speed:.7,pause:[3,9],seed:5}));
+    addActor(paintAnimalSheet("chicken"),1.0,createWanderer({x:-9+i*1.5,z:5.5,home:{x:-9,z:6},radius:2.6,speed:.5,pause:[.5,2.5],seed:31+i}),NPC_RADIUS.chicken);
+  addActor(paintAnimalSheet("cat"),1.2,createWanderer({x:-15,z:-4.4,home:{x:-16,z:-4.2},radius:2.2,speed:.7,pause:[3,9],seed:5}),NPC_RADIUS.cat);
+  const crowd=actors.map(a=>({state:a.wanderer.state,radius:a.radius}));
 
   // ---- seagulls: a white body with head, orange beak and tail, and grey two-segment wings with black tips ----
   // (no free, correctly licensed gull model could be downloaded; this one is authored here). Three instanced draw
@@ -169,15 +178,24 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
   }
 
   let previous=0;
-  function update(time:number){
+  function update(time:number,player?:{x:number;z:number}){
     const dt=Math.min(.25,Math.max(0,time-previous));previous=time;
     const day=liveSky.dayLight.value as number;
     for(const a of actors){
-      const s=a.wanderer.update(dt);
-      a.row=facingRow(s.vx,s.vz,screenRight,screenUp,a.row);
+      a.prevX=a.wanderer.state.x;a.prevZ=a.wanderer.state.z;
+      a.wanderer.update(dt);
+    }
+    // All actors share a single separation pass. Correct the wanderer *state*,
+    // not just its mesh: otherwise the next frame snaps them back into each other.
+    separateNpcActors(crowd,player);
+    for(const a of actors){
+      const s=a.wanderer.state;
+      const vx=dt>0?(s.x-a.prevX)/dt:0,vz=dt>0?(s.z-a.prevZ)/dt:0;
+      s.vx=vx;s.vz=vz;s.walking=Math.hypot(vx,vz)>.0001;
+      a.row=facingRow(vx,vz,screenRight,screenUp,a.row);
       a.frame=s.walking?Math.floor(time*(a.half>1?6:8))%4:0;
       a.texture.offset.set(a.frame*.25,(3-a.row)*.25);
-      a.mesh.position.set(s.x,groundHeight(s.x,s.z)+a.half-(a.half>1?0:.02),s.z);
+      a.mesh.position.set(s.x,spriteCenterY(groundHeight(s.x,s.z),a.size,a.footInset),s.z);
       a.mesh.rotation.y=Math.atan2(camPos.x-s.x,camPos.z-s.z);
       a.material.emissiveIntensity=.22+.38*day;
     }
@@ -209,6 +227,11 @@ export function createLife(k:StageKit,chimneys:readonly (readonly [number,number
     inner.instanceMatrix.needsUpdate=true;outer.instanceMatrix.needsUpdate=true;bodies.instanceMatrix.needsUpdate=true;
     smokeUniforms.uTime.value=time;
   }
-  return {face,update,actors:actors.length,gulls:GULLS,puffs:chimneys.length*PUFFS,gullPositions:()=>gullPos};
+  const positions=()=>actors.map(a=>({
+    x:a.wanderer.state.x,z:a.wanderer.state.z,radius:a.radius,
+    footY:a.mesh.position.y-a.half+a.footInset*a.size,
+    groundY:groundHeight(a.wanderer.state.x,a.wanderer.state.z),
+  }));
+  return {face,update,positions,actors:actors.length,gulls:GULLS,puffs:chimneys.length*PUFFS,gullPositions:()=>gullPos};
 }
 export type Life=ReturnType<typeof createLife>;
