@@ -1,10 +1,5 @@
 import { coastalOutline } from "./coastal-outline.js";
 export const PHOTO_GRASS_CELL_SIZE=4;
-// Basic quality reduces the expensive near meshes; balanced and high retain approved density.
-export function grassQualityDensity(factor){
-  const value=Math.max(0,Math.min(1,factor));
-  return value<.5?value*value:value;
-}
 export const GRASS_RESERVED=Object.freeze([
   Object.freeze({x0:-50,x1:-26,z0:-34,z1:-17}),
   Object.freeze({x0:-46,x1:-28,z0:-6,z1:6}),
