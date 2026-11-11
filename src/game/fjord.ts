@@ -55,13 +55,14 @@ function makeMass(scope:StageKit["scope"],region:Region,e:Extent){
   g.setIndex(indexes);g.computeVertexNormals();
   return g;
 }
-export function buildFjordLandscape(k:StageKit,cloudField:CloudField){
+export function buildFjordLandscape(k:StageKit,cloudField:CloudField,applyMountainGrass?:(material:THREE.MeshStandardMaterial)=>void){
   const regionMaterial=k.scope.track(new THREE.MeshStandardMaterial({
     vertexColors:true,flatShading:false,roughness:1,metalness:0,side:THREE.DoubleSide,
   }));
   cloudField.applyToMaterial(regionMaterial);
   applyAerialPerspective(regionMaterial,{valleyBoost:.62,sunWarmth:.22});
   applyRockSurface(regionMaterial);
+  applyMountainGrass?.(regionMaterial);
   const peaks:THREE.Mesh[]=[];
   const forests:ReturnType<typeof buildMountainForest>[]=[];
   for(const [index,region] of (["mainland","east","north","south"] as const).entries()){

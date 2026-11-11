@@ -191,6 +191,150 @@
       "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Ship S Longboat by Polyfork). Mesh files only; Polyfork ES modules are not stored."
     },
     {
+      "id": "polyhaven-leafy-grass-diff-1k",
+      "path": "assets/textures/coastal-study/leafy_grass_diff_1k.jpg",
+      "author": "Charlotte Baglioni",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/leafy_grass",
+      "sha256": "cfa40bc9d9417d1852db8753a8d5917f110c40101179f63543c382e39bc05e4a",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-leafy-grass-nor-gl-1k",
+      "path": "assets/textures/coastal-study/leafy_grass_nor_gl_1k.jpg",
+      "author": "Charlotte Baglioni",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/leafy_grass",
+      "sha256": "832328216adc0a7e1f70a31d5ee48c9ab7f2152d83816122736cf42ac4b2ebd6",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-leafy-grass-rough-1k",
+      "path": "assets/textures/coastal-study/leafy_grass_rough_1k.jpg",
+      "author": "Charlotte Baglioni",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/leafy_grass",
+      "sha256": "0c2a1d91aacb8e54a496051b59854e51e456fe858abeade778e308359ef16463",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-sparse-grass-diff-1k",
+      "path": "assets/textures/coastal-study/sparse_grass_diff_1k.jpg",
+      "author": "Amal Kumar",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/sparse_grass",
+      "sha256": "ae94f2b34597b9108eefd88217f55eccaec6d6b382e858a478ee92df90e66617",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-sparse-grass-nor-gl-1k",
+      "path": "assets/textures/coastal-study/sparse_grass_nor_gl_1k.jpg",
+      "author": "Amal Kumar",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/sparse_grass",
+      "sha256": "1c840a24807346ddaaf94a5057aee4078fcec3a4cd84bfe45da7d3b480ef460b",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-sparse-grass-rough-1k",
+      "path": "assets/textures/coastal-study/sparse_grass_rough_1k.jpg",
+      "author": "Amal Kumar",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/sparse_grass",
+      "sha256": "9ebe6d03a9551c17d1802835c92c1442acb8f5d38d4874ee8c37770f11c4bed1",
+      "notes": "Poly Haven 1K JPG; source and CC0 verified 2026-11-10."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-grass-medium-01-1k-gltf",
+      "path": "assets/models/polyhaven/grass-medium-01/grass_medium_01_1k.gltf",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "3e5e2a314c94e16de54fd7c28e41709731fbd2b1613ab539f1544f622ddb6a85",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-grass-medium-01-bin",
+      "path": "assets/models/polyhaven/grass-medium-01/grass_medium_01.bin",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "f4587cabdb96a2e96d8be644923dc954a248edfaaa717a0ff224cacb898bee1f",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-textures-grass-medium-01-diff-1k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_diff_1k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "71495bd6a11fddcab0aaff38246fea1a7b802a705483f1c7cbca53955daa8050",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-textures-grass-medium-01-nor-gl-1k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_nor_gl_1k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "cae298d3d1d7ff7c7e210ad8ac772b96706e356f9315a6b04fde373ce01ccf1e",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-textures-grass-medium-01-arm-1k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_arm_1k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "9a3a30f72bc02f4398967c5b08f2d20cce30bd423a2613b42a727034296fa3ae",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-textures-grass-medium-01-alpha-1k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_alpha_1k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "90ad8db2b471de6b61597c60bc218d1295c4bf68230be9083aa2001b9067b2e2",
+      "notes": "Poly Haven 1K glTF and companion files; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-diff-2k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_diff_2k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "f768aa68daf14f37a92dd96621628a5252b169f4d94b4d1cc830d62cd3ac9e68",
+      "notes": "Original Poly Haven 2K source map; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-alpha-2k-jpg",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_alpha_2k.jpg",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "67f60bf77ca26c9b63318bd43cec9774678623f14743692f936a4d37a4231527",
+      "notes": "Original Poly Haven 2K source map; CC0 verified 2026-11-11."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-bleed-2k-png",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_bleed_2k.png",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "207ace42963a82fcc2fb6a2ad190d913c9a1ef653ab8c3a38f7c67f2e10e81b9",
+      "notes": "Derived RGBA texture with alpha-edge color dilation, based on Poly Haven 2K source maps."
+    },
+    {
+      "id": "polyhaven-grass-medium-01-far-clump",
+      "path": "assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_far_clump.png",
+      "author": "Rico Cilliers and Rob Tuytel",
+      "license": "CC0-1.0",
+      "source": "https://polyhaven.com/a/grass_medium_01",
+      "sha256": "71d03621b23e5db8f7e9bf15eed0df5020114d53de3a31cb95f263ce62c8d19b",
+      "notes": "Cropped 2K atlas of the recorded edge-dilated RGBA derivative for distant grass."
+    },
+    {
       "id": "ambientcg-beach-dry-wet-albedo",
       "path": "assets/materials/ambientcg-sand-albedo.webp",
       "author": "ambientCG",

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-test('plant, grow offline, harvest into inventory and replant',async({page},testInfo)=>{
+test('plant, grow offline, harvest into inventory and replant',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('./');await page.waitForFunction(()=>window.__pixelGame?.read().status==='ready',null,{timeout:22000});
  await page.locator('#inventory-toggle').click();
@@ -12,7 +12,6 @@ test('plant, grow offline, harvest into inventory and replant',async({page},test
  await page.locator('#inventory-close').click();await expect(page.locator('#pickup-button')).toContainText('農田');
  await page.locator('#pickup-button').click();await page.getByRole('button',{name:'南瓜'}).click();
  await expect(page.locator('#farm-status')).toContainText('生長中');
- await page.screenshot({path:testInfo.outputPath('farm-growing.png')});
  await page.locator('#farm-close').click();
  let planted=await page.evaluate(()=>JSON.parse(localStorage.getItem('pixel-games.save.v1')));
  const index=planted.farm.findIndex(Boolean);expect(index).toBeGreaterThanOrEqual(0);expect(planted.farm[index].crop).toBe('pumpkin');

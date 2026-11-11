@@ -44,7 +44,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   lights.add({x:BEACON_SITE.x,y:15,z:BEACON_SITE.z,intensity:110,distance:48,color:"#ffcf8a",flicker:.1});
   const environment=buildEnvironment(kit,cloudField,villageAssets,fixtures);
   const townTreeKit=getTreeKit(kit,cloudField);
-  const fjord=buildFjordLandscape(kit,cloudField);
+  const fjord=buildFjordLandscape(kit,cloudField,environment.applyMountainGrass);
   // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
   const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
   let cloudStrength=.48;
