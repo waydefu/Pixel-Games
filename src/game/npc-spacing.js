@@ -35,7 +35,7 @@ export function spriteCenterY(ground,size,footInset){
  * @param {{x:number,z:number}|null} player
  */
 export function separateNpcActors(actors,player=null){
-  for(let pass=0;pass<14;pass++){
+  for(let pass=0;pass<40;pass++){
     let maximum=0;
     for(let i=0;i<actors.length;i++){
       const a=actors[i];
