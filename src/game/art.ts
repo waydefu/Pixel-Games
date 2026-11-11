@@ -6,7 +6,7 @@ import { paintTravellerSheet } from "./pixel/character.js";
  * World materials: every surface comes from the shared pixel palette with one world-space
  * texel density (see pixel/). The old random-speckle canvas painter was removed.
  */
-export type ArtKind="plaster"|"stone"|"roof-red"|"roof-blue"|"timber"|"cobble"|"grass"|"foliage"|"sand"|"planks"|"thatch"|"cliff"|"rock"|"canvas"|"brick"|"bark"|"birch-bark";
+export type ArtKind="plaster"|"stone"|"roof-red"|"roof-blue"|"timber"|"cobble"|"grass"|"foliage"|"sand"|"planks"|"thatch"|"cliff"|"rock"|"canvas"|"brick"|"bark"|"birch-bark"|"pine-bark";
 export function createArtLibrary(scope:{track:<T extends{dispose:()=>void}>(item:T)=>T}){
   const factory=createPixelMaterialFactory(scope);
   return {material:(kind:ArtKind,seed=1):THREE.MeshStandardMaterial=>factory.material(kind,seed)};

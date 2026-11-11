@@ -55,9 +55,16 @@ export function createGrassStudy(k:StageKit,clouds:CloudField){
         vec3 studyNormal=normalize(mix(texture2D(sparseNormal,uv1).xyz*2.-1.,texture2D(leafNormal,uv2).xyz*2.-1.,leafy));
         float studyRough=mix(texture2D(sparseRough,uv1).g,texture2D(leafRough,uv2).g,leafy);
       `).replace("diffuseColor*=texture2D(map,pxUv);","diffuseColor*=vec4(mix(texture2D(map,pxUv).rgb,studyColor,edge),1.0);")
+        .replace("diffuseColor*=mix(texture2D(map,sandAtlasUv(0.0)),texture2D(map,sandAtlasUv(1.0)),sandWetBlend());",
+          "diffuseColor*=vec4(mix(mix(texture2D(map,sandAtlasUv(0.0)).rgb,texture2D(map,sandAtlasUv(1.0)).rgb,sandWetBlend()),studyColor,edge),1.0);")
         .replace("vec3 pxMapN=texture2D(normalMap,pxUv).xyz*2.0-1.0;","vec3 pxMapN=normalize(mix(texture2D(normalMap,pxUv).xyz*2.0-1.0,studyNormal,edge));")
-        .replace("vec3 pxMapN=pxPackedSurfaceNormal.xyz*2.0-1.0;","vec3 pxMapN=normalize(mix(pxPackedSurfaceNormal.xyz*2.0-1.0,studyNormal,edge));")
-        .replace("#include <roughnessmap_fragment>","#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,studyRough,edge);");
+        .replace("vec3 pxMapN=pxPackedSurfaceNormal.xyz*2.0-1.0;","vec3 pxMapN=normalize(mix(pxPackedSurfaceNormal.xyz*2.0-1.0,studyNormal,edge));");
+      // Main's CC0 sand packs roughness into the normal atlas; blend after that sample.
+      if(shader.fragmentShader.includes("roughnessFactor*=pxPackedSurfaceNormal.a;"))
+        shader.fragmentShader=shader.fragmentShader.replace("roughnessFactor*=pxPackedSurfaceNormal.a;",
+          "roughnessFactor=mix(roughnessFactor*pxPackedSurfaceNormal.a,studyRough,edge);");
+      else shader.fragmentShader=shader.fragmentShader.replace("#include <roughnessmap_fragment>",
+        "#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,studyRough,edge);");
     };
     material.customProgramCacheKey=()=>key()+"|coastal-study-v1";
     material.needsUpdate=true;

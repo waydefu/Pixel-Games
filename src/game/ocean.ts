@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Water } from "three/addons/objects/Water.js";
+import { SEA_LEVEL_Y } from "./beach-profile.js";
 import type { StageKit } from "./kit.js";
 import { liveSky } from "./sky-live.js";
 import { skylineTangents, skylineBytes, SKYLINE_BINS, SKYLINE_MAX_TANGENT } from "./skyline.js";
@@ -45,7 +46,7 @@ export function makeWaterNormals(size=256){
 export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>number=()=>0) {
   // Mountains and islands seen from the harbour, baked once: a 256x1 table of skyline tangents by azimuth.
   const skylineTexture=k.scope.track(new THREE.DataTexture(
-    skylineBytes(skylineTangents(heightAt,25,8,{waterline:-.38})),SKYLINE_BINS,1,THREE.RGBAFormat));
+    skylineBytes(skylineTangents(heightAt,25,8,{waterline:SEA_LEVEL_Y})),SKYLINE_BINS,1,THREE.RGBAFormat));
   skylineTexture.wrapS=THREE.RepeatWrapping;skylineTexture.magFilter=skylineTexture.minFilter=THREE.LinearFilter;
   skylineTexture.needsUpdate=true;
   const spots=Array.from({length:FOAM_SPOTS},()=>new THREE.Vector4(0,0,0,0));
@@ -71,9 +72,9 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       void main(){
         vec3 w=(modelMatrix*vec4(position,1.0)).xyz;
         float dist=max(0.0,w.x-shore(w.z));
-        // The pale-shallows-over-sand colouring belongs to the harbour only: everywhere else the sea is open water.
-        dist=mix(60.0,dist,shoreRegion(w.z));
-        float damp=.22+.78*smoothstep(0.0,9.0,dist);
+        dist=mix(60.0,dist,shoreRegion(w.z)); // Unattenuated waves on open sea beyond headlands.
+        // Smoothly dissipate wave energy over the shallow coastal shelf, including during storms.
+        float damp=.06+.94*smoothstep(0.0,9.0,dist);
         float p0=w.x*.29+w.z*.08+uTime*.85;
         float p1=-w.x*.16+w.z*.34+uTime*.65;
         float p2=w.x*.91+w.z*.72+uTime*1.45;
@@ -129,19 +130,37 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
       }
       ${COASTLINE_GLSL}
       void main(){
+        // The endless sea uses this material too: mask water that used to poke up
+        // through the mainland; keep a narrow swash strip over submerged beach.
+        if(abs(vWorld.z)<47.0) {
+          if(vWorld.x<shoreWaterLimit(vWorld.z))discard;
+          if(vWorld.x<shore(vWorld.z) && vWorld.y<=shoreBeachBed(vWorld.x,vWorld.z)+.003)discard;
+        }
         vec3 v=normalize(cameraPosition-vWorld);
         // Shore distance and the long-wave normal, per pixel (the same waves the vertex shader displaces).
         float shoreDist=max(0.0,vWorld.x-shore(vWorld.z));
         float coastWeight=shoreRegion(vWorld.z);
         // Only colour/normal blending fades offshore; foam must use the actual shore distance.
         float vDist=mix(60.0,shoreDist,coastWeight);
-        float damp=.22+.78*smoothstep(0.0,9.0,vDist);
+        float rawDist=vWorld.x-shore(vWorld.z);
+        float waveDist=mix(60.0,max(0.0,rawDist),coastWeight);
+        float damp=.06+.94*smoothstep(0.0,9.0,waveDist);
+        // Product rule: damp changes across the shoal and along both headland tapers.
+        float q=clamp(waveDist/9.0,0.0,1.0);
+        float dampGrad=.94*(6.0*q*(1.0-q))/9.0;
+        float shoreActive=step(0.0,rawDist);
+        float distDx=coastWeight*shoreActive;
+        float distDz=-coastWeight*shoreActive*shoreSlope(vWorld.z)
+                    +(max(0.0,rawDist)-60.0)*shoreRegionSlope(vWorld.z);
         float p0=vWorld.x*.29+vWorld.z*.08+uTime*.85;
         float p1=-vWorld.x*.16+vWorld.z*.34+uTime*.65;
         float p2=vWorld.x*.91+vWorld.z*.72+uTime*1.45;
-        float dx=(.0522*cos(p0)-.0192*cos(p1)+.0255*cos(p2))*damp;
-        float dz=(.0144*cos(p0)+.0408*cos(p1)+.0202*cos(p2))*damp;
-        vec3 n=normalize(vec3(-dx,1.0,-dz)*uWeather.x);
+        float waveShape=.18*sin(p0)+.12*sin(p1)+.028*sin(p2);
+        float shapeDx=.0522*cos(p0)-.0192*cos(p1)+.02548*cos(p2);
+        float shapeDz=.0144*cos(p0)+.0408*cos(p1)+.02016*cos(p2);
+        float dx=(shapeDx*damp+waveShape*dampGrad*distDx)*uWeather.x;
+        float dz=(shapeDz*damp+waveShape*dampGrad*distDz)*uWeather.x;
+        vec3 n=normalize(vec3(-dx,1.0,-dz));
         vec4 detailNoise=getNoise(vWorld.xz*size);
         vec3 nDetail=normalize(detailNoise.xzy*vec3(1.5,1.0,1.5));
         n=normalize(n+vec3(nDetail.x,0.0,nDetail.z)*uDetail);
@@ -240,7 +259,7 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   const mesh=water;
   mesh.name="continuous-fjord-water";
   mesh.rotation.x=-Math.PI/2;
-  mesh.position.set(140,-.38,0);
+  mesh.position.set(140,SEA_LEVEL_Y,0);
   mesh.receiveShadow=false;mesh.castShadow=false;
   mesh.frustumCulled=true;
   mesh.userData.dynamic=true;  // Waves must not be merged into the static batch.

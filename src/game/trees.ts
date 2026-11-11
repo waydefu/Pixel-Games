@@ -89,7 +89,7 @@ function build(k:StageKit,clouds:CloudField){
   function plant(species:TreeSpecies,seed:number,detail:"high"|"low",items:TreeItem[],opts:{shadows?:boolean;capacity?:number}={}){
     const {trunk,leaves,height,crownRadius}=variant(species,seed,detail);
     const capacity=Math.max(1,opts.capacity??items.length);
-    const bark=k.pattern(species==="birch"?"birch-bark":"bark",species==="oak"?3:1);
+    const bark=k.pattern(species==="birch"?"birch-bark":species==="pine"?"pine-bark":"bark",species==="oak"?3:1);
     const trunkMesh=k.scope.track(new THREE.InstancedMesh(trunk,bark,capacity));
     const leafMesh=k.scope.track(new THREE.InstancedMesh(leaves,leafMaterial(species),capacity));
     const dummy=new THREE.Object3D(),white=new THREE.Color(1,1,1);

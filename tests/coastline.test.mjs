@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { coastX } from "../src/game/terrain-profile.js";
-import { coastalOutline, SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
+import { coastalOutline, coastalWaterLimit, SHORE_WATER_INSET, SHORE_PROFILE, COASTLINE_GLSL } from "../src/game/coastal-outline.js";
 test("coast is broad where village exists and tapers at headland ends",()=>{
   const center=coastalOutline(0);
   assert.ok(center.coast>12&&center.coast<15);
@@ -40,10 +40,36 @@ test("coastline CPU and GLSL coefficients agree across both headland tapers",()=
 test("ocean vertex and fragment share coast profile and breakers move across shore",()=>{
   const ocean=readFileSync(new URL("../src/game/ocean.ts",import.meta.url),"utf8");
   assert.equal((ocean.match(/\$\{COASTLINE_GLSL\}/g)??[]).length,2);
-  assert.match(ocean,/dist=mix\(60\.0,dist,shoreRegion\(w\.z\)\)/);
+  assert.match(ocean,/float damp=\.06\+\.94\*smoothstep\(0\.0,9\.0,dist\)/);
   assert.match(ocean,/coastWeight=shoreRegion\(vWorld\.z\)/);
   assert.match(ocean,/float shoreline=\(1\.0-smoothstep\(0\.0,2\.65,shoreDist\)\)\*coastWeight/);
   assert.match(ocean,/moving=sin\(shoreDist\*2\.2\+/);
   assert.doesNotMatch(ocean,/smoothstep\(32\.0,52\.0,abs\(/);
   assert.doesNotMatch(ocean,/float shore\(float z\)\{return 13\.3/);
+});
+
+
+test("shared water edge follows the curved beach and never exposes dry inland to the infinite sea",()=>{
+  assert.ok(SHORE_WATER_INSET>0&&SHORE_WATER_INSET<1);
+  assert.match(COASTLINE_GLSL,/float shoreWaterLimit\(float z\)/);
+  for(let z=-47;z<=47;z+=.25){
+    const p=coastalOutline(z);
+    assert.ok(Math.abs(coastalWaterLimit(z)-(p.coast-Math.min(SHORE_WATER_INSET,(p.coast-p.grassRight)*.78)))<1e-12);
+    assert.ok(coastalWaterLimit(z)>=p.grassRight-1e-12,`water limit invades dry grass at z=${z}`);
+    assert.ok(coastalWaterLimit(z)<=p.coast+1e-12);
+  }
+});
+
+
+test("coast water shader uses analytic coastal slopes and the true sloping sand bed",()=>{
+  assert.match(COASTLINE_GLSL,/float shoreSlope\(float z\)/);
+  assert.match(COASTLINE_GLSL,/float shoreRegionSlope\(float z\)/);
+  assert.match(COASTLINE_GLSL,/float shoreBeachBed\(float x,float z\)/);
+  assert.doesNotMatch(COASTLINE_GLSL,/--\d/, "GLSL double-minus token is invalid in the bed-height expression");
+  for(const z of [-46,-40,-34,0,34,40,46]){
+    const numeric=(coastalOutline(z+.001).coast-coastalOutline(z-.001).coast)/.002;
+    const t=Math.max(0,Math.min(1,(Math.abs(z)-35)/12));
+    const analytic=.0845*Math.cos(z*.13)+.0814*Math.cos(z*.37)-4*t*(1-t)*Math.sign(z);
+    assert.ok(Math.abs(numeric-analytic)<1e-5,`shore derivative at z=${z}`);
+  }
 });

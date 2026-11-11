@@ -47,3 +47,17 @@ test("the composite pass tone-maps with AgX (ported from web-ocean, credited) an
   assert.match(readFileSync(new URL("../docs/ASSET-CREDITS.md", import.meta.url), "utf8"), /Noniv\/web-ocean/);
   assert.match(readFileSync(new URL("../src/game/main.ts", import.meta.url), "utf8"), /get\("tone"\)==="aces"/);
 });
+
+
+test("ocean limits storm crests at harbour edge and masks its water under dry land",()=>{
+  assert.match(ocean,/SEA_LEVEL_Y/);
+  assert.match(ocean,/mesh\.position\.set\(140,SEA_LEVEL_Y,0\)/);
+  assert.match(ocean,/vWorld\.x<shoreWaterLimit\(vWorld\.z\)/);
+  assert.match(ocean,/float damp=\.06\+\.94\*smoothstep\(0\.0,9\.0,dist\)/);
+  assert.match(ocean,/float waveDist=mix\(60\.0,max\(0\.0,rawDist\),coastWeight\)/);
+  assert.match(ocean,/vWorld\.y<=shoreBeachBed\(vWorld\.x,vWorld\.z\)/);
+  assert.match(ocean,/shapeDx\*damp\+waveShape\*dampGrad\*distDx/);
+  assert.match(ocean,/vec3 n=normalize\(vec3\(-dx,1\.0,-dz\)\)/);
+  assert.doesNotMatch(ocean,/normalize\(vec3\(-dx,1\.0,-dz\)\*uWeather\.x\)/);
+  assert.match(ocean,/mirrorSampler/);
+});

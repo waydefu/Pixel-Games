@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { generateTree, triangleCount, TREE_SPECIES } from "../src/game/pixel/tree-gen.js";
-import { paintLeafSheet, LEAF_SPECIES } from "../src/game/pixel/textures.js";
+import { paintLeafSheet, LEAF_SPECIES, LEAF_CELL, LEAF_SHEET, sandRippleHeight, paintTexture } from "../src/game/pixel/textures.js";
 
 const finite = a => a.every(Number.isFinite);
 
@@ -55,4 +56,65 @@ test("leaf sprite sheets are cutout RGBA drawn from the shared palette", () => {
     assert.ok(opaque > 600 && transparent > 600, `${species}: cutout with real transparency`);
     assert.ok(colors.size <= 9, `${species}: palette-limited (${colors.size} colours)`);
   }
+});
+
+
+test("detailed near foliage uses 128px shared 2x2 atlas and a pine-specific bark",()=>{
+  assert.equal(LEAF_CELL,64);assert.equal(LEAF_SHEET,128);
+  for(const species of LEAF_SPECIES)assert.equal(paintLeafSheet(species,1).color.length,128*128*4);
+  const pine=paintTexture("pine-bark",1);assert.equal(pine.color.length,64*64*4);
+});
+
+test("sand ridges run along the coast (Z) instead of pointing offshore (X)",()=>{
+  let cross=0,along=0;
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++){
+    cross+=Math.abs(sandRippleHeight(x+1,y,64)-sandRippleHeight(x,y,64));
+    along+=Math.abs(sandRippleHeight(x,y+1,64)-sandRippleHeight(x,y,64));
+  }
+  assert.ok(cross>along*3,`ripple axis wrong: ${cross} vs ${along}`);
+  assert.ok(Math.abs(sandRippleHeight(0,11,64)-sandRippleHeight(64,11,64))<1e-12);
+  assert.ok(Math.abs(sandRippleHeight(11,0,64)-sandRippleHeight(11,64,64))<1e-12);
+  assert.equal(paintTexture("sand",5).size,128);
+});
+
+
+test("natural material atlas adds subtle roughness and finer sampling without new texture passes",()=>{
+  const kinds=["sand","cobble","grass","bark","birch-bark","pine-bark"];
+  for(const kind of kinds){
+    const tex=paintTexture(kind,5);
+    assert.equal(tex.size,kind.endsWith("bark")||kind==="bark"?64:128);
+    assert.equal(tex.units,tex.size/32);
+    assert.equal(tex.color.length,tex.size*tex.size*4);
+    assert.equal(tex.normal.length,tex.size*tex.size*4);
+    const alpha=new Set();for(let i=3;i<tex.normal.length;i+=4)alpha.add(tex.normal[i]);
+    assert.ok(alpha.size>4,`${kind}: roughness variation must not be constant`);
+    assert.ok(Math.min(...alpha)>=130&&Math.max(...alpha)<=255);
+    assert.deepEqual(paintTexture(kind,5).normal,tex.normal,`${kind}: texture is deterministic`);
+  }
+  const stone=paintTexture("stone",5);
+  for(let i=3;i<stone.normal.length;i+=4)assert.equal(stone.normal[i],255);
+});
+
+test("natural terrain PBR reuses the packed normal sample for roughness",()=>{
+  const source=readFileSync(new URL("../src/game/pixel/world-material.ts",import.meta.url),"utf8");
+  assert.match(source,/roughnessFactor\*=pxPackedSurfaceNormal\.a/);
+  assert.match(source,/pxMapN=pxPackedSurfaceNormal\.xyz/);
+  assert.doesNotMatch(source,/new THREE\.DataTexture\(.+roughness/);
+});
+
+
+test("natural colour interpolation retains intentional meadow wildflower accents",()=>{
+  const grass=paintTexture("grass",3).color;
+  const flowerSet=new Set(["246,232,190","250,205,90","226,150,176","168,190,245"]);
+  let found=0;
+  for(let i=0;i<grass.length;i+=4){
+    if(flowerSet.has(`${grass[i]},${grass[i+1]},${grass[i+2]}`))found++;
+  }
+  assert.ok(found>=3,`meadow flowers missing from natural albedo: ${found}`);
+});
+
+test("wet sand uses existing beach tint for less reflective roughness at no extra sampler",()=>{
+  const code=readFileSync(new URL("../src/game/pixel/world-material.ts",import.meta.url),"utf8");
+  assert.match(code,/kind==="sand"/);
+  assert.match(code,/roughnessFactor\*=mix\(1\.0,\.64,wet\)/);
 });
