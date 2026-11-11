@@ -37,3 +37,15 @@ test("imported tree GLBs are complete local glTF 2.0 assets with two PBR parts",
     assert.ok(triangles>1500&&triangles<10000,name+" triangles="+triangles);
   }
 });
+
+test("late-loaded bark and leaves inherit the shared ground cloud-shadow, not only the initial scene traversal",()=>{
+  const code=readFileSync(new URL("../src/game/realistic-tree-assets.ts",import.meta.url),"utf8");
+  const wind=code.indexOf("if(rawPart.leaf)addVegetationWind(material,clouds,.055)");
+  const shadow=code.indexOf("clouds.applyToMaterial(material)");
+  const store=code.indexOf("parts.push({geometry,material,leaf:rawPart.leaf})");
+  assert.ok(wind>=0 && shadow>wind && store>shadow,
+    "late GLB materials must receive chained wind and cloud shadow before entering the scene");
+  assert.match(code,/const material=k\.scope\.track\(rawPart\.source\.clone\(\)\)/);
+  assert.match(code,/if\(\(k\.scope as typeof k\.scope&\{disposed\?:boolean\}\)\.disposed\)/,
+    "stale asynchronous asset loads cannot register resources after world teardown");
+});
