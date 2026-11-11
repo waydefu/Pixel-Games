@@ -180,8 +180,7 @@ export function addStudyGrass(k:StageKit,clouds:CloudField){
   return {
     update(player:{x:number;z:number}){focus=player;refresh();},
     setDensity(factor:number){
-      const value=THREE.MathUtils.clamp(factor,0,1);
-      const next=value===0?0:Math.max(.65,value);
+      const next=THREE.MathUtils.clamp(factor,0,1);
       if(next===amount)return;amount=next;
       for(const tile of tiles)for(let i=0;i<3;i++)tile.meshes[i].count=Math.round(tile.counts[i]*amount);
     },
