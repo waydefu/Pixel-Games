@@ -45,8 +45,9 @@ export function separateNpcActors(actors,player=null){
         if(overlap<=.0001)continue;
         maximum=Math.max(maximum,overlap);
         // Stable tie-break: coincident actors must separate, not produce NaN.
-        const nx=d>1e-8?dx/d:((i+j)&1?1:0);
-        const nz=d>1e-8?dz/d:((i+j)&1?0:1);
+        const angle=(i*13+j*7)*2.399963229728653;
+        const nx=d>1e-8?dx/d:Math.cos(angle);
+        const nz=d>1e-8?dz/d:Math.sin(angle);
         const move=(overlap+.0001)*.5;
         a.state.x+=nx*move;a.state.z+=nz*move;
         b.state.x-=nx*move;b.state.z-=nz*move;
