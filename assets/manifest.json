@@ -207,6 +207,33 @@
       "source": "https://ambientcg.com/a/Ground027",
       "sha256": "ca980aac68428b92ceebcf57ee84e86cf0c719552fc35d159c56fb6605e45244",
       "notes": "OpenGL tangent normals RGB and per-pixel roughness alpha, dry/wet atlas. Source: https://ambientcg.com/a/Ground027 and https://ambientcg.com/a/Ground059; downsampled from original 1K-JPG releases."
+    },
+    {
+      "id": "quaternius-tree-01",
+      "path": "assets/models/quaternius/tree-01.glb",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "sha256": "6d9116dcc683ab1816e0b96845fa67e055220b26218e875c9e083e296eed4f14",
+      "notes": "Stylized Nature MegaKit model, from mirror https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models/tree1.glb; GLB redistributed with embedded WebP bark/leaf textures (re-encoded by the mirror). 516044 bytes. Attribution optional (courtesy credited)."
+    },
+    {
+      "id": "quaternius-tree-02",
+      "path": "assets/models/quaternius/tree-02.glb",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "sha256": "c12c15f49f0398302689aedf8fa64e7cb1702b68953156ab8653e96a54347200",
+      "notes": "Stylized Nature MegaKit model, from mirror https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models/tree2.glb; GLB redistributed with embedded WebP bark/leaf textures (re-encoded by the mirror). 446732 bytes. Attribution optional (courtesy credited)."
+    },
+    {
+      "id": "quaternius-tree-03",
+      "path": "assets/models/quaternius/tree-03.glb",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
+      "sha256": "2e935e32bd6c4ed883f74c346fb2d3480d6e3780747923265a9db7c008a2e89f",
+      "notes": "Stylized Nature MegaKit model, from mirror https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models/tree3.glb; GLB redistributed with embedded WebP bark/leaf textures (re-encoded by the mirror). 332440 bytes. Attribution optional (courtesy credited)."
     }
   ]
 }

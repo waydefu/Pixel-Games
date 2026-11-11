@@ -63,3 +63,10 @@
 - 兩個檔案都在 `assets/manifest.json` 登記 SHA256；遊戲由 Vite 編譯時打包為同源本地檔案，不依賴任何第三方 CDN。
 - 保留原沙材質作為載入失敗時的 fallback。Shader 以原本頂點色濕度在乾／濕影像間混合，使用世界 X/Z 座標，維持沙紋與海岸方向的設定。
 - 權限與技術獨立：Grassworks 仍未匯入、未使用其商業素材；NeuralSpecOcean 仍只有技術概念參考，未複製實作。
+
+## Quaternius — Stylized Nature MegaKit CC0 樹木（2026-11-11）
+
+- 官方來源：https://quaternius.com/packs/stylizednaturemegakit.html（Quaternius，CC0-1.0；允許修改、商用及再散布）
+- 本專案匯入 `tree-01.glb`、`tree-02.glb`、`tree-03.glb`；由 [skyline-run 公開版 GLB](https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models) 取得（原檔分別為 `tree1.glb`、`tree2.glb`、`tree3.glb`），其 WebP 貼圖隨 GLB 內嵌，非即時外部 CDN。
+- 這是 **手繪／風格化的遊戲用網格與樹皮／葉片貼圖**，非真實樹木掃描、非攝影測量模型。專案在執行時正規化尺寸、使用 InstancedMesh、LOD 與原本共享風場；原檔未重打包。
+- GLB 確切 SHA-256 在 `assets/manifest.json`，模型載入失敗時自動回退程序樹。未引用付費 GrassWorks 程式碼。
