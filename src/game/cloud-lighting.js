@@ -17,9 +17,10 @@ export function cloudShadowBase(quality,override=NaN){
  */
 export function cloudLighting(base,daylight,weatherDark,occlusion){
   const day=clamp01(daylight),dark=clamp01(weatherDark),occ=clamp01(occlusion)*day;
+  const strength=Number.isFinite(base)?Math.max(0,Math.min(.65,base)):0;
   return {
     // Keep the moving shadow silhouette; reduce black patches below overcast decks.
-    groundStrength:Math.max(0,Math.min(.65,base))*day*(1-.70*dark),
+    groundStrength:strength*day*(1-.70*dark),
     // Preserve sunlight separation under clouds, but never erase nearly all of it.
     sunTransmission:(1-.42*occ)*(1-.58*dark),
     // Skylight fills clouds and deep shade; it should not vanish when the sky darkens.
