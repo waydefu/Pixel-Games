@@ -70,7 +70,7 @@ test("the sea is endless: a huge plane under the detailed one, and open water ou
 test("life is wired in: villagers, gulls, smoke and the beacon flame", () => {
   const world = read("src/game/world.ts");
   assert.match(world, /createLife\(kit,village\.chimneys\)/);
-  assert.match(world, /life\.update\(time\)/);
+  assert.match(world, /life\.update\(time,player\)/);
   assert.match(world, /fixtures\.bigFlame\(BEACON_SITE\.x/);
   assert.match(read("src/game/architecture.ts"), /CHIMNEYS:Record/);
 });
