@@ -46,9 +46,11 @@ export function paintNaturalLeafSheet(species, seed = 1) {
     // rasterizer at a much narrower aspect ratio.
     const leaf = (cx, cy, length, width, angle, variation, lobed = false) => {
       const cs = Math.cos(angle), sn = Math.sin(angle);
-      const extent = Math.ceil(length + width + 2);
-      for (let y = Math.floor(cy - extent); y <= cy + extent; y++) {
-        for (let x = Math.floor(cx - extent); x <= cx + extent; x++) {
+      // Tight rotated bounds avoid shading thousands of invisible pixels per needle.
+      const extentX = Math.ceil(Math.abs(cs) * length + Math.abs(sn) * width + 2);
+      const extentY = Math.ceil(Math.abs(sn) * length + Math.abs(cs) * width + 2);
+      for (let y = Math.floor(cy - extentY); y <= cy + extentY; y++) {
+        for (let x = Math.floor(cx - extentX); x <= cx + extentX; x++) {
           const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
           const along = (dx * cs + dy * sn) / length;
           const across = (-dx * sn + dy * cs) / width;
@@ -76,11 +78,12 @@ export function paintNaturalLeafSheet(species, seed = 1) {
         const theta = random() * Math.PI * 2, r = Math.sqrt(random()) * 40;
         const cx = 64 + Math.cos(theta) * r, cy = 64 + Math.sin(theta) * r;
         const direction = theta + (random() - 0.5) * 1.6;
+        const dirX = Math.cos(direction), dirY = Math.sin(direction);
         for (let n = 0; n < 7; n++) {
-          const f = (n - 3) / 6, baseX = cx + Math.cos(direction) * f * 16, baseY = cy + Math.sin(direction) * f * 16;
+          const f = (n - 3) / 6, baseX = cx + dirX * f * 16, baseY = cy + dirY * f * 16;
           for (const side of [-1, 1]) {
-            leaf(baseX + side * Math.cos(direction + Math.PI / 2) * 3,
-              baseY + side * Math.sin(direction + Math.PI / 2) * 3,
+            leaf(baseX - side * dirY * 3,
+              baseY + side * dirX * 3,
               6 + random() * 5, 1.05 + random() * 0.5,
               direction + side * (0.52 + random() * 0.32),
               random() - 0.5);
