@@ -56,7 +56,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   spriteTexture.offset.set(0,.75);
   spriteTexture.needsUpdate=true;
   const spriteMaterial=scope.track(new THREE.MeshStandardMaterial({
-    map:spriteTexture,transparent:true,alphaTest:.4,side:THREE.DoubleSide,
+    map:spriteTexture,transparent:false,alphaTest:.5,side:THREE.DoubleSide,
     roughness:1,
     // The sun is usually behind the player; a texture-driven glow keeps the hero readable in shade
     // without flattening the sprite into an unlit cut-out.
@@ -156,7 +156,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     environment.setSunTransmit(transmit);
     weatherView.update({dt:.016,time,cam:lastCamera,wind:{x:wind.state.dx,z:wind.state.dz},windStrength:wind.state.strength,rain:W.rain,flash:W.flash,dark:W.dark,bolt:weather.bolt,light:liveSky.dayLight.value});
     lights.update(player,liveSky.lampGlow,time);
-    life.update(time);
+    life.update(time,player);
     fixtures.animate(time,liveSky.lampGlow);
     environment.update(time,player);
     townTreeKit.update(player);
@@ -198,7 +198,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     scenery:fjord.peaks.length,
     movePlayer,faceCamera,update,setShadows,setHour,dispose,setSeat,prePass,
     weather,setWeather:(name:string|null)=>weather.setLock(name),takeThunder:(dt:number)=>weather.takeThunder(dt),
-    gulls:()=>life.gullPositions(),gustAt:(x:number,z:number)=>gustAt(x,z,wind.state.aloftDriftX,wind.state.aloftDriftZ),
+    npcPositions:()=>life.positions(),gulls:()=>life.gullPositions(),gustAt:(x:number,z:number)=>gustAt(x,z,wind.state.aloftDriftX,wind.state.aloftDriftZ),
     boats:environment.boats,boatsMovable:environment.boatsMovable,seaBlockers:environment.seaBlockers,setBoatFoam:environment.setBoatFoam,
   });
 }
