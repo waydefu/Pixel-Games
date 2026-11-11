@@ -16,7 +16,7 @@ import type { VillageAssets } from "./architecture.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
 import { addStudyGrass, inGrassStudy } from "./coastal-grass-study.js";
-import { grassSuitability } from "./grass-placement.js";
+import { grassSuitability, PHOTO_GRASS_CELL_SIZE } from "./grass-placement.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null,fixtures?:Fixtures){
@@ -197,10 +197,11 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   grassMaterial.onBeforeCompile=(shader,renderer)=>{
     grassCompile(shader,renderer);shader.uniforms.uNearPhotoGrass=nearGrass;
     shader.fragmentShader=shader.fragmentShader.replace("#include <map_fragment>",
-      "#include <map_fragment>\ndiffuseColor.rgb=max(pow(max(diffuseColor.rgb,vec3(0.0)),vec3(.55))*vec3(.85,1.2,.72),vec3(.025,.09,.015));");
+      "#include <map_fragment>\ndiffuseColor.rgb=max(pow(max(diffuseColor.rgb,vec3(0.0)),vec3(.65))*vec3(.85,1.08,.75),vec3(.012,.04,.008));");
     shader.vertexShader=shader.vertexShader.replace("#include <common>","#include <common>\nuniform float uNearPhotoGrass;")
       .replace("#include <project_vertex>",`#ifdef USE_INSTANCING
-      if(uNearPhotoGrass>.5&&distance(instanceMatrix[3].xz,uPlayerPos.xz)<5.8)transformed.y-=5.0;
+      vec2 farCell=floor(instanceMatrix[3].xz/${PHOTO_GRASS_CELL_SIZE.toFixed(1)}),nearCell=floor(uPlayerPos.xz/${PHOTO_GRASS_CELL_SIZE.toFixed(1)});
+      if(uNearPhotoGrass>.5&&max(abs(farCell.x-nearCell.x),abs(farCell.y-nearCell.y))<1.5)transformed.y-=5.0;
 #endif
 #include <project_vertex>`);
   };
@@ -208,8 +209,8 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   grassMaterial.side=THREE.DoubleSide;
   const grassGeom=k.scope.track(new THREE.BufferGeometry());
   grassGeom.setAttribute("position",new THREE.Float32BufferAttribute([
-    -.16,-.19,0, .16,-.19,0, -.16,.19,0, .16,-.19,0, .16,.19,0, -.16,.19,0,
-    0,-.19,-.16, 0,-.19,.16, 0,.19,-.16, 0,-.19,.16, 0,.19,.16, 0,.19,-.16,
+    -.16,-.19,0, .16,-.19,0, -.16,.07,0, .16,-.19,0, .16,.07,0, -.16,.07,0,
+    0,-.19,-.16, 0,-.19,.16, 0,.07,-.16, 0,-.19,.16, 0,.07,.16, 0,.07,-.16,
   ],3));
   grassGeom.setAttribute("uv",new THREE.Float32BufferAttribute([
     0,0, 1,0, 0,1, 1,0, 1,1, 0,1, 0,0, 1,0, 0,1, 1,0, 1,1, 0,1,

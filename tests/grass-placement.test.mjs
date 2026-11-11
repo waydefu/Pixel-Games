@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { grassSuitability, grassEdgeHeight } from "../src/game/grass-placement.js";
 import { coastalOutline } from "../src/game/coastal-outline.js";
+import { BEACH_DRY_Y } from "../src/game/beach-profile.js";
 
 test("grass preserves the road, town square, pier road and landmark reservations",()=>{
   for(const [x,z] of [[0,0],[-5,6.1],[9,8],[-40,-25],[-39,0]])
@@ -17,6 +18,6 @@ test("grass grows on both sides of the village and respects shoreline and collid
 
 test("grass and sand geometry meet without a gap",()=>{
   assert.equal(grassEdgeHeight(0),-.187);
-  assert.ok(Math.abs(grassEdgeHeight(1)-(-.184))<1e-12);
+  assert.ok(Math.abs(grassEdgeHeight(1)-BEACH_DRY_Y)<1e-12);
   assert.ok(grassEdgeHeight(.98)>grassEdgeHeight(.94));
 });

@@ -8,7 +8,7 @@ import grassArm from "../../assets/models/polyhaven/grass-medium-01/textures/gra
 import type { StageKit } from "./kit.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
-import { grassSuitability } from "./grass-placement.js";
+import { grassSuitability, PHOTO_GRASS_CELL_SIZE } from "./grass-placement.js";
 import { COASTLINE_GLSL } from "./coastal-outline.js";
 import leafyColor from "../../assets/textures/coastal-study/leafy_grass_diff_1k.jpg";
 import leafyNormal from "../../assets/textures/coastal-study/leafy_grass_nor_gl_1k.jpg";
@@ -92,7 +92,7 @@ export function createGrassStudy(k:StageKit,clouds:CloudField){
 }
 
 export function addStudyGrass(k:StageKit,clouds:CloudField){
-  const cellSize=6, slots=9, capacity=220;
+  const cellSize=PHOTO_GRASS_CELL_SIZE, slots=9, capacity=220;
   type Tile={meshes:THREE.InstancedMesh[]; counts:number[]};
   const tiles:Tile[]=[];
   let alive=true, ready=false, amount=1, lastX=NaN,lastZ=NaN;
