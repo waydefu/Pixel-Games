@@ -5,6 +5,7 @@ import { createStageKit } from "./kit.js";
 import { buildVillage } from "./architecture.js";
 import { createVillageMaterial, type VillageKit } from "./village-kit.js";
 import { buildEnvironment } from "./environment.js";
+import { getTreeKit } from "./trees.js";
 import { createTravellerAtlas } from "./art.js";
 import { buildFjordLandscape } from "./fjord.js";
 import { buildHarbourBeacon, BEACON_SITE } from "./harbour-beacon.js";
@@ -43,6 +44,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
   // The beacon fire is the strongest light on the coast: it reaches far across the harbour.
   lights.add({x:BEACON_SITE.x,y:15,z:BEACON_SITE.z,intensity:110,distance:48,color:"#ffcf8a",flicker:.1});
   const environment=buildEnvironment(kit,cloudField,villageAssets,fixtures);
+  const townTreeKit=getTreeKit(kit,cloudField);
   const fjord=buildFjordLandscape(kit,cloudField,environment.applyMountainGrass);
   // Lit windows, lanterns and the beacon fire: remember their daytime-authored strength, dim them by day.
   const emissiveBase=kit.emissives.map(m=>m.emissiveIntensity);
@@ -157,6 +159,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     life.update(time);
     fixtures.animate(time,liveSky.lampGlow);
     environment.update(time,player);
+    townTreeKit.update(player);
     fjord.update(time);
     const walking=time-lastMovedAt<.12;
     const frame=walking?Math.floor(time*8)%4:0;
@@ -181,6 +184,7 @@ export function createCoastalWorld(villageKit:VillageKit|null=null){
     const density=heavy==="basic"?.36:heavy==="balanced"?.70:1;
     for(const forest of fjord.forests)forest.setDensity(density);
     environment.setFoliageDensity(density);
+    townTreeKit.setQuality(heavy);
     environment.setSeaReflection(quality!=="basic"&&!softwareGpu&&new URLSearchParams(window.location.search).get("reflect")!=="0");   // the mirror render is a second pass: not on the basic tier
   }
   /** Everything that draws into its own render target is drawn here, BEFORE the frame pipeline's scene pass (see cloud-shadow.ts). */
