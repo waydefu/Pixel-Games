@@ -78,8 +78,11 @@ async function loadOne(k:StageKit,clouds:CloudField,loader:GLTFLoader,url:string
         k.scope.track(texture);textures.add(texture);
       }
     }
-    // Wind remains linked to the same gust field as procedural trees.
+    // These GLBs arrive asynchronously, AFTER world.ts calls applyToScene(scene).
+    // Apply the same world-space cloud-shadow map to their materials explicitly.
+    // Wind must be installed first so both onBeforeCompile hooks survive chaining.
     if(rawPart.leaf)addVegetationWind(material,clouds,.055);
+    clouds.applyToMaterial(material);
     parts.push({geometry,material,leaf:rawPart.leaf});
   }
   disposeLoaderScene(root);
