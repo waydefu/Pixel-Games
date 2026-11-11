@@ -8,6 +8,7 @@
  * All values are deterministic and sampled only while building the mesh.
  * R2's time-dependent swash/moisture simulation is tracked separately in #115.
  */
+export const SEA_LEVEL_Y = -0.38;
 export const BEACH_DRY_Y = -0.184;
 export const BEACH_SEABED_Y = -0.425;
 

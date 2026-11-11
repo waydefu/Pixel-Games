@@ -189,6 +189,24 @@
       "source": "https://polyfork.dev/asset/ship-s-longboat-f159fd",
       "sha256": "ef267b2529d35d7429b76ded0dabf0a42c71f7045b3b2acd9dc767c4295512f7",
       "notes": "Free low-poly mesh used under CC BY 4.0 (credit: Ship S Longboat by Polyfork). Mesh files only; Polyfork ES modules are not stored."
+    },
+    {
+      "id": "ambientcg-beach-dry-wet-albedo",
+      "path": "assets/materials/ambientcg-sand-albedo.webp",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "source": "https://ambientcg.com/a/Ground027",
+      "sha256": "9356bf38bbb33a7dbd1f28a2412797d3d7ca83803ff67fe24dc0aca356eb7f48",
+      "notes": "Dry Ground027 and wet Ground059 colour maps; 2 x 512-pixel seam-safe tiles. Source: https://ambientcg.com/a/Ground027 and https://ambientcg.com/a/Ground059; downsampled from original 1K-JPG releases."
+    },
+    {
+      "id": "ambientcg-beach-dry-wet-normal-roughness",
+      "path": "assets/materials/ambientcg-sand-normal-roughness.png",
+      "author": "ambientCG",
+      "license": "CC0-1.0",
+      "source": "https://ambientcg.com/a/Ground027",
+      "sha256": "ca980aac68428b92ceebcf57ee84e86cf0c719552fc35d159c56fb6605e45244",
+      "notes": "OpenGL tangent normals RGB and per-pixel roughness alpha, dry/wet atlas. Source: https://ambientcg.com/a/Ground027 and https://ambientcg.com/a/Ground059; downsampled from original 1K-JPG releases."
     }
   ]
 }

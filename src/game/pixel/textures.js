@@ -2,12 +2,43 @@
 // Every texture is tileable, seeded, and carries a matching normal map derived from
 // the same height field that drives its bevel shading, so light and paint agree.
 // Density contract: 16 texels per world unit (a 32px tile spans 2 units, a 64px tile 4).
-import { PALETTE } from "./palette.js";
+import { PALETTE, rampRgb } from "./palette.js";
 import {
   makeRng, hash2, wrap, clamp01, smoothstep, tileNoise, voronoi, bevelLight, normalFromHeight, renderRamp,
 } from "./painter.js";
 
 export const TEXELS_PER_UNIT = 16;
+// Near-field earth and bark: 32 texels/m, packed into the same colour + normal textures.
+export const NATURAL_SURFACES = Object.freeze(["cobble","grass","sand","bark","birch-bark","pine-bark"]);
+const naturalKinds=new Set(NATURAL_SURFACES);
+const NATURAL_TEXELS_PER_UNIT=32;
+
+/** Interpolate the authored pigment ramps, rather than quantising large natural surfaces into 8 hard bands. */
+function naturalAlbedo(size,painted,light,ramp,seed) {
+  const palette=rampRgb(ramp),last=palette.length-1,data=new Uint8ClampedArray(size*size*4);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=y*size+x,grain=(hash2(x,y,seed+43)-.5)*.06;
+    const tone=clamp01(painted.tone[i]+light[i]*painted.bevel*.13+grain);
+    const loc=tone*last,lo=Math.floor(loc),hi=Math.min(last,lo+1),blend=loc-lo;
+    const occlusion=.94+.06*clamp01(painted.height[i]);
+    // Preserve authored ground flowers and mineral accents while softening the base terrain.
+    const accent=painted.override.get(i);
+    for(let c=0;c<3;c++)data[i*4+c]=accent?.[c]??Math.round((palette[lo][c]*(1-blend)+palette[hi][c]*blend)*occlusion);
+    data[i*4+3]=255;
+  }
+  return data;
+}
+
+/** Store per-texel micro-roughness in unused normal-map alpha (no extra GPU sampler). */
+function packSurfaceRoughness(normal,size,kind,seed,height) {
+  const grain=tileNoise(size,32,seed+73,2);
+  const base=kind==="sand"?.96:kind==="grass"?.91:kind==="cobble"?.81:.89;
+  for(let i=0;i<size*size;i++){
+    const variation=(grain[i]-.5)*.12+(height[i]-.5)*(kind==="cobble"?-.10:-.035);
+    normal[i*4+3]=Math.round(clamp01(base+variation)*255);
+  }
+  return normal;
+}
 
 function fields(size) {
   return { tone: new Float32Array(size * size), height: new Float32Array(size * size), override: new Map() };
@@ -43,12 +74,13 @@ function coursedBlocks(size, seed, { rowH, wMin, wMax, base, spread, chips }) {
 
 function cobbles(size, seed) {
   const f = fields(size), v = voronoi(size, 8, seed, 0.78), noise = tileNoise(size, 8, seed + 3, 2);
+  const grit = tileNoise(size, 24, seed + 31, 2);
   for (let i = 0; i < size * size; i++) {
     const edge = v.d2[i] - v.d1[i];
     const mortar = edge < 1.15;
     const dome = 1 - clamp01(v.d1[i] / 6.5);
-    f.height[i] = mortar ? 0 : 0.3 + 0.7 * smoothstep(0, 2.4, edge) * (0.55 + 0.45 * dome);
-    f.tone[i] = mortar ? 0.2 : 0.58 + (hash2(v.id[i], 3, seed) - 0.5) * 0.15 + (noise[i] - 0.5) * 0.1;
+    f.height[i] = mortar ? 0 : 0.3 + 0.7 * smoothstep(0, 2.4, edge) * (0.55 + 0.45 * dome) + (grit[i] - .5) * .16;
+    f.tone[i] = mortar ? 0.17 + (grit[i] - .5) * .08 : 0.58 + (hash2(v.id[i], 3, seed) - 0.5) * 0.15 + (noise[i] - 0.5) * 0.1 + (grit[i] - .5) * .13;
   }
   return { ...f, dither: 0.4, bevel: 1.0 };
 }
@@ -128,10 +160,11 @@ function thatch(size, seed) {
 }
 
 function grass(size, seed) {
-  const f = fields(size), clump = tileNoise(size, 6, seed, 3), fine = tileNoise(size, 20, seed + 4, 2), rand = makeRng(seed * 59 + 3);
+  const f = fields(size), clump = tileNoise(size, 6, seed, 3), fine = tileNoise(size, 20, seed + 4, 2),
+    meadow = tileNoise(size, 3, seed + 37, 2), rand = makeRng(seed * 59 + 3);
   for (let i = 0; i < size * size; i++) {
-    f.tone[i] = 0.27 + clump[i] * 0.27 + (fine[i] - 0.5) * 0.10;
-    f.height[i] = fine[i] * 0.4 + clump[i] * 0.3;
+    f.tone[i] = 0.27 + clump[i] * 0.27 + (fine[i] - 0.5) * 0.15 + (meadow[i] - .5) * .10;
+    f.height[i] = fine[i] * 0.52 + clump[i] * 0.3 + meadow[i] * .10;
   }
   for (let t = 0; t < size * 1.4; t++) { // blade tufts: base dark, tip bright
     const x = Math.floor(rand() * size), y = Math.floor(rand() * size), lean = rand() < 0.5 ? 0 : 1;
@@ -149,12 +182,18 @@ function grass(size, seed) {
   return { ...f, dither: 0.5, bevel: 1.0 };
 }
 
+/** World-X cross-shore ridges with periodic alongshore meanders: no UV seams. */
+export function sandRippleHeight(x, y, size, warp=0) {
+  const phase=(Math.PI*2*7*x/size)+0.32*Math.sin(Math.PI*2*y/size)+0.48*warp;
+  return 0.5+0.5*Math.sin(phase);
+}
+
 function sand(size, seed) {
   const f = fields(size), n = tileNoise(size, 5, seed, 3), rand = makeRng(seed * 17 + 9);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
-      const ripple = Math.sin((y + n[i] * 8) * 0.55 + x * 0.04) * 0.5 + 0.5;
+      const ripple = sandRippleHeight(x, y, size, n[i] - .5);
       f.tone[i] = 0.56 + (ripple - 0.5) * 0.14 + (n[i] - 0.5) * 0.18 + (rand() < 0.012 ? (rand() - 0.5) * 0.4 : 0);
       f.height[i] = ripple * 0.5 + n[i] * 0.2;
     }
@@ -241,18 +280,19 @@ function birchBark(size, seed) {
 export const PIXEL_KINDS = Object.freeze({
   stone:       { size: 32, ramp: "stone",    normal: 1.5, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 8, wMin: 9, wMax: 15, base: 0.56, spread: 0.18, chips: 0.03 }) },
   brick:       { size: 32, ramp: "brick",    normal: 2.2, slope: false, build: (s) => coursedBlocks(32, s, { rowH: 4, wMin: 8, wMax: 8, base: 0.54, spread: 0.2, chips: 0.05 }) },
-  cobble:      { size: 64, ramp: "stone",    normal: 1.6, slope: false, build: (s) => cobbles(64, s) },
+  cobble:      { size: 128, ramp: "stone",   normal: 1.3, slope: false, build: (s) => cobbles(128, s) },
   planks:      { size: 32, ramp: "wood",     normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [6, 6, 6, 7, 7], base: 0.46, spread: 0.14, grainAmount: 0.14 }) },
   timber:      { size: 32, ramp: "timber",   normal: 1.2, slope: false, build: (s) => planks(32, s, { widths: [8, 8, 8, 8], base: 0.5, spread: 0.14, grainAmount: 0.16 }) },
   plaster:     { size: 32, ramp: "plaster",  normal: 1.4, slope: false, build: (s) => plaster(32, s) },
   "roof-red":  { size: 32, ramp: "roofRed",  normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.55, spread: 0.2 }) },
   "roof-blue": { size: 32, ramp: "roofBlue", normal: 2.4, slope: true,  build: (s) => roofTiles(32, s, { base: 0.52, spread: 0.2 }) },
   thatch:      { size: 32, ramp: "thatch",   normal: 1.6, slope: true,  build: (s) => thatch(32, s) },
-  grass:       { size: 64, ramp: "grass",    normal: 1.4, slope: false, build: (s) => grass(64, s) },
-  sand:        { size: 64, ramp: "sand",     normal: 1.2, slope: false, build: (s) => sand(64, s) },
+  grass:       { size: 128, ramp: "grass",   normal: 1.1, slope: false, build: (s) => grass(128, s) },
+  sand:        { size: 128, ramp: "sand",    normal: 1.0, slope: false, build: (s) => sand(128, s) },
   foliage:     { size: 32, ramp: "foliage",  normal: 2.0, slope: false, build: (s) => foliage(32, s) },
-  bark:        { size: 32, ramp: "bark",     normal: 1.4, slope: false, build: (s) => barkFurrows(32, s, { ramp: "bark", base: 0.5, spread: 0.2 }) },
-  "birch-bark": { size: 32, ramp: "birchbark", normal: 0.8, slope: false, build: (s) => birchBark(32, s) },
+  bark:        { size: 64, ramp: "bark",     normal: 1.25, slope: false, build: (s) => barkFurrows(64, s, { ramp: "bark", base: 0.5, spread: 0.2 }) },
+  "birch-bark": { size: 64, ramp: "birchbark", normal: 0.85, slope: false, build: (s) => birchBark(64, s) },
+  "pine-bark":  { size: 64, ramp: "bark", normal: 1.55, slope: false, build: (s) => barkFurrows(64, s+11, { ramp: "bark", base: 0.43, spread: 0.24 }) },
   rock:        { size: 32, ramp: "rock",     normal: 1.1, slope: false, build: (s) => boulder(32, s) },
   cliff:       { size: 32, ramp: "cliff",    normal: 1.6, slope: false, build: (s) => cliff(32, s) },
   canvas:      { size: 32, ramp: "canvas",   normal: 1.0, slope: false, build: (s) => canvasCloth(32, s) },
@@ -267,12 +307,17 @@ export function paintTexture(kind, seed = 1) {
   const painted = recipe.build(seed);
   const size = recipe.size;
   const light = bevelLight(painted.height, size, 1);
-  const color = renderRamp(size, painted.tone, light, PALETTE[recipe.ramp], {
-    dither: painted.dither, bevel: painted.bevel, override: painted.override.size ? painted.override : null,
-  });
+  const natural=naturalKinds.has(kind);
+  const color=natural
+    ? naturalAlbedo(size,painted,light,PALETTE[recipe.ramp],seed)
+    : renderRamp(size,painted.tone,light,PALETTE[recipe.ramp],{
+      dither:painted.dither,bevel:painted.bevel,override:painted.override.size?painted.override:null,
+    });
+  const normal=normalFromHeight(painted.height,size,recipe.normal);
+  if(natural)packSurfaceRoughness(normal,size,kind,seed,painted.height);
   return {
-    kind, seed, size, units: size / TEXELS_PER_UNIT, slope: recipe.slope,
-    color, normal: normalFromHeight(painted.height, size, recipe.normal),
+    kind,seed,size,units:size/(natural?NATURAL_TEXELS_PER_UNIT:TEXELS_PER_UNIT),slope:recipe.slope,
+    color,normal,
   };
 }
 
@@ -280,7 +325,7 @@ export function paintTexture(kind, seed = 1) {
  * Leaf sprite sheets (RGBA with alpha): 2x2 variants of 32x32 texels. Foliage is drawn as many small
  * shaded leaves (lit from the top-left, shadowed bottom-right); conifers as needle fronds. Cutout alpha.
  */
-export const LEAF_VARIANTS = 4, LEAF_CELL = 32, LEAF_SHEET = 64;
+export const LEAF_VARIANTS = 4, LEAF_CELL = 64, LEAF_SHEET = 128;
 export const LEAF_SPECIES = Object.freeze(["oak", "birch", "pine"]);
 export function paintLeafSheet(species, seed = 1) {
   if (!LEAF_SPECIES.includes(species)) throw new RangeError("Unknown leaf species: " + String(species));
@@ -298,11 +343,11 @@ export function paintLeafSheet(species, seed = 1) {
     const ox = (v % 2) * LEAF_CELL, oy = Math.floor(v / 2) * LEAF_CELL, rand = makeRng(seed * 977 + v * 131 + 7);
     if (species === "pine") {
       // a frond: central stem down the card, paired needles sweeping out and down, longest in the middle
-      const sway = (rand() - 0.5) * 3;
+      const sway = (rand() - 0.5) * 5;
       for (let y = 1; y < LEAF_CELL - 1; y++) {
-        const stemX = 16 + Math.round(sway * Math.sin(y * 0.18));
+        const stemX = LEAF_CELL/2 + Math.round(sway * Math.sin(y * 0.11));
         plot(ox, oy, stemX, y, 1);
-        const len = Math.round(2 + 10 * Math.sin(Math.PI * y / LEAF_CELL) * (0.75 + rand() * 0.25));
+        const len = Math.round(3 + 20 * Math.sin(Math.PI * y / LEAF_CELL) * (0.75 + rand() * 0.25));
         if (y % 2 === 0) for (const side of [-1, 1]) for (let k = 1; k <= len; k++) {
           const dx = side * k, dy = Math.floor(k * 0.45);
           const lit = side < 0 ? 1 : 0, tone = 2 + lit + (k > len - 2 ? 1 : 0) - (rand() < 0.2 ? 1 : 0);
@@ -310,21 +355,21 @@ export function paintLeafSheet(species, seed = 1) {
         }
       }
     } else {
-      const leaves = species === "oak" ? 30 : 26, spread = species === "oak" ? 12.5 : 12;
+      const leaves = species === "oak" ? 66 : 56, spread = species === "oak" ? 24.5 : 23.5;
       const hues = species === "oak" ? 4 : 3;
       const spots = [];
       for (let n = 0; n < leaves; n++) {
         const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * spread;
-        spots.push([16 + Math.cos(a) * r, 16 + Math.sin(a) * r * 0.92, 2 + rand() * 1.8]);
+        spots.push([LEAF_CELL/2 + Math.cos(a) * r, LEAF_CELL/2 + Math.sin(a) * r * 0.92, 3 + rand() * 3.2]);
       }
       spots.sort((p, q) => p[1] - q[1]); // back to front so lower leaves overlap upper ones
       for (const [cx, cy, size] of spots) {
         const tilt = rand() * Math.PI, tone = hues - 1 + Math.floor(rand() * 2);
-        for (let y = -3; y <= 3; y++) for (let x = -4; x <= 4; x++) {
+        for (let y = -6; y <= 6; y++) for (let x = -8; x <= 8; x++) {
           const u = x * Math.cos(tilt) + y * Math.sin(tilt), w = -x * Math.sin(tilt) + y * Math.cos(tilt);
           if ((u * u) / (size * size * 1.9) + (w * w) / (size * size * 0.7) > 1) continue;
-          const light = (-x - y) / 6;                       // top-left lit
-          const rim = Math.hypot(x / 4, y / 3) > 0.82 ? -1 : 0;
+          const light = (-x - y) / 12;                       // top-left lit
+          const rim = Math.hypot(x / 8, y / 6) > 0.82 ? -1 : 0;
           plot(ox, oy, Math.round(cx + x), Math.round(cy + y), tone + Math.round(light * 1.4) + rim + (rand() < 0.1 ? 1 : 0));
         }
       }

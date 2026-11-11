@@ -8,8 +8,9 @@ const read = path => readFileSync(path, "utf8");
 
 test("every kit model is a registered CC BY 4.0 Polyfork mesh with a credit", () => {
   const credits = read("docs/ASSET-CREDITS.md");
-  assert.ok(manifest.assets.length >= 10);
-  for (const asset of manifest.assets) {
+  const polyforkModels = manifest.assets.filter(a => a.id.startsWith("polyfork-"));
+  assert.ok(polyforkModels.length >= 10);
+  for (const asset of polyforkModels) {
     assert.equal(asset.author, "Polyfork");
     assert.equal(asset.license, "CC-BY-4.0");
     assert.match(asset.source, /^https:\/\/polyfork\.dev\/asset\//);

@@ -42,3 +42,24 @@
 |---|---|---|
 | AgX tone mapping 的對比多項式與色彩矩陣 | [Noniv/web-ocean](https://github.com/Noniv/web-ocean)，**MIT**（AgX 本身出自 Troy Sobotka）；Noniv 的 WGSL 轉為 GLSL | `src/rendering/hd2d-pipeline.js` 的合成通道（取代原本的 ACES 擬合；`?tone=aces` 可切回做 A/B）。同一倉庫的海水體色（混濁藍綠）只作美術參考，沒有複製其 FFT 海面程式 |
 | 十雲屬雲層的做法（形態分類、天氣到雲屬占比、受光與日暈公式的思路） | [takustaqu/atmosphere](https://github.com/takustaqu/atmosphere)，**MIT**；只採用公開的技法描述與參數量級，程式碼為本專案重寫（`cloud-shader.ts`、`cloud-genera.js`） | 天空雲與雲影；天氣占比的曲線、尺度與色彩為本專案自行調校 |
+
+
+### 2026-11-10｜海岸與植被技術來源（Issue #126）
+- **NeuralSpecOcean**（bgbg108555，MIT）｜https://github.com/bgbg108555/NeuralSpecOcean — 研究它的共享海床／岸線及水深驅動碎浪構想；本次修正為自有程式實作，保留現有 Three.js `Water`、海面反射與泡沫。**未複製上游 CFD、PINN、GPU SwashRig 或 GLSL／JS 程式碼**。
+- **Grassworks / Tech Redux**｜https://grassworks.techredux.co/forest-demo — 僅研究分區植被、草葉／Billboard 與 LOD 策略；未購買、未複製商業套件與展示素材。
+- **新素材來源**：本 PR 的沙紋、草地、石板細節、松樹樹皮與 128px 程序樹葉圖集由專案程式生成；乾／濕沙的掃描素材另見下節，已正式匯入。既有 Polyfork 樹模型授權維持不變。
+
+
+## ambientCG — CC0 海灘掃描材質（Issue #126）
+
+| 材質 | 來源 | 授權與處理 |
+|---|---|---|
+| 乾沙 Ground027 | https://ambientcg.com/a/Ground027 | ambientCG，Creative Commons CC0 1.0；取官方 1K-JPG Color/NormalGL/Roughness |
+| 濕沙 Ground059 | https://ambientcg.com/a/Ground059 | ambientCG，Creative Commons CC0 1.0；取官方 1K-JPG Color/NormalGL/Roughness |
+
+- 依 ambientCG 官方 [授權頁](https://docs.ambientcg.com/license/) CC0 允許加工、重製、公開再散布及商用；本專案自願保留署名，**不聲稱 ambientCG 官方背書**。
+- `scripts/assets/import_ambientcg_sand.py` 是可重複執行的素材打包器；官方來源為 1K JPG ZIP，沒有複製其他人的轉檔包。
+- 乾沙（左半）與濕沙（右半）分別做成 512×512、含 4px 平鋪保護區的 Atlas；色彩為 `assets/materials/ambientcg-sand-albedo.webp`，OpenGL Normal RGB + Roughness Alpha 為 `assets/materials/ambientcg-sand-normal-roughness.png`。
+- 兩個檔案都在 `assets/manifest.json` 登記 SHA256；遊戲由 Vite 編譯時打包為同源本地檔案，不依賴任何第三方 CDN。
+- 保留原沙材質作為載入失敗時的 fallback。Shader 以原本頂點色濕度在乾／濕影像間混合，使用世界 X/Z 座標，維持沙紋與海岸方向的設定。
+- 權限與技術獨立：Grassworks 仍未匯入、未使用其商業素材；NeuralSpecOcean 仍只有技術概念參考，未複製實作。
