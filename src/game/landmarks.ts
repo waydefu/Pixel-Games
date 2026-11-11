@@ -5,6 +5,7 @@ import type { VillageAssets } from "./architecture.js";
 import { mulberry32 } from "./wander.js";
 import type { Fixtures } from "./torches.js";
 import { FARM_BOUNDS } from "./navigation.js";
+import { GRASS_RESERVED, isGrassReserved } from "./grass-placement.js";
 
 /**
  * Two things the village was missing: a church closing the western end of the promenade, and a working farm in the
@@ -13,11 +14,8 @@ import { FARM_BOUNDS } from "./navigation.js";
  */
 export const CHURCH={x:-39,z:0,scale:1.25};
 /** Land reserved by these landmarks: trees, shrubs, grass and flowers must stay out of it. */
-export const RESERVED=Object.freeze([
-  Object.freeze({x0:-50,x1:-26,z0:-34,z1:-17}),   // farm
-  Object.freeze({x0:-46,x1:-28,z0:-6,z1:6}),      // churchyard and its path
-]);
-export const isReserved=(x:number,z:number)=>RESERVED.some(r=>x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1);
+export const RESERVED=GRASS_RESERVED;
+export const isReserved=isGrassReserved;
 
 const FARM=FARM_BOUNDS;
 type Crop="wheat"|"cabbage"|"pumpkin"|"leek";

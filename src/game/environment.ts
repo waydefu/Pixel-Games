@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import distantGrassTexture from "../../assets/models/polyhaven/grass-medium-01/textures/grass_medium_01_far_clump.png";
 import type { StageKit } from "./kit.js";
 import { buildFishingBoats } from "./boats.js";
 import { createCoastalWater } from "./ocean.js";
@@ -14,6 +15,8 @@ import { groundHeight } from "./navigation.js";
 import type { VillageAssets } from "./architecture.js";
 import type { CloudField } from "./cloud-field.js";
 import { addVegetationWind } from "./vegetation-wind.js";
+import { addStudyGrass, inGrassStudy } from "./coastal-grass-study.js";
+import { grassSuitability, PHOTO_GRASS_CELL_SIZE } from "./grass-placement.js";
 
 function noise(seed:number){const value=Math.sin(seed*182.739+22.13)*43758.5453;return value-Math.floor(value);}
 export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:VillageAssets|null,fixtures?:Fixtures){
@@ -22,7 +25,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   const dark=k.solid("#434944"),foam=k.solid("#dae3c6",.8);
   const cliff=k.pattern("cliff",9),leaves=[k.pattern("foliage",1,2,2),k.pattern("foliage",3,2,2),k.pattern("foliage",5,2,2),k.pattern("foliage",7,2,2)];
   // The curved mesh closes toward both headlands; no rectangular lawn edge.
-  buildCoastalLand(k,cloudField);
+  const terrainGrass=buildCoastalLand(k,cloudField);
   cloudField.applyToMaterial(stone);
   // Cobblestone promenade & irregular town square, not a grid of raised box tiles.
   k.flat(42,6.3,stone,-8.0,-.062,0);
@@ -162,7 +165,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   let shrubCount=0;
   for(let i=0;i<1150&&shrubCount<280;i++){
     const x=-39+noise(i*6.3+14)*47,z=-35+noise(i*3.9+21)*70;
-    if(x>9.5||Math.abs(z)<4.2&&x>-33||isReserved(x,z))continue;
+    if(x>9.5||Math.abs(z)<4.2&&x>-33||isReserved(x,z)||inGrassStudy(x,z))continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.65&&Math.abs(z-c.z)<c.halfZ+.65))continue;
     const scale=.45+noise(i*9.1+2)*.87;
     dummy.position.set(x,.37*scale,z);
@@ -182,18 +185,46 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   if(shrubs.boundingSphere)shrubs.boundingSphere.radius+=.36;
   k.scene.add(shrubs);
 
-  const grassMaterial=k.solid("#8ba777");
+  const studyGrass=addStudyGrass(k,cloudField);
+  // Distant blades keep the landscape covered outside the high-detail nearby tiles.
+  const distantMap=k.scope.track(new THREE.TextureLoader().load(distantGrassTexture));
+  distantMap.colorSpace=THREE.SRGBColorSpace;distantMap.anisotropy=4;
+  const grassMaterial=k.scope.track(new THREE.MeshStandardMaterial({map:distantMap,roughness:.96,alphaTest:.2,side:THREE.DoubleSide}));
   addVegetationWind(grassMaterial,cloudField,.13);
-  const grassGeom=k.scope.track(new THREE.ConeGeometry(.075,.38,3));
+  const nearGrass={value:0};
+  const grassCompile=grassMaterial.onBeforeCompile;
+  const grassKey=grassMaterial.customProgramCacheKey.bind(grassMaterial);
+  grassMaterial.onBeforeCompile=(shader,renderer)=>{
+    grassCompile(shader,renderer);shader.uniforms.uNearPhotoGrass=nearGrass;
+    shader.fragmentShader=shader.fragmentShader.replace("#include <map_fragment>",
+      "#include <map_fragment>\ndiffuseColor.rgb=max(pow(max(diffuseColor.rgb,vec3(0.0)),vec3(.65))*vec3(.85,1.08,.75),vec3(.012,.04,.008));");
+    shader.vertexShader=shader.vertexShader.replace("#include <common>","#include <common>\nuniform float uNearPhotoGrass;")
+      .replace("#include <project_vertex>",`#ifdef USE_INSTANCING
+      vec2 farCell=floor(instanceMatrix[3].xz/${PHOTO_GRASS_CELL_SIZE.toFixed(1)}),nearCell=floor(uPlayerPos.xz/${PHOTO_GRASS_CELL_SIZE.toFixed(1)});
+      if(uNearPhotoGrass>.5&&max(abs(farCell.x-nearCell.x),abs(farCell.y-nearCell.y))<1.5)transformed.y-=5.0;
+#endif
+#include <project_vertex>`);
+  };
+  grassMaterial.customProgramCacheKey=()=>grassKey()+"|distant-grass-v1";
+  grassMaterial.side=THREE.DoubleSide;
+  const grassGeom=k.scope.track(new THREE.BufferGeometry());
+  grassGeom.setAttribute("position",new THREE.Float32BufferAttribute([
+    -.16,-.19,0, .16,-.19,0, -.16,.07,0, .16,-.19,0, .16,.07,0, -.16,.07,0,
+    0,-.19,-.16, 0,-.19,.16, 0,.07,-.16, 0,-.19,.16, 0,.07,.16, 0,.07,-.16,
+  ],3));
+  grassGeom.setAttribute("uv",new THREE.Float32BufferAttribute([
+    0,0, 1,0, 0,1, 1,0, 1,1, 0,1, 0,0, 1,0, 0,1, 1,0, 1,1, 0,1,
+  ],2));grassGeom.computeVertexNormals();
   const grass=k.scope.track(new THREE.InstancedMesh(grassGeom,grassMaterial,9000));
   let count=0;
   for(let i=0;i<22000&&count<9000;i++){
     const x=-38+noise(i*3.03)*48,z=-34+noise(i*4.19)*68;
     if(Math.abs(z)<4.1&&x>-32||isReserved(x,z))continue;
+    if(grassSuitability(x,z,k.colliders)<=0)continue;
     if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
     if(x>10)continue;
-    const s=.38+noise(i*8.2)*1.7;
-    dummy.position.set(x,-.04,z);dummy.scale.set(s,s,s);dummy.rotation.set(0,i*.28,0);dummy.updateMatrix();
+    const s=.6+noise(i*8.2)*.9;
+    dummy.position.set(x,-.187+.19*s,z);dummy.scale.set(s,s,s);dummy.rotation.set(0,i*.28,0);dummy.updateMatrix();
     grass.setMatrixAt(count++,dummy.matrix);
   }
   grass.count=count;grass.instanceMatrix.needsUpdate=true;grass.castShadow=false;
@@ -207,7 +238,7 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     let j=0;
     for(let i=0;i<330&&j<95;i++){
       const x=-37+noise(i*2.3+color*.6)*46,z=-30+noise(i*8.9+color*.7)*64;
-      if(x>8||Math.abs(z)<4.5||isReserved(x,z))continue;
+      if(x>8||Math.abs(z)<4.5||isReserved(x,z)||inGrassStudy(x,z))continue;
       if(k.colliders.some(c=>Math.abs(x-c.x)<c.halfX+.6&&Math.abs(z-c.z)<c.halfZ+.6))continue;
       dummy.position.set(x,.21,z);dummy.scale.set(1,1,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();
       inst.setMatrixAt(j++,dummy.matrix);
@@ -232,6 +263,8 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
     ocean.update(time);
     boats.update(time);
     if(player){
+      studyGrass.update(player);
+      nearGrass.value=studyGrass.ready?1:0;
       target.position.set(player.x,0,player.z);
       target.updateMatrixWorld();
     }
@@ -256,11 +289,12 @@ export function buildEnvironment(k:StageKit,cloudField:CloudField,assets?:Villag
   }
   function setFoliageDensity(factor:number){
     const amount=THREE.MathUtils.clamp(factor,0,1);
+    studyGrass.setDensity(amount);
     shrubs.count=Math.round(shrubCount*amount);
     grass.count=Math.round(count*Math.pow(amount,2.2));   // Basic ~1k blades, Balanced ~4k, High 9k
     shrubs.visible=shrubs.count>0;
     grass.visible=grass.count>0;
   }
-  return {sunlight,moonlight,update,applySky,setSunTransmit,setSeaWeather:ocean.setWeather,hemiScale:(v:number)=>{hemiScale=v;},setFoliageDensity,setSeaReflection:ocean.setReflection,mirrorPass:ocean.mirrorPass,sea:ocean.material,
+  return {applyMountainGrass:terrainGrass.applyMountain,sunlight,moonlight,update,applySky,setSunTransmit,setSeaWeather:ocean.setWeather,hemiScale:(v:number)=>{hemiScale=v;},setFoliageDensity,setSeaReflection:ocean.setReflection,mirrorPass:ocean.mirrorPass,sea:ocean.material,
     boats:boats.boats,boatsMovable:boats.movable,seaBlockers:foamSpots,setBoatFoam:ocean.setBoats};
 }

@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import { coastalOutline } from "./coastal-outline.js";
 import { beachSample } from "./beach-profile.js";
+import { grassEdgeHeight } from "./grass-placement.js";
 import type { StageKit } from "./kit.js";
 import type { CloudField } from "./cloud-field.js";
+import { createGrassStudy } from "./coastal-grass-study.js";
 
 /** Curved shoreline and narrowing headlands, instead of a flat rectangular island. */
 export function buildCoastalLand(k:StageKit,cloudField:CloudField){
@@ -11,12 +13,14 @@ export function buildCoastalLand(k:StageKit,cloudField:CloudField){
     {name:"grassy-headlands",material:k.pattern("grass",1,14,13),y:-.187,left:(o:ReturnType<typeof coastalOutline>)=>o.grassLeft,right:(o:ReturnType<typeof coastalOutline>)=>o.grassRight},
     {name:"shoreline-sand",material:k.pattern("sand",5,2,13),y:-.184,left:(o:ReturnType<typeof coastalOutline>)=>o.grassRight,right:(o:ReturnType<typeof coastalOutline>)=>o.coast},
   ];
+  const study=createGrassStudy(k,cloudField);
   for(const s of strips){
     const sand=s.name==="shoreline-sand";
     // Sand is the only user of this pixel material seed. Keep world-space
     // pixel UV + normal map + cloud-shadow hooks while adding a dry/wet tint.
     if(sand){s.material.vertexColors=true;s.material.needsUpdate=true;}
     cloudField.applyToMaterial(s.material);
+    study.apply(s.material);
     const positions:number[]=[],uv:number[]=[],colors:number[]=[],indices:number[]=[];
     for(let iz=0;iz<=countZ;iz++){
       const z=-47+94*iz/countZ;
@@ -26,7 +30,7 @@ export function buildCoastalLand(k:StageKit,cloudField:CloudField){
         const x=bounds.grassLeft===bounds.grassRight&&s.name==="grassy-headlands"?
           bounds.grassLeft:THREE.MathUtils.lerp(s.left(bounds),s.right(bounds),t);
         const beach=sand?beachSample(t,z,bounds.ease):null;
-        positions.push(x,beach?.y??s.y,z);
+        positions.push(x,beach?.y??grassEdgeHeight(t),z);
         uv.push(t,iz/countZ);
         if(beach)colors.push(...beach.color);
       }
@@ -44,4 +48,5 @@ export function buildCoastalLand(k:StageKit,cloudField:CloudField){
     mesh.name=s.name;mesh.castShadow=false;mesh.receiveShadow=true;
     k.scene.add(mesh);
   }
+  return study;
 }
