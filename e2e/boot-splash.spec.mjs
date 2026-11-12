@@ -41,6 +41,11 @@ test("a failed or unsupported world removes the splash at once so the error stay
 
 test("a tap skips the log and ?splash=hold ignores the game until it is tapped", async ({ page }) => {
   await blockGame(page);
+  // The fullscreen gesture is checked by its own test. Real fullscreen in
+  // headless Chromium can hide/throttle its page and strand the boot timers.
+  await page.addInitScript(() => {
+    Element.prototype.requestFullscreen = function () { return Promise.resolve(); };
+  });
   await page.goto("./?splash=hold");
   await expect(splash(page)).toBeVisible();
   await page.mouse.click(20, 200);
