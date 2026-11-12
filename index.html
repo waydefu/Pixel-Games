@@ -8,8 +8,300 @@
   <title>海岸漫遊｜原創 HD-2D 世界</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./src/game/main.ts"></script>
+
+  <style id="boot-splash-style">
+    /* Boot splash.
+       The terminal and permit-window look, colors and typed-log timing follow the 550C scene by Voidpocket
+       (https://github.com/Voidpocket/html_550c), ported in dsh-550c-boot by Ziyang Song (MIT,
+       https://github.com/yannicksong0106/dsh-550c-boot). The layout is rebuilt to be responsive and all text is original.
+       Light ring: HALOFLUX by Ryder191 (PolyForm Noncommercial 1.0.0, https://github.com/Ryder191/haloflux).
+       See docs/ASSET-CREDITS.md. */
+    #boot-splash{position:fixed;inset:0;z-index:9999;background:#000;opacity:1;transition:opacity .7s ease;overscroll-behavior:none;touch-action:none;cursor:default;font-family:"SF Mono",Menlo,Monaco,Consolas,"Courier New",ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+    #boot-splash.bs-out{opacity:0;pointer-events:none}
+    #boot-splash .bs-layer{position:absolute;inset:0;transition:opacity .7s ease}
+    /* phase 1: terminal log + login window */
+    #boot-splash .bs-term{display:flex;flex-direction:column;gap:6px;padding:calc(env(safe-area-inset-top,0px) + 8px) calc(env(safe-area-inset-right,0px) + 8px) calc(env(safe-area-inset-bottom,0px) + 54px) calc(env(safe-area-inset-left,0px) + 8px);background:#050403;color:#d8c090;font-size:clamp(11.5px,2.9vw,13px);line-height:1.6}
+    #boot-splash .bs-term::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;background:repeating-linear-gradient(to bottom,rgba(232,160,32,.04) 0,rgba(232,160,32,.04) 1px,transparent 1px,transparent 3px)}
+    #boot-splash .bs-term::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.85) 100%)}
+    #boot-splash .bs-hud{flex:none;display:flex;align-items:center;gap:12px;padding:5px 10px;border:1px solid #8a5e10;background:linear-gradient(180deg,#141008,#0a0805);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8a7248;white-space:nowrap;overflow:hidden}
+    #boot-splash .bs-hud b{color:#e8a020;font-weight:400}
+    #boot-splash .bs-hud .brand{color:#e8a020;font-weight:700;letter-spacing:.2em;text-shadow:0 0 8px rgba(232,160,32,.35)}
+    #boot-splash .bs-hud .sp{flex:1}
+    #boot-splash .bs-hud .live{color:#e05030;animation:bs-blink 1s steps(1) infinite}
+    #boot-splash .bs-log{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;padding:8px 10px;border:1px solid #8a5e10;background:#0a0805;box-shadow:inset 0 0 30px rgba(232,160,32,.03)}
+    #boot-splash .bs-ln{white-space:pre-wrap;word-break:break-word;min-height:1.6em}
+    #boot-splash .bs-ln.sys{color:#e8a020}
+    #boot-splash .bs-ln.warn{color:#ffc043}
+    #boot-splash .bs-ln.cmd{color:#fff;font-weight:500}
+    #boot-splash .bs-ln.cur::after{content:"";display:inline-block;width:6px;height:1em;background:#e8a020;margin-left:6px;vertical-align:-2px;animation:bs-blink 1s steps(1) infinite}
+    #boot-splash .bs-foot{flex:none;display:flex;align-items:center;gap:12px;padding:5px 10px;border:1px solid #8a5e10;background:linear-gradient(180deg,#0d0a06,#050403);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:#8a7248}
+    #boot-splash .bs-foot b{color:#e8a020;font-weight:400}
+    #boot-splash .bs-foot .sp{flex:1}
+    #boot-splash .bs-prog{flex:0 0 min(34vw,180px);height:8px;background:#050403;border:1px solid #8a5e10;position:relative;overflow:hidden}
+    #boot-splash .bs-prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#8a5e10,#ffc043);box-shadow:0 0 8px rgba(232,160,32,.35);transition:width .25s linear}
+    #boot-splash .bs-win{position:absolute;z-index:5;left:50%;top:46%;width:min(92vw,520px);background:#0d0a06;border:1px solid #8a5e10;box-shadow:0 24px 70px rgba(0,0,0,.78),0 0 0 1px rgba(0,0,0,.9),0 0 50px rgba(232,160,32,.12);opacity:0;transform:translate(-50%,-50%) scale(.94);transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+    #boot-splash .bs-win.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    #boot-splash .bs-wt{display:flex;align-items:center;gap:8px;padding:8px 14px;background:linear-gradient(180deg,#1a1208,#0e0a06);border-bottom:1px solid #8a5e10;font-size:12px;letter-spacing:.16em;color:#e8a020;text-transform:uppercase}
+    #boot-splash .bs-wt .ico{width:14px;display:inline-flex;justify-content:center}
+    #boot-splash .bs-wb{padding:14px 18px 16px;font-size:12.5px;line-height:1.65}
+    #boot-splash .bs-row{display:grid;grid-template-columns:auto 1fr;gap:8px 22px;padding:6px 0;border-bottom:1px dotted rgba(232,160,32,.12);font-variant-numeric:tabular-nums}
+    #boot-splash .bs-row .k{color:#6b5a38;letter-spacing:.08em;font-size:11px;text-transform:uppercase}
+    #boot-splash .bs-row .v{text-align:right;color:#d8c090}
+    #boot-splash .bs-row .v.ok{color:#b8c840}
+    #boot-splash .bs-row .v.warn{color:#ffc043}
+    #boot-splash .bs-div{height:1px;margin:12px 0;background:linear-gradient(90deg,transparent,rgba(232,160,32,.35),transparent)}
+    #boot-splash .bs-note{padding:10px 14px;background:rgba(232,160,32,.06);border-left:3px solid #e8a020;color:#ffc043;font-size:12px;line-height:1.65}
+    #boot-splash .bs-btns{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+    #boot-splash .bs-btn{padding:6px 18px;border:1px solid #8a5e10;color:#e8a020;font-size:12px;letter-spacing:.15em;background:linear-gradient(180deg,#1a1208,#0a0805)}
+    #boot-splash .bs-btn.primary{border-color:#e8a020;color:#ffc043;background:linear-gradient(180deg,#3a2408,#1a1005);box-shadow:0 0 14px rgba(232,160,32,.3)}
+    #boot-splash .bs-ws{display:flex;gap:10px;padding:6px 14px;border-top:1px solid #8a5e10;background:linear-gradient(180deg,#0e0a06,#080604);font-size:10.5px;letter-spacing:.14em;color:#8a7248;text-transform:uppercase}
+    #boot-splash .bs-ws .sp{flex:1}
+    /* phase 2: light ring */
+    #boot-splash .bs-halo{opacity:0;visibility:hidden}
+    #boot-splash .bs-halo canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#000}
+    #boot-splash .bs-halo::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 40% 50%,transparent 55%,rgba(0,0,0,.55) 100%)}
+    #boot-splash.bs-ph-halo .bs-term{opacity:0}
+    #boot-splash.bs-ph-halo .bs-halo{opacity:1;visibility:visible}
+    #boot-splash .bs-credit,#boot-splash .bs-skip{position:absolute;margin:0;font:10px ui-monospace,monospace;letter-spacing:.06em;color:rgba(255,255,255,.28);pointer-events:none;z-index:7}
+    #boot-splash .bs-credit{left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 4px);text-align:center}
+    #boot-splash .bs-credit span{display:block}
+    @media (max-width:520px){#boot-splash .bs-hud .mode,#boot-splash .bs-hud .tm{display:none}}
+    #boot-splash .bs-skip{left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 34px);text-align:center;transition:opacity .4s}
+    #boot-splash.bs-ph-halo .bs-skip,#boot-splash.bs-intro-done .bs-skip{opacity:0}
+    @keyframes bs-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+    @media (prefers-reduced-motion:reduce){
+      #boot-splash,#boot-splash .bs-layer{transition-duration:.01ms}
+      #boot-splash .bs-ln.cur::after,#boot-splash .bs-hud .live{animation:none}
+    }
+  </style>
 </head>
 <body>
+  <!-- Boot splash: a game log ending in a harbor entry permit, then the HALOFLUX light ring until the world is ready,
+       then a fade into the game.
+       Look and typed-log timing: 550C scene by Voidpocket (https://github.com/Voidpocket/html_550c), ported by
+       Ziyang Song (MIT) https://github.com/yannicksong0106/dsh-550c-boot
+       HALOFLUX: Ryder191 (PolyForm Noncommercial 1.0.0) https://github.com/Ryder191/haloflux
+       Switches: ?splash=0 off · ?splash=1 force on under automation · ?splash=hold stay until tapped
+                 ?splash=full always play the whole log (default: once per browser tab session). -->
+  <div id="boot-splash" aria-hidden="true">
+    <div class="bs-layer bs-term">
+      <div class="bs-hud"><span class="brand">◢ 海岸漫遊 // PIXEL-GAMES</span><span>│</span><span class="mode">MODE <b>HD-2D</b></span><span>STAGE <b class="bs-stage">BOOT</b></span><span class="sp"></span><span class="tm">TIME <b class="bs-clock">00:00:00</b></span><span class="live">● LIVE</span></div>
+      <div class="bs-log"></div>
+      <div class="bs-foot"><span>LOADING WORLD</span><span class="sp"></span><span class="bs-prog"><i></i></span><b class="bs-pct">0%</b></div>
+      <div class="bs-win">
+        <div class="bs-wt"><span class="ico">▲</span><span>HARBOR ENTRY PERMIT · 入港許可</span></div>
+        <div class="bs-wb">
+          <div class="bs-row"><span class="k">TRAVELER</span><span class="v ok">WANDERER-01</span></div>
+          <div class="bs-row"><span class="k">PORT</span><span class="v ok">COASTAL VILLAGE · 海岸小鎮</span></div>
+          <div class="bs-row"><span class="k">ROUTE</span><span class="v warn">STONE ROAD → HARBOR</span></div>
+          <div class="bs-row"><span class="k">MODE</span><span class="v warn">FREE ROAM · 自由探索</span></div>
+          <div class="bs-row"><span class="k">PERMIT NO.</span><span class="v bs-session">0x000000</span></div>
+          <div class="bs-div"></div>
+          <div class="bs-note">許可旅人自由探索海岸小鎮、港灣與周邊田地，沒有強制任務。</div>
+          <div class="bs-btns"><span class="bs-btn">LATER</span><span class="bs-btn primary">ENTER</span></div>
+        </div>
+        <div class="bs-ws"><span>AWAITING ENTRY</span><span class="sp"></span><span class="bs-wclock">00:00:00</span></div>
+      </div>
+    </div>
+    <div class="bs-layer bs-halo"></div>
+    <p class="bs-skip">點一下略過 TAP TO SKIP</p>
+    <p class="bs-credit"><span>HALOFLUX by Ryder191 · github.com/Ryder191/haloflux</span><span>UI style: 550C by Voidpocket</span></p>
+  </div>
+  <script>
+  (function () {
+    "use strict";
+    var el = document.getElementById("boot-splash");
+    if (!el) return;
+    var mode = new URLSearchParams(location.search).get("splash");
+    var automated = navigator.webdriver === true;
+    if (mode === "0" || (automated && mode !== "1" && mode !== "hold" && mode !== "full")) {
+      el.remove();
+      window.__bootSplash = { done: function () {} };
+      return;
+    }
+    var reduced = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var seen = false;
+    try { seen = sessionStorage.getItem("pg-boot-splash") === "1"; sessionStorage.setItem("pg-boot-splash", "1"); } catch (e) {}
+    if (mode === "full" || mode === "hold") seen = false;
+    var hold = mode === "hold";
+    var haloMinMs = 1500;                                 // once the ring is shown, keep it at least this long
+    var haloBox = el.querySelector(".bs-halo");
+    var logBox = el.querySelector(".bs-log");
+    var s = { phase: "term", introDone: false, skip: false, ready: false, out: false, haloReady: false, haloAt: 0,
+              frame: null, haloTimer: 0, readyTimer: 0, pct: 0, slow: false };
+    var timers = [];
+    function later(fn, ms) { var id = setTimeout(fn, ms); timers.push(id); return id; }
+    function sleep(ms) { return new Promise(function (r) { later(r, reduced ? 0 : ms); }); }
+
+    // ---- 1. terminal log up to the login step (phaseBoot + phaseAuth of the original scene) ----------------------
+    var stageEl = el.querySelector(".bs-stage"), clockEls = [el.querySelector(".bs-clock"), el.querySelector(".bs-wclock")];
+    var progFill = el.querySelector(".bs-prog i"), pctEl = el.querySelector(".bs-pct");
+    function clock() {
+      var d = new Date(), t = [d.getHours(), d.getMinutes(), d.getSeconds()].map(function (n) { return (n < 10 ? "0" : "") + n; }).join(":");
+      clockEls.forEach(function (c) { if (c) c.textContent = t; });
+    }
+    clock(); var clockTimer = setInterval(clock, 1000);
+    function setPct(p) { s.pct = Math.max(s.pct, p); progFill.style.width = s.pct + "%"; pctEl.textContent = Math.round(s.pct) + "%"; }
+    function line(text, cls) {
+      var d = document.createElement("div");
+      d.className = "bs-ln " + (cls || ""); d.textContent = text;
+      logBox.appendChild(d);
+      while (logBox.childNodes.length > 60) logBox.removeChild(logBox.firstChild);
+      return d;
+    }
+    async function type(text, cls, speed) {
+      if (s.skip || s.out) return;
+      var d = line("", cls);
+      if (reduced) { d.textContent = text; return; }
+      for (var i = 0; i < text.length; i += 3) {
+        if (s.skip || s.out) return;
+        d.textContent += text.slice(i, i + 3);
+        await sleep(speed || 6);
+      }
+      await sleep(40);
+    }
+    async function runTerm() {
+      var win = el.querySelector(".bs-win");
+      el.querySelector(".bs-session").textContent = "0x" + Math.random().toString(16).slice(2, 8).toUpperCase();
+      stageEl.textContent = "BOOT";
+      await type("[海岸漫遊] 載入海岸線與村莊地塊。", "sys"); setPct(8);
+      await type("[海岸漫遊] 港灣暖光點亮，石板路鋪設完成。", "sys"); await sleep(30);
+      await type("[海岸漫遊] 視角模組：斜角、第一人稱、風景。", "sys"); setPct(16);
+      await type("[海岸漫遊] 日夜循環：日出在山側，日落在海側。", "sys");
+      await type("[海岸漫遊] 天氣系統：晴、多雲、雨、霧，自動變化。", "sys"); setPct(24);
+      await type("[海岸漫遊] 合成環境音與音效就緒。", "sys");
+      await type("[海岸漫遊] 碼頭小船與釣具箱已備妥。", "sys");
+      line("");
+      await type("[海岸漫遊] 等待旅人入港許可。", "warn"); setPct(32);
+      await sleep(80);
+      stageEl.textContent = "PERMIT";
+      await type("> 旅人，申請入港。", "cmd", 10); setPct(40);
+      await sleep(60);
+      if (!s.skip && !s.out && !reduced) {               // the permit window, shown for 1.6 s
+        win.classList.add("show");
+        await sleep(1600);
+        win.classList.remove("show");
+        await sleep(200);
+      }
+      await type("[海岸漫遊] 許可確認，旅人登記完成。", "sys"); setPct(56);
+      await type("[海岸漫遊] 目的地鎖定：海岸小鎮。", "sys");
+      await type("[海岸漫遊] 入港開始。", "sys"); setPct(64);
+      line("");
+      line("[海岸漫遊] 正在載入世界… LOADING WORLD", "warn cur");
+      await sleep(500);
+    }
+    function runShort() {                                 // repeat visit in the same tab: one line, then straight on
+      stageEl.textContent = "BOOT"; setPct(30);
+      line("[海岸漫遊] 正在載入世界… LOADING WORLD", "warn cur");
+      return sleep(700);
+    }
+
+    // ---- 2. light ring on a worker -------------------------------------------------------------------------------
+    function dropHalo() {
+      clearTimeout(s.haloTimer);
+      if (!s.frame) return;
+      try { s.frame.worker.terminate(); } catch (e) {}
+      if (s.frame.canvas.parentNode) s.frame.canvas.parentNode.removeChild(s.frame.canvas);
+      s.frame = null; s.haloReady = false;
+      if (s.phase === "halo") setPhase("term");           // fall back to the terminal
+    }
+    function startHalo() {
+      if (reduced || s.out || s.frame) return;
+      if (!window.Worker || !window.HTMLCanvasElement || !HTMLCanvasElement.prototype.transferControlToOffscreen) return;   // no halo: the log stays
+      var cv = document.createElement("canvas");
+      haloBox.appendChild(cv);
+      var measure = function () { var r = cv.getBoundingClientRect(); return { w: Math.max(1, Math.round(r.width)), h: Math.max(1, Math.round(r.height)) }; };
+      var size = measure(), off, worker;
+      try {
+        off = cv.transferControlToOffscreen();
+        worker = new Worker("./loader/haloflux-worker.js");
+      } catch (e) { if (cv.parentNode) cv.parentNode.removeChild(cv); return; }
+      s.frame = { canvas: cv, worker: worker };
+      worker.onmessage = function (e) {
+        var d = e.data || {};
+        if (d.halo === "error") { dropHalo(); return; }
+        if (d.halo !== "ready" || s.out || s.haloReady) return;
+        s.haloReady = true; clearTimeout(s.haloTimer);
+        if (s.phase !== "halo") worker.postMessage({ type: "pause" });   // warmed up: idle until it is needed
+        advance();
+      };
+      worker.onerror = dropHalo;
+      worker.postMessage({ type: "init", canvas: off, w: size.w, h: size.h, dpr: window.devicePixelRatio || 1 }, [off]);
+      if (window.ResizeObserver) new ResizeObserver(function () {
+        if (s.out || !s.frame) return;
+        var m = measure();
+        worker.postMessage({ type: "resize", w: m.w, h: m.h, dpr: window.devicePixelRatio || 1 });
+      }).observe(haloBox);
+      s.haloTimer = setTimeout(function () { if (!s.haloReady) dropHalo(); }, 10000);   // never ready: keep the log instead
+    }
+    startHalo();     // it draws on its own thread, so warming it up costs the game's main thread nothing
+
+    // ---- phase machine -------------------------------------------------------------------------------------------
+    function setPhase(p) {
+      el.classList.remove("bs-ph-term", "bs-ph-halo");
+      el.classList.add("bs-ph-" + p);
+      s.phase = p;
+    }
+    function showHalo() {
+      if (s.phase === "halo" || !s.frame || !s.haloReady) return;
+      s.haloAt = performance.now();
+      setPhase("halo");
+      try { s.frame.worker.postMessage({ type: "resume" }); } catch (e) {}
+    }
+    function finish() {
+      if (s.out) return;
+      s.out = true;
+      timers.forEach(clearTimeout); clearTimeout(s.haloTimer); clearTimeout(s.readyTimer); clearInterval(clockTimer);
+      setPct(100);
+      window.removeEventListener("keydown", onKey);
+      if (s.frame) { try { s.frame.worker.postMessage({ type: "pause" }); } catch (e) {} }   // free the CPU for the game while fading
+      el.classList.add("bs-out");
+      var remove = function () { dropHalo(); if (el.parentNode) el.parentNode.removeChild(el); };
+      el.addEventListener("transitionend", function (ev) { if (ev.target === el) remove(); });
+      setTimeout(remove, 1200);
+    }
+    function advance() {                                  // decides what to show next, whenever something changes
+      if (s.out || !s.introDone) return;
+      el.classList.add("bs-intro-done");
+      if (hold) { showHalo(); return; }                   // design review: only a tap ends it
+      if (s.ready) {
+        var wait = s.haloAt ? Math.max(0, haloMinMs - (performance.now() - s.haloAt)) : 0;
+        if (wait > 0) { clearTimeout(s.readyTimer); s.readyTimer = setTimeout(finish, wait + 20); } else finish();
+        return;
+      }
+      showHalo();                                         // not loaded yet: loop the light ring
+    }
+    function introFinished() { if (!s.introDone) { s.introDone = true; advance(); } }
+    function skipIntro() { s.skip = true; el.querySelector(".bs-win").classList.remove("show"); introFinished(); }   // stays on the terminal until the light ring is ready
+    function onKey(e) { if (e.key === "Escape" || e.key === "Enter" || e.key === " ") skipIntro(); }
+    window.addEventListener("keydown", onKey);
+    el.addEventListener("click", function () {
+      if (!s.introDone) skipIntro();
+      else if (s.slow || hold) finish();
+    });
+
+    // schedule: terminal log (full on the first visit of the tab session, one line on a repeat visit) -> light ring
+    later(function () {
+      if (s.out) return;
+      (seen && !reduced ? runShort() : runTerm()).then(function () { introFinished(); });
+    }, 150);
+
+    later(function () {                                   // safety: a very slow load must never trap the player
+      if (s.out) return;
+      s.slow = true; s.introDone = true; el.classList.add("bs-intro-done"); el.style.cursor = "pointer";
+      var last = logBox.lastChild; if (last) last.textContent = "[海岸漫遊] 仍在載入，點一下可略過… STILL LOADING · TAP TO SKIP";
+      advance();
+    }, 25000);
+
+    window.__bootSplash = {
+      done: function (state) {
+        if (hold) return;
+        if (state === "ready") { s.ready = true; setPct(96); advance(); }
+        else if (state === "unsupported" || state === "failed") finish();
+      }
+    };
+  })();
+  </script>
   <main id="game" aria-label="原創海岸探索場景">
     <canvas id="stage" aria-label="3D 海岸世界，使用方向鍵或 WASD 移動角色"></canvas>
     <div class="screen-shade" aria-hidden="true"></div>

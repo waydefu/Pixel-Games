@@ -208,6 +208,7 @@ function mark(state:GameState,message:string){
   diagnostics.status=state;
   status.textContent=message;
   status.toggleAttribute("hidden",state==="ready");
+  (window as Window&{__bootSplash?:{done:(state:string)=>void}}).__bootSplash?.done(state); // boot splash in index.html: fade out on ready, give way to the error on unsupported/failed
   if(state==="unsupported"||state==="failed")fallback.hidden=false;
   else fallback.hidden=true;
 }

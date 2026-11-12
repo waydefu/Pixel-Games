@@ -4,6 +4,8 @@
 
 **例外（已登記）：** `assets/models/polyfork/` 內的 Polyfork 免費低多邊形 GLB 網格，以 CC BY 4.0 使用並署名，見 [ASSET-CREDITS](ASSET-CREDITS.md)；它們不是遊戲素材，也不含 ES module。《Bells of Evermere》僅作美術參考，不代表本專案取得對方素材再散布授權。
 
+**例外（已登記，非商用）：** 進場載入畫面的光環動畫 `public/loader/haloflux-worker.js` 來自 HALOFLUX，授權為 PolyForm Noncommercial 1.0.0，**只限非商用**；Owner 於 2026-11-12 確認並同意（Issue #135）。授權文字隨檔發布。它是程式碼、不是遊戲素材，放在 `public/loader/` 而不是 `assets/`，所以不在 manifest；來源、修改與 SHA-256 記在 [ASSET-CREDITS](ASSET-CREDITS.md)。專案若要營利，須先移除該檔。
+
 若日後匯入 GLB/glTF、圖像或音效：
 - 在 `assets/manifest.json` 登記 id/path/author/license/source/sha256。
 - `npm run assets` 驗證 Hash、未註冊素材、非法路徑與 glTF 外部檔案。

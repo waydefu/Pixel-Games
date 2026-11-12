@@ -8,6 +8,7 @@
 | Three.js WebGL2、統一 HD-2D Renderer Port／後製 | CURRENT | PR #21；舊 `cinematic-post.js` 非現行管線 |
 | 原創與有授權資產須保留來源／修改資訊 | CURRENT | ASSET-POLICY / ASSET-CREDITS |
 | PR + 必要 CI、Owner 當次決定合併 | CURRENT | Active Protect main ruleset / CONTRIBUTING |
+| 載入畫面光環使用非商用授權（PolyForm Noncommercial）的 HALOFLUX | CURRENT | Owner 2026-11-12 確認專案非商用並同意例外（Issue #135）；ASSET-CREDITS / ASSET-POLICY；營利前必須移除 `public/loader/haloflux-worker.js` |
 | 釣魚、划船、天氣、合成音訊已接入遊戲 | CURRENT | PR #27/#29/#30/#32；與完整背包／存檔區分 |
 | 雲採十雲屬 2D 分層＋雲影，而非 28 步體積雲 | CURRENT | PR #33；以現行 shader 實作為準 |
 | 手機渲染預先執行雲影與反射 pass | CURRENT | PR #34；真機結果仍需單獨驗收 |

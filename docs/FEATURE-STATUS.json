@@ -166,6 +166,19 @@
         "src/game/grass-placement.js",
         "src/game/coastline.ts"
       ]
+    },
+    {
+      "id": "boot-splash",
+      "name": "進場載入畫面（遊戲日誌與入港許可 → 光環循環 → 淡入）",
+      "status": "implemented",
+      "pr": [
+        136
+      ],
+      "paths": [
+        "index.html",
+        "public/loader/haloflux-worker.js",
+        "e2e/boot-splash.spec.mjs"
+      ]
     }
   ],
   "verificationBoundary": "implemented=已合併可辨識程式，不等於真機或完整遊戲品質驗收；釣魚紀錄不等於完整進度存檔"

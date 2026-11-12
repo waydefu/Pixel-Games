@@ -84,3 +84,48 @@
 - 資料集的模型作者：CodePawl（World Fish）；建模方法 fish-kit method by [@nachat_dayo](https://x.com/nachat_dayo)。依 CC0 1.0 無須署名，本專案仍保留出處。
 - **只使用網格與貼圖**；未修改檔案內容。選 `engine/` 而非 `lods/`：後者需要 meshopt 解碼器，約 7 KB gzip，會超過已接近滿載的 JS 預算（見 #133）。座標轉換（尾在 −x、頭在 +x、置中、縮放到遊戲的長度）在執行期完成，見 `src/game/fish-glb-frame.js`。
 - 資料集其他 116 種魚未納入倉庫；`lods/`、`mobile/`、`objects/` 等其他層級未使用。
+
+
+## HALOFLUX — 載入畫面的光環動畫（Issue #135）
+
+- 來源與授權：[HALOFLUX](https://github.com/Ryder191/haloflux)，作者 Ryder191（RYDER CODE / Ms MAIKEBAIs CAT），**[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)**。完整條款與作者的使用規定在 `public/loader/HALOFLUX-LICENSE.txt`，隨檔案一起發布。
+- Required Notice：`Copyright (c) 2026 Ryder191 (RYDER CODE / Ms MAIKEBAIs CAT) - https://github.com/Ryder191/haloflux`；`Noncommercial use only. Any commercial use is strictly prohibited. No commercial licenses are offered.`
+- **只限非商用。** 禁止任何商業使用，包括營利、收費、廣告、贊助或捐款連結。分享本遊戲的影片或截圖時，作者要求在貼文**本文**附上 `Source: HALOFLUX by Ryder191 - https://github.com/Ryder191/haloflux`（不能只放在留言）。載入畫面下方也顯示署名與連結。
+- **Owner 決定：** Waydefu 於 2026-11-12 確認本專案為非商用並同意此例外（見[決策效力表](decisions/DECISION-REGISTER.md)）。若專案日後要營利，必須先刪除 `public/loader/haloflux-worker.js`；載入畫面會自動退回只顯示遊戲日誌，不需要改程式。
+- 取自作者的 `mobile.html`（commit `02174503d0f391b1bb2537b8cad75e8e5f9997f2`，SHA-256 `e1b25af46fea77125bd42210445009c5573c34cb47ff856599df9f108f8d399c`）。
+- **修改說明（Modified from HALOFLUX）：** 作者的繪圖程式碼原封不動搬進 `public/loader/haloflux-worker.js` 的 `boot()`，在 Web Worker 以 OffscreenCanvas 繪製，所以遊戲載入時主執行緒再忙也不會凍住它，也不佔用遊戲的主執行緒。不收錄研究儀表板、設定面板與背景音樂（7.5 MB 的 mp3 不放進倉庫）；加上最小的 DOM 相容層與暫停／縮放／就緒訊息；像素比與幀率維持作者的設定。
+- 它是程式碼、不是遊戲素材，放在 `public/loader/`（原樣複製到發布目錄），不在 `assets/manifest.json`。檔案與 SHA-256：
+
+| 檔案 | SHA-256 |
+| --- | --- |
+| `public/loader/haloflux-worker.js` | `db431f554d808ac2a94f49bba3ae97bed683cf0985748a4f1d537d1cd761baa4` |
+| `public/loader/HALOFLUX-LICENSE.txt`（與上游 `LICENSE` 相同） | `b0cfd4081cb8979afcc94c59055412e3585beafbf69fbf2d744cc89eef889471` |
+
+## 550C — 載入畫面日誌與入港許可視窗的介面風格（Issue #135）
+
+- 風格參考：Voidpocket 的 550C 場景（[html_550c](https://github.com/Voidpocket/html_550c)），經 [dsh-550c-boot](https://github.com/yannicksong0106/dsh-550c-boot)（MIT，© 2026 Ziyang Song）移植。配色、版面規則與逐行打字的節奏改寫自該場景；**程式碼為本專案重寫、所有文字為原創**。不使用 550C 的 logo、名稱、文字與其他素材。
+- 上游授權狀況：dsh-550c-boot 有完整的 MIT 授權檔；Voidpocket 的 html_550c README 聲明 MIT，但倉庫內沒有 LICENSE 檔，所以只採「風格參考＋重寫」，不複製其原稿程式碼或文字。載入畫面下方顯示署名（`UI style: 550C by Voidpocket`）。
+
+```text
+MIT License
+
+Copyright (c) 2026 Ziyang Song
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

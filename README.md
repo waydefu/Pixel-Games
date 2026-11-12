@@ -39,8 +39,15 @@ GitHub Pages 僅由 `.github/workflows/deploy-pages.yml` 在 main 更新時發�
 - `src/game/world.ts`：場景組裝；其他 `src/game/` 模組處理相機、海洋、天空、天氣、釣魚、划船、音訊與美術。
 - `src/rendering/`：單一 HD-2D 後製及渲染生命週期。
 - `tests/`、`e2e/`、`scripts/`：回歸與建置檢查；`.github/workflows/`：CI/Pages。
+- `public/loader/`：載入畫面的光環 worker 與其授權文字（原樣複製到發布目錄，非商用授權，見 [ASSET-CREDITS](docs/ASSET-CREDITS.md)）。
 - `docs/`：現行規範與**保留原文**的研究／ADR／歷史紀錄。
 - `.agents/skills/`：按需載入的開發技能，不是遊戲執行端自動授權。
+
+## 進場載入畫面
+
+進網頁後到世界載入完成之間不再空白：先逐行顯示與遊戲相關的日誌並出現「入港許可」視窗，接著循環播放光環動畫（Web Worker／OffscreenCanvas，不佔用遊戲主執行緒），世界就緒後淡入遊戲。點一下或按 Esc／Enter／空格可略過日誌；同一分頁再次進站只顯示一行載入提示；`prefers-reduced-motion` 不播動畫；WebGL2 不可用或啟動失敗時立刻讓位給錯誤訊息。
+
+網址參數：`?splash=0` 關閉；`?splash=full` 永遠播完整日誌；`?splash=hold` 停到點擊為止（檢視設計用）；自動化瀏覽器（Playwright）預設不顯示，用 `?splash=1` 強制開啟。光環動畫為**非商用**授權；真機載入觀感記在驗收 Issue #120。
 
 ## 操作與驗收
 
