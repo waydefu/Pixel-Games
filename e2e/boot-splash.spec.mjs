@@ -46,6 +46,8 @@ test("a tap skips the log and ?splash=hold ignores the game until it is tapped",
   await page.mouse.click(20, 200);
   await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 3000 });
   await page.evaluate(() => window.__bootSplash.done("ready"));
+  await expect(page.locator("#boot-splash .bs-pct")).toHaveText("100%", { timeout: 8000 });
+  await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 8000 });
   await page.waitForTimeout(1500);
   await expect(splash(page)).toBeVisible();          // hold mode: the game state does not end it
   await page.mouse.click(20, 200);
