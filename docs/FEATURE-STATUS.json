@@ -44,7 +44,9 @@
       ],
       "paths": [
         "src/game/fishing.ts",
-        "src/game/fishing-logic.js"
+        "src/game/fishing-logic.js",
+        "src/game/fish-glb.ts",
+        "src/game/fish-glb-frame.js"
       ]
     },
     {
