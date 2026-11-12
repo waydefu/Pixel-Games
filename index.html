@@ -124,7 +124,7 @@
     try { seen = sessionStorage.getItem("pg-boot-splash") === "1"; sessionStorage.setItem("pg-boot-splash", "1"); } catch (e) {}
     if (mode === "full" || mode === "hold") seen = false;
     var hold = mode === "hold";
-    var haloMinMs = 1500;                                 // once the ring is shown, keep it at least this long
+    var haloMinMs = 5000;                                 // the light ring loops for at least five seconds before the game
     var haloBox = el.querySelector(".bs-halo");
     var logBox = el.querySelector(".bs-log");
     var s = { phase: "term", introDone: false, skip: false, ready: false, out: false, haloReady: false, haloAt: 0,
@@ -265,7 +265,9 @@
       el.classList.add("bs-intro-done");
       if (hold) { showHalo(); return; }                   // design review: only a tap ends it
       if (s.ready) {
-        var wait = s.haloAt ? Math.max(0, haloMinMs - (performance.now() - s.haloAt)) : 0;
+        if (!s.haloAt && s.frame && s.haloReady) showHalo();   // ready before the ring appeared: show it now, not skip it
+        if (!s.haloAt) { finish(); return; }                   // no worker at all (old browser): nothing to loop, leave at once
+        var wait = Math.max(0, haloMinMs - (performance.now() - s.haloAt));
         if (wait > 0) { clearTimeout(s.readyTimer); s.readyTimer = setTimeout(finish, wait + 20); } else finish();
         return;
       }
@@ -275,6 +277,20 @@
     function skipIntro() { s.skip = true; el.querySelector(".bs-win").classList.remove("show"); introFinished(); }   // stays on the terminal until the light ring is ready
     function onKey(e) { if (e.key === "Escape" || e.key === "Enter" || e.key === " ") skipIntro(); }
     window.addEventListener("keydown", onKey);
+    var fsTried = false;
+    function enterFullscreen() {                         // browsers only allow fullscreen from a user gesture, so the first one enters it
+      if (fsTried) return;
+      fsTried = true;
+      window.removeEventListener("pointerdown", enterFullscreen, true);
+      window.removeEventListener("keydown", enterFullscreen, true);
+      window.removeEventListener("touchend", enterFullscreen, true);
+      var root = document.documentElement;
+      if (document.fullscreenElement || !root.requestFullscreen) return;
+      try { var p = root.requestFullscreen({ navigationUI: "hide" }); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    }
+    window.addEventListener("pointerdown", enterFullscreen, true);
+    window.addEventListener("keydown", enterFullscreen, true);
+    window.addEventListener("touchend", enterFullscreen, true);
     el.addEventListener("click", function () {
       if (!s.introDone) skipIntro();
       else if (s.slow || hold) finish();

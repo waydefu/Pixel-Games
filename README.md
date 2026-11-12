@@ -45,7 +45,7 @@ GitHub Pages 僅由 `.github/workflows/deploy-pages.yml` 在 main 更新時發�
 
 ## 進場載入畫面
 
-進網頁後到世界載入完成之間不再空白：先逐行顯示與遊戲相關的日誌並出現「入港許可」視窗，接著循環播放光環動畫（Web Worker／OffscreenCanvas，不佔用遊戲主執行緒），世界就緒後淡入遊戲。點一下或按 Esc／Enter／空格可略過日誌；同一分頁再次進站只顯示一行載入提示；`prefers-reduced-motion` 不播動畫；WebGL2 不可用或啟動失敗時立刻讓位給錯誤訊息。
+進網頁後到世界載入完成之間不再空白：先逐行顯示與遊戲相關的日誌並出現「入港許可」視窗，接著循環播放光環動畫（Web Worker／OffscreenCanvas，不佔用遊戲主執行緒），光環至少循環五秒，之後才淡入遊戲（世界比光環早就緒時也會播滿五秒）。第一次點擊、按鍵或觸控會自動進入全螢幕（瀏覽器只允許由使用者操作觸發）。點一下或按 Esc／Enter／空格可略過日誌；同一分頁再次進站只顯示一行載入提示；`prefers-reduced-motion` 不播動畫；WebGL2 不可用或啟動失敗時立刻讓位給錯誤訊息。
 
 網址參數：`?splash=0` 關閉；`?splash=full` 永遠播完整日誌；`?splash=hold` 停到點擊為止（檢視設計用）；自動化瀏覽器（Playwright）預設不顯示，用 `?splash=1` 強制開啟。光環動畫為**非商用**授權；真機載入觀感記在驗收 Issue #120。
 
