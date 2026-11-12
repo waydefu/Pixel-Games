@@ -314,7 +314,14 @@
     }
     function introFinished() { if (!s.introDone) { s.introDone = true; advance(); } }
     function skipIntro() { s.skip = true; el.querySelector(".bs-win").classList.remove("show"); introFinished(); }   // stays on the terminal until the light ring is ready
-    function onKey(e) { if (e.key === "Escape" || e.key === "Enter" || e.key === " ") skipIntro(); }
+    function canDismissHold() {
+      return hold && s.introDone && s.ready && s.progressComplete && s.phase === "halo";
+    }
+    function onKey(e) {
+      if (e.key !== "Escape" && e.key !== "Enter" && e.key !== " ") return;
+      if (canDismissHold()) finish();
+      else skipIntro();
+    }
     window.addEventListener("keydown", onKey);
     var fsTried = false;
     function enterFullscreen() {                         // browsers only allow fullscreen from a user gesture, so the first one enters it
@@ -330,10 +337,14 @@
     window.addEventListener("pointerdown", enterFullscreen, true);
     window.addEventListener("keydown", enterFullscreen, true);
     window.addEventListener("touchend", enterFullscreen, true);
-    el.addEventListener("click", function () {
+    // Capture the gesture before a full-screen halo canvas or nested layer can
+    // consume bubbling clicks. Never bypass readiness with a second early tap.
+    el.addEventListener("click", function (e) {
+      if (s.out) return;
       if (!s.introDone) skipIntro();
-      else if (hold || (s.slow && !s.ready)) finish();
-    });
+      else if (canDismissHold()) { e.stopPropagation(); finish(); }
+      else if (s.slow && !s.ready && !hold) finish();
+    }, true);
 
     // schedule: terminal -> confirmed ready -> visible 100% -> HALOFLUX (or CSS fallback) for 5 s -> game
     later(function () {
