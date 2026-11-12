@@ -111,3 +111,20 @@ test("the first user gesture requests fullscreen once, and later gestures do not
   await page.keyboard.press("Escape");
   expect(await page.evaluate(() => window.__fsCalls)).toBe(1);
 });
+
+test("the light ring starts only after the game log has finished typing", async ({ page }) => {
+  await blockGame(page);
+  await page.addInitScript(stampTimes);
+  await page.goto("./?splash=full");
+  const hasWorker = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
+  if (!hasWorker) return;
+  // ready arrives while the log is still typing; the ring must still wait for the whole log
+  await page.evaluate(() => window.__bootSplash.done("ready"));
+  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 30000 });
+  const logAtRingStart = await page.evaluate(() => {
+    const lines = [...document.querySelectorAll("#boot-splash .bs-ln")].map((n) => n.textContent);
+    return { last: lines[lines.length - 1] || "", permit: document.querySelector("#boot-splash .bs-wt")?.textContent || "" };
+  });
+  expect(logAtRingStart.last).toContain("正在載入世界");
+  expect(logAtRingStart.permit).toContain("HARBOR ENTRY PERMIT");
+});
