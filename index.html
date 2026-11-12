@@ -335,7 +335,8 @@
 
     window.__bootSplash = {
       done: function (state) {
-        if (hold) return;
+        // Review hold mode keeps the finished ring on screen, but still needs
+        // readiness to complete 100% and enter its ring phase.
         if (state === "ready") { s.ready = true; advance(); } // fill the remaining 64→100% visibly after the log
         else if (state === "unsupported" || state === "failed") finish();
       }
