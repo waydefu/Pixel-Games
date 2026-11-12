@@ -88,9 +88,11 @@ test("the light ring plays for at least five seconds before the game is entered"
   await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 20000 });
   await expect(splash(page)).not.toHaveClass(/bs-ph-halo/);
   await page.evaluate(() => window.__bootSplash.done("ready"));
-  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 12000 });
+  // Software Chromium's requestAnimationFrame polling can starve while the
+  // HALOFLUX worker renders. Poll browser state independently of RAF instead.
+  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 30000, polling: 100 });
   expect(await page.evaluate(() => [window.__pctAtHalo, window.__fillAtHalo])).toEqual(["100%", "100%"]);
-  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 12000 });
+  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 30000, polling: 100 });
   expect(await ringMs(page)).toBeGreaterThanOrEqual(4900);
 });
 
