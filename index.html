@@ -336,7 +336,7 @@
     window.__bootSplash = {
       done: function (state) {
         if (hold) return;
-        if (state === "ready") { s.ready = true; setPct(96); advance(); }
+        if (state === "ready") { s.ready = true; advance(); } // fill the remaining 64→100% visibly after the log
         else if (state === "unsupported" || state === "failed") finish();
       }
     };
