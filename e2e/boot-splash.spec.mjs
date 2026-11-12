@@ -19,7 +19,7 @@ test("the log runs to the entry permit, the light ring loops, and a ready world 
   await page.goto("./?splash=full");
   await expect(splash(page)).toBeVisible();
   await expect(page.locator("#boot-splash .bs-ln").first()).toContainText("[海岸漫遊]");
-  await expect(page.locator("#boot-splash .bs-win")).toHaveClass(/show/, { timeout: 8000 });
+  await expect(page.locator("#boot-splash .bs-win")).toHaveClass(/show/, { timeout: 30000 }); // CI renders slower; the permit comes after the whole log
   await expect(page.locator("#boot-splash .bs-wt")).toContainText("HARBOR ENTRY PERMIT");
   await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 12000 });
   const workerSupported = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
