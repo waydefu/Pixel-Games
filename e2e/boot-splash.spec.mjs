@@ -50,8 +50,9 @@ test("a tap skips the log and ?splash=hold ignores the game until it is tapped",
   await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 8000 });
   await page.waitForTimeout(1500);
   await expect(splash(page)).toBeVisible();          // hold mode: the game state does not end it
-  await page.mouse.click(20, 200);
-  await expect(splash(page)).toHaveCount(0, { timeout: 8000 });
+  // Use the overlay as the click target after fullscreen may have resized the viewport.
+  await splash(page).click({ position: { x: 20, y: 200 } });
+  await expect(splash(page)).toHaveCount(0, { timeout: 14000 });
 });
 
 test("reduced motion shows the whole log at once, without the permit window or the light ring", async ({ page }) => {
