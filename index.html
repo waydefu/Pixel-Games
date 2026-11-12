@@ -131,7 +131,7 @@
     var haloBox = el.querySelector(".bs-halo");
     var logBox = el.querySelector(".bs-log");
     var s = { phase: "term", introDone: false, skip: false, ready: false, out: false, haloReady: false, haloAt: 0,
-              frame: null, haloTimer: 0, readyTimer: 0, progressFrame: 0, progressing: false,
+              frame: null, haloTimer: 0, readyTimer: 0, progressTick: 0, progressing: false,
               progressComplete: false, pct: 0, slow: false };
     var timers = [];
     function later(fn, ms) { var id = setTimeout(fn, ms); timers.push(id); return id; }
@@ -145,22 +145,37 @@
       clockEls.forEach(function (c) { if (c) c.textContent = t; });
     }
     clock(); var clockTimer = setInterval(clock, 1000);
-    function setPct(p) { s.pct = Math.min(100, Math.max(s.pct, p)); progFill.style.width = s.pct + "%"; pctEl.textContent = Math.round(s.pct) + "%"; }
+    function setPct(p) {
+      if (s.progressing && p < 100) return; // a skipped terminal must not disrupt the finishing transition
+      s.pct = Math.min(100, Math.max(s.pct, p));
+      progFill.style.width = s.pct + "%";
+      pctEl.textContent = Math.round(s.pct) + "%";
+    }
     function completeProgress() {
       if (!s.ready || s.progressComplete || s.progressing || s.out) return;
       s.progressing = true;
       var from = s.pct, at = performance.now(), duration = reduced ? 0 : 900;
-      function frame(now) {
-        if (s.out || !s.ready) return;
-        var t = duration ? Math.min(1, (now - at) / duration) : 1;
-        setPct(from + (100 - from) * (1 - (1 - t) * (1 - t)));
-        if (t < 1) { s.progressFrame = requestAnimationFrame(frame); return; }
-        setPct(100);
-        // Keep the transition locked through the visible 100% hold, even if the
-        // worker reports "ready" again during this 350 ms interval.
-        later(function () { s.progressComplete = true; s.progressing = false; advance(); }, reduced ? 0 : 350);
+      if (duration) {
+        // The bar animates on CSS/compositor time, even when the main thread
+        // cannot deliver requestAnimationFrame (software GPU / slow phones).
+        void progFill.offsetWidth;
+        progFill.style.transition = "width " + duration + "ms ease-out";
+        progFill.style.width = "100%";
+        s.progressTick = setInterval(function () {
+          if (s.out) return;
+          var t = Math.min(1, (performance.now() - at) / duration);
+          s.pct = Math.max(s.pct, from + (100 - from) * (1 - (1 - t) * (1 - t)));
+          pctEl.textContent = Math.min(99, Math.floor(s.pct)) + "%";
+        }, 40);
       }
-      frame(performance.now());
+      // Finalize on an independent clock. Frame-driven progress could remain
+      // stranded at 99% forever when a heavy Worker starves animation frames.
+      later(function () {
+        clearInterval(s.progressTick); s.progressTick = 0;
+        setPct(100);
+        // Keep 100% visibly on screen, then enter the five-second ring.
+        later(function () { s.progressComplete = true; s.progressing = false; advance(); }, reduced ? 0 : 350);
+      }, duration);
     }
     function line(text, cls) {
       var d = document.createElement("div");
@@ -276,7 +291,7 @@
       if (s.out) return;
       s.out = true;
       timers.forEach(clearTimeout); clearTimeout(s.haloTimer); clearTimeout(s.readyTimer);
-      cancelAnimationFrame(s.progressFrame); clearInterval(clockTimer);
+      clearInterval(s.progressTick); clearInterval(clockTimer);
       window.removeEventListener("keydown", onKey);
       if (s.frame) { try { s.frame.worker.postMessage({ type: "pause" }); } catch (e) {} }   // free the CPU for the game while fading
       el.classList.add("bs-out");
