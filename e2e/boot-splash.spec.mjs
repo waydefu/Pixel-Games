@@ -22,10 +22,11 @@ test("the log runs to the entry permit, the light ring loops, and a ready world 
   await expect(page.locator("#boot-splash .bs-win")).toHaveClass(/show/, { timeout: 30000 }); // CI renders slower; the permit comes after the whole log
   await expect(page.locator("#boot-splash .bs-wt")).toContainText("HARBOR ENTRY PERMIT");
   await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 12000 });
-  const workerSupported = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
-  if (workerSupported) await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 12000 });
+  await expect(splash(page)).not.toHaveClass(/bs-ph-halo/);  // still waiting for actual game readiness
   await page.evaluate(() => window.__bootSplash.done("ready"));
-  await expect(splash(page)).toHaveClass(/bs-out/);
+  await expect(page.locator("#boot-splash .bs-pct")).toHaveText("100%", { timeout: 8000 });
+  await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 8000 });
+  await expect(splash(page)).toHaveClass(/bs-out/, { timeout: 12000 });
   await expect(splash(page)).toHaveCount(0, { timeout: 20000 }); // CI renders slower; removal follows the fade within ~1.2 s locally
   expect(errors).toEqual([]);
 });
@@ -67,7 +68,11 @@ const stampTimes = () => {
   const stamp = () => {
     const el = document.getElementById("boot-splash");
     if (!el) return;
-    if (el.classList.contains("bs-ph-halo") && window.__haloAt === undefined) window.__haloAt = performance.now();
+    if (el.classList.contains("bs-ph-halo") && window.__haloAt === undefined) {
+      window.__haloAt = performance.now();
+      window.__pctAtHalo = el.querySelector(".bs-pct")?.textContent;
+      window.__fillAtHalo = el.querySelector(".bs-prog i")?.style.width;
+    }
     if (el.classList.contains("bs-out") && window.__finishAt === undefined) window.__finishAt = performance.now();
   };
   new MutationObserver(stamp).observe(document, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true });
@@ -78,11 +83,12 @@ test("the light ring plays for at least five seconds before the game is entered"
   await blockGame(page);
   await page.addInitScript(stampTimes);
   await page.goto("./?splash=full");
-  const hasWorker = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
-  if (!hasWorker) return;
-  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 20000 });
+  await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 20000 });
+  await expect(splash(page)).not.toHaveClass(/bs-ph-halo/);
   await page.evaluate(() => window.__bootSplash.done("ready"));
-  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 12000 });
+  expect(await page.evaluate(() => [window.__pctAtHalo, window.__fillAtHalo])).toEqual(["100%", "100%"]);
+  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 12000 });
   expect(await ringMs(page)).toBeGreaterThanOrEqual(4900);
 });
 
@@ -91,10 +97,9 @@ test("a world that is ready before the ring appears still gets a five second rin
   await page.addInitScript(stampTimes);
   await page.goto("./?splash=full");
   await expect(splash(page)).toBeVisible();
-  const hasWorker = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
   await page.evaluate(() => window.__bootSplash.done("ready"));          // ready while the log is still typing
-  if (!hasWorker) return;
-  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 35000 });
+  expect(await page.evaluate(() => [window.__pctAtHalo, window.__fillAtHalo])).toEqual(["100%", "100%"]);
   expect(await ringMs(page)).toBeGreaterThanOrEqual(4900);
 });
 
@@ -116,8 +121,6 @@ test("the light ring starts only after the game log has finished typing", async 
   await blockGame(page);
   await page.addInitScript(stampTimes);
   await page.goto("./?splash=full");
-  const hasWorker = await page.evaluate(() => !!window.Worker && !!HTMLCanvasElement.prototype.transferControlToOffscreen);
-  if (!hasWorker) return;
   // ready arrives while the log is still typing; the ring must still wait for the whole log
   await page.evaluate(() => window.__bootSplash.done("ready"));
   await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 30000 });
@@ -127,4 +130,31 @@ test("the light ring starts only after the game log has finished typing", async 
   });
   expect(logAtRingStart.last).toContain("正在載入世界");
   expect(logAtRingStart.permit).toContain("HARBOR ENTRY PERMIT");
+  expect(await page.evaluate(() => [window.__pctAtHalo, window.__fillAtHalo])).toEqual(["100%", "100%"]);
+});
+
+test("without OffscreenCanvas the CSS ring still starts at 100% and stays for five seconds", async ({ page }) => {
+  await blockGame(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLCanvasElement.prototype, "transferControlToOffscreen", { value: undefined, configurable: true });
+  });
+  await page.addInitScript(stampTimes);
+  await page.goto("./?splash=1");
+  await expect(splash(page)).toBeVisible();
+  await page.evaluate(() => window.__bootSplash.done("ready"));
+  await page.waitForFunction(() => window.__haloAt !== undefined, null, { timeout: 20000 });
+  await expect(page.locator("#boot-splash .bs-fallback-ring")).toBeVisible();
+  expect(await page.evaluate(() => [window.__pctAtHalo, window.__fillAtHalo])).toEqual(["100%", "100%"]);
+  await page.waitForFunction(() => window.__finishAt !== undefined, null, { timeout: 15000 });
+  expect(await ringMs(page)).toBeGreaterThanOrEqual(4900);
+});
+
+test("loading failure bypasses the ring and never reports a fake 100%", async ({ page }) => {
+  await blockGame(page);
+  await page.addInitScript(stampTimes);
+  await page.goto("./?splash=1");
+  await expect(splash(page)).toBeVisible();
+  await page.evaluate(() => window.__bootSplash.done("failed"));
+  await expect(splash(page)).toHaveCount(0, { timeout: 4000 });
+  expect(await page.evaluate(() => [window.__haloAt, window.__pctAtHalo])).toEqual([undefined, undefined]);
 });
