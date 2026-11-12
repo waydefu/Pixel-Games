@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {runInNewContext} from "node:vm";
-import ts from "typescript";
+import {stripTypeScriptTypes} from "node:module";
 
 const ocean=readFileSync(new URL("../src/game/ocean.ts",import.meta.url),"utf8");
 const world=readFileSync(new URL("../src/game/world.ts",import.meta.url),"utf8");
@@ -71,9 +71,7 @@ test("reflection callback always restores the original sea visibility, including
   const start=ocean.indexOf("  function renderMirror(");
   const end=ocean.indexOf("  /** Draws the mirror image",start);
   assert.ok(start>=0&&end>start,"renderMirror source range must be present");
-  const js=ts.transpileModule(ocean.slice(start,end),{
-    compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None},
-  }).outputText+"\nrenderMirror({}, {}, {});";
+  const js=stripTypeScriptTypes(ocean.slice(start,end),{mode:"strip"})+"\nrenderMirror({}, {}, {});";
 
   for(const initiallyVisible of [true,false]){
     const outer={visible:initiallyVisible},water={},observed=[];
