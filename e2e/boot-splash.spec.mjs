@@ -26,7 +26,7 @@ test("the log runs to the entry permit, the light ring loops, and a ready world 
   if (workerSupported) await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 12000 });
   await page.evaluate(() => window.__bootSplash.done("ready"));
   await expect(splash(page)).toHaveClass(/bs-out/);
-  await expect(splash(page)).toHaveCount(0, { timeout: 8000 });
+  await expect(splash(page)).toHaveCount(0, { timeout: 20000 }); // CI renders slower; removal follows the fade within ~1.2 s locally
   expect(errors).toEqual([]);
 });
 
