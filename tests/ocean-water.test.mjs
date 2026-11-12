@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {runInNewContext} from "node:vm";
+import ts from "typescript";
 
 const ocean=readFileSync(new URL("../src/game/ocean.ts",import.meta.url),"utf8");
 const world=readFileSync(new URL("../src/game/world.ts",import.meta.url),"utf8");
@@ -60,4 +62,32 @@ test("ocean limits storm crests at harbour edge and masks its water under dry la
   assert.match(ocean,/vec3 n=normalize\(vec3\(-dx,1\.0,-dz\)\)/);
   assert.doesNotMatch(ocean,/normalize\(vec3\(-dx,1\.0,-dz\)\*uWeather\.x\)/);
   assert.match(ocean,/mirrorSampler/);
+});
+
+
+test("reflection callback always restores the original sea visibility, including after an injected throw",()=>{
+  // Execute the real renderMirror implementation in isolation rather than only
+  // matching source text: no WebGL context is necessary to inject an error.
+  const start=ocean.indexOf("  function renderMirror(");
+  const end=ocean.indexOf("  /** Draws the mirror image",start);
+  assert.ok(start>=0&&end>start,"renderMirror source range must be present");
+  const js=ts.transpileModule(ocean.slice(start,end),{
+    compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None},
+  }).outputText+"\nrenderMirror({}, {}, {});";
+
+  for(const initiallyVisible of [true,false]){
+    const outer={visible:initiallyVisible},water={},observed=[];
+    runInNewContext(js,{outer,water,originalBeforeRender:function(){
+      observed.push({visible:outer.visible,receiver:this});
+    }});
+    assert.deepEqual(observed,[{visible:false,receiver:water}],"mirror callback sees hidden sea");
+    assert.equal(outer.visible,initiallyVisible,"success restores the pre-existing visibility");
+
+    const broken={visible:initiallyVisible};
+    assert.throws(()=>runInNewContext(js,{outer:broken,water:{},originalBeforeRender(){
+      assert.equal(broken.visible,false,"mirror callback must run with sea hidden");
+      throw new Error("injected reflection failure");
+    }}),/injected reflection failure/);
+    assert.equal(broken.visible,initiallyVisible,"failure must restore the pre-existing visibility");
+  }
 });
