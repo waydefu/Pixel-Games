@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createFishing, isOpenWater, SPECIES, CAST_RANGE, MAX_LINE, SWEET_ZONE } from "./fishing-logic.js";
 import { createRope } from "./rope.js";
 import { buildCatchModel, buildLureKind, LURES } from "./fish-model.js";
+import { loadFishGeometry } from "./fish-glb.js";
 import { createRodModel } from "./rod-model.js";
 import { mulberry32 } from "./wander.js";
 import type { CameraMode } from "./camera.js";
@@ -113,7 +114,16 @@ export function createFishingView(opts:{
       g.setAttribute("color",new THREE.BufferAttribute(model.colors,3));
       g.computeVertexNormals();
       const mesh=new THREE.Mesh(g,catchMaterial);mesh.castShadow=false;mesh.frustumCulled=false;
-      entry={mesh,base:model.positions.slice(),length:model.length};catchCache.set(id,entry);
+      const procedural={mesh,base:model.positions.slice(),length:model.length};
+      entry=procedural;catchCache.set(id,entry);
+      // The procedural fish shows at once; the CC0 model takes its place when its file has loaded, if it is still the entry.
+      void loadFishGeometry(id).then(real=>{
+        if(!real||catchCache.get(id)!==procedural)return;
+        const geometry=scope.track(real.geometry),material=scope.track(real.material);
+        mesh.geometry.dispose();
+        mesh.geometry=geometry;mesh.material=material;
+        procedural.base=real.positions;procedural.length=real.length;
+      });
     }
     return entry;
   }

@@ -70,3 +70,17 @@
 - 本專案匯入 `tree-01.glb`、`tree-02.glb`、`tree-03.glb`；由 [skyline-run 公開版 GLB](https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models) 取得（原檔分別為 `tree1.glb`、`tree2.glb`、`tree3.glb`），其 WebP 貼圖隨 GLB 內嵌，非即時外部 CDN。
 - 這是 **手繪／風格化的遊戲用網格與樹皮／葉片貼圖**，非真實樹木掃描、非攝影測量模型。專案在執行時正規化尺寸、使用 InstancedMesh、LOD 與原本共享風場；原檔未重打包。
 - GLB 確切 SHA-256 在 `assets/manifest.json`，模型載入失敗時自動回退程序樹。未引用付費 GrassWorks 程式碼。
+
+## World Fish GLB — CC0 魚類模型（Issue #133）
+
+| 遊戲內的魚 | 資料集種類 | 來源與授權 | 處理 |
+|---|---|---|---|
+| 鯖魚 | Atlantic mackerel（*Scomber scombrus*） | https://huggingface.co/datasets/codepawl/world-fish-glb，**CC0 1.0** | 取 `engine/` 層級（完整面數、無 meshopt，約 2 萬面，WebP 貼圖，約 760 KB）；檔案 `assets/models/fish/scomber_scombrus.glb` |
+| 鯡魚 | Atlantic herring（*Clupea harengus*） | 同上 | `assets/models/fish/clupea_harengus.glb` |
+| 鱈魚 | Atlantic cod（*Gadus morhua*） | 同上 | `assets/models/fish/gadus_morhua.glb` |
+| 鰈魚（代用） | Atlantic halibut（*Hippoglossus hippoglossus*）；資料集沒有鰈屬 | 同上 | `assets/models/fish/hippoglossus_hippoglossus.glb`；載入時躺平 |
+| 鮭魚 | Atlantic salmon（*Salmo salar*） | 同上 | `assets/models/fish/salmo_salar.glb` |
+
+- 資料集的模型作者：CodePawl（World Fish）；建模方法 fish-kit method by [@nachat_dayo](https://x.com/nachat_dayo)。依 CC0 1.0 無須署名，本專案仍保留出處。
+- **只使用網格與貼圖**；未修改檔案內容。選 `engine/` 而非 `lods/`：後者需要 meshopt 解碼器，約 7 KB gzip，會超過已接近滿載的 JS 預算（見 #133）。座標轉換（尾在 −x、頭在 +x、置中、縮放到遊戲的長度）在執行期完成，見 `src/game/fish-glb-frame.js`。
+- 資料集其他 116 種魚未納入倉庫；`lods/`、`mobile/`、`objects/` 等其他層級未使用。

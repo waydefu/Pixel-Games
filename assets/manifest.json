@@ -378,6 +378,51 @@
       "source": "https://quaternius.com/packs/stylizednaturemegakit.html",
       "sha256": "2e935e32bd6c4ed883f74c346fb2d3480d6e3780747923265a9db7c008a2e89f",
       "notes": "Stylized Nature MegaKit model, from mirror https://github.com/anshaneja5/skyline-run/tree/main/public/assets/models/tree3.glb; GLB redistributed with embedded WebP bark/leaf textures (re-encoded by the mirror). 332440 bytes. Attribution optional (courtesy credited)."
+    },
+    {
+      "id": "fish-atlantic-mackerel",
+      "path": "assets/models/fish/scomber_scombrus.glb",
+      "author": "CodePawl (World Fish GLB); fish-kit method by @nachat_dayo",
+      "license": "CC0-1.0",
+      "source": "https://huggingface.co/datasets/codepawl/world-fish-glb",
+      "sha256": "a8b2b5e2125500759a933817e2c3d204b2fb27d5dc5185265b3473210390723e",
+      "notes": "Atlantic mackerel (Scomber scombrus) — game: 鯖魚. Hugging Face dataset codepawl/world-fish-glb, engine/ tier (full mesh, plain glTF with WebP textures, no meshopt, so no decoder is needed). CC0: no attribution required; credited in docs/ASSET-CREDITS.md."
+    },
+    {
+      "id": "fish-atlantic-herring",
+      "path": "assets/models/fish/clupea_harengus.glb",
+      "author": "CodePawl (World Fish GLB); fish-kit method by @nachat_dayo",
+      "license": "CC0-1.0",
+      "source": "https://huggingface.co/datasets/codepawl/world-fish-glb",
+      "sha256": "a6dea96ec82abf1308f6ccdb235e48fba6e96ff576c01747a244b216466fe982",
+      "notes": "Atlantic herring (Clupea harengus) — game: 鯡魚. Hugging Face dataset codepawl/world-fish-glb, engine/ tier (full mesh, plain glTF with WebP textures, no meshopt, so no decoder is needed). CC0: no attribution required; credited in docs/ASSET-CREDITS.md."
+    },
+    {
+      "id": "fish-atlantic-cod",
+      "path": "assets/models/fish/gadus_morhua.glb",
+      "author": "CodePawl (World Fish GLB); fish-kit method by @nachat_dayo",
+      "license": "CC0-1.0",
+      "source": "https://huggingface.co/datasets/codepawl/world-fish-glb",
+      "sha256": "fad4f0b7a810f0a87f1b8e092348058a344d795bae147b105d971d0a1f136858",
+      "notes": "Atlantic cod (Gadus morhua) — game: 鱈魚. Hugging Face dataset codepawl/world-fish-glb, engine/ tier (full mesh, plain glTF with WebP textures, no meshopt, so no decoder is needed). CC0: no attribution required; credited in docs/ASSET-CREDITS.md."
+    },
+    {
+      "id": "fish-atlantic-halibut",
+      "path": "assets/models/fish/hippoglossus_hippoglossus.glb",
+      "author": "CodePawl (World Fish GLB); fish-kit method by @nachat_dayo",
+      "license": "CC0-1.0",
+      "source": "https://huggingface.co/datasets/codepawl/world-fish-glb",
+      "sha256": "05cca0359d805561a79778c1d69f5606849f86ff760cf9ba73b1bd084a38dffe",
+      "notes": "Atlantic halibut (Hippoglossus hippoglossus) — game: 鰈魚 stand-in (no flounder species in the dataset). Hugging Face dataset codepawl/world-fish-glb, engine/ tier (full mesh, plain glTF with WebP textures, no meshopt, so no decoder is needed). CC0: no attribution required; credited in docs/ASSET-CREDITS.md."
+    },
+    {
+      "id": "fish-atlantic-salmon",
+      "path": "assets/models/fish/salmo_salar.glb",
+      "author": "CodePawl (World Fish GLB); fish-kit method by @nachat_dayo",
+      "license": "CC0-1.0",
+      "source": "https://huggingface.co/datasets/codepawl/world-fish-glb",
+      "sha256": "2899af0ded532d18d384e187dc10833c1264d0c43c734df9b326788c4702a6f9",
+      "notes": "Atlantic salmon (Salmo salar) — game: 鮭魚. Hugging Face dataset codepawl/world-fish-glb, engine/ tier (full mesh, plain glTF with WebP textures, no meshopt, so no decoder is needed). CC0: no attribution required; credited in docs/ASSET-CREDITS.md."
     }
   ]
 }
