@@ -56,8 +56,11 @@
     #boot-splash .bs-btn.primary{border-color:#e8a020;color:#ffc043;background:linear-gradient(180deg,#3a2408,#1a1005);box-shadow:0 0 14px rgba(232,160,32,.3)}
     #boot-splash .bs-ws{display:flex;gap:10px;padding:6px 14px;border-top:1px solid #8a5e10;background:linear-gradient(180deg,#0e0a06,#080604);font-size:10.5px;letter-spacing:.14em;color:#8a7248;text-transform:uppercase}
     #boot-splash .bs-ws .sp{flex:1}
-    /* phase 2: light ring */
+    /* phase 2: light ring; a CSS-only spinner remains usable when OffscreenCanvas/Web Workers fail. */
     #boot-splash .bs-halo{opacity:0;visibility:hidden}
+    #boot-splash .bs-halo .bs-fallback-ring{position:absolute;left:50%;top:50%;width:min(58vmin,270px);height:min(58vmin,270px);box-sizing:border-box;border:7px solid rgba(116,171,183,.24);border-top-color:#f3c16b;border-right-color:#53c9d5;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 30px rgba(67,170,187,.17),inset 0 0 25px rgba(233,181,91,.1);animation:bs-halo-spin 1.9s linear infinite;z-index:1}
+    #boot-splash.bs-halo-rendered .bs-halo .bs-fallback-ring{opacity:0}
+    @keyframes bs-halo-spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
     #boot-splash .bs-halo canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#000}
     #boot-splash .bs-halo::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 40% 50%,transparent 55%,rgba(0,0,0,.55) 100%)}
     #boot-splash.bs-ph-halo .bs-term{opacity:0}
@@ -76,8 +79,8 @@
   </style>
 </head>
 <body>
-  <!-- Boot splash: a game log ending in a harbor entry permit, then the HALOFLUX light ring until the world is ready,
-       then a fade into the game.
+  <!-- Boot splash: a game log ending in a harbor entry permit, waits for actual world readiness to reach
+       100%, then plays the HALOFLUX light ring for five seconds before fading into the game.
        Look and typed-log timing: 550C scene by Voidpocket (https://github.com/Voidpocket/html_550c), ported by
        Ziyang Song (MIT) https://github.com/yannicksong0106/dsh-550c-boot
        HALOFLUX: Ryder191 (PolyForm Noncommercial 1.0.0) https://github.com/Ryder191/haloflux
@@ -103,7 +106,7 @@
         <div class="bs-ws"><span>AWAITING ENTRY</span><span class="sp"></span><span class="bs-wclock">00:00:00</span></div>
       </div>
     </div>
-    <div class="bs-layer bs-halo"></div>
+    <div class="bs-layer bs-halo"><div class="bs-fallback-ring" aria-hidden="true"></div></div>
     <p class="bs-skip">點一下略過 TAP TO SKIP</p>
     <p class="bs-credit"><span>HALOFLUX by Ryder191 · github.com/Ryder191/haloflux</span><span>UI style: 550C by Voidpocket</span></p>
   </div>
@@ -124,11 +127,12 @@
     try { seen = sessionStorage.getItem("pg-boot-splash") === "1"; sessionStorage.setItem("pg-boot-splash", "1"); } catch (e) {}
     if (mode === "full" || mode === "hold") seen = false;
     var hold = mode === "hold";
-    var haloMinMs = 5000;                                 // the light ring loops for at least five seconds before the game
+    var haloMinMs = 5000;                                 // exact minimum ring display after visible 100% progress
     var haloBox = el.querySelector(".bs-halo");
     var logBox = el.querySelector(".bs-log");
     var s = { phase: "term", introDone: false, skip: false, ready: false, out: false, haloReady: false, haloAt: 0,
-              frame: null, haloTimer: 0, readyTimer: 0, pct: 0, slow: false };
+              frame: null, haloTimer: 0, readyTimer: 0, progressTick: 0, progressing: false,
+              progressComplete: false, pct: 0, slow: false };
     var timers = [];
     function later(fn, ms) { var id = setTimeout(fn, ms); timers.push(id); return id; }
     function sleep(ms) { return new Promise(function (r) { later(r, reduced ? 0 : ms); }); }
@@ -141,7 +145,38 @@
       clockEls.forEach(function (c) { if (c) c.textContent = t; });
     }
     clock(); var clockTimer = setInterval(clock, 1000);
-    function setPct(p) { s.pct = Math.max(s.pct, p); progFill.style.width = s.pct + "%"; pctEl.textContent = Math.round(s.pct) + "%"; }
+    function setPct(p) {
+      if (s.progressing && p < 100) return; // a skipped terminal must not disrupt the finishing transition
+      s.pct = Math.min(100, Math.max(s.pct, p));
+      progFill.style.width = s.pct + "%";
+      pctEl.textContent = Math.round(s.pct) + "%";
+    }
+    function completeProgress() {
+      if (!s.ready || s.progressComplete || s.progressing || s.out) return;
+      s.progressing = true;
+      var from = s.pct, at = performance.now(), duration = reduced ? 0 : 900;
+      if (duration) {
+        // The bar animates on CSS/compositor time, even when the main thread
+        // cannot deliver requestAnimationFrame (software GPU / slow phones).
+        void progFill.offsetWidth;
+        progFill.style.transition = "width " + duration + "ms ease-out";
+        progFill.style.width = "100%";
+        s.progressTick = setInterval(function () {
+          if (s.out) return;
+          var t = Math.min(1, (performance.now() - at) / duration);
+          s.pct = Math.max(s.pct, from + (100 - from) * (1 - (1 - t) * (1 - t)));
+          pctEl.textContent = Math.min(99, Math.floor(s.pct)) + "%";
+        }, 40);
+      }
+      // Finalize on an independent clock. Frame-driven progress could remain
+      // stranded at 99% forever when a heavy Worker starves animation frames.
+      later(function () {
+        clearInterval(s.progressTick); s.progressTick = 0;
+        setPct(100);
+        // Keep 100% visibly on screen, then enter the five-second ring.
+        later(function () { s.progressComplete = true; s.progressing = false; advance(); }, reduced ? 0 : 350);
+      }, duration);
+    }
     function line(text, cls) {
       var d = document.createElement("div");
       d.className = "bs-ln " + (cls || ""); d.textContent = text;
@@ -203,7 +238,7 @@
       try { s.frame.worker.terminate(); } catch (e) {}
       if (s.frame.canvas.parentNode) s.frame.canvas.parentNode.removeChild(s.frame.canvas);
       s.frame = null; s.haloReady = false;
-      if (s.phase === "halo") setPhase("term");           // fall back to the terminal
+      el.classList.remove("bs-halo-rendered");             // keep the CSS ring running on worker failure
     }
     function startHalo() {
       if (reduced || s.out || s.frame) return;
@@ -222,7 +257,8 @@
         if (d.halo === "error") { dropHalo(); return; }
         if (d.halo !== "ready" || s.out || s.haloReady) return;
         s.haloReady = true; clearTimeout(s.haloTimer);
-        if (s.phase !== "halo") worker.postMessage({ type: "pause" });   // warmed up: idle until it is needed
+        el.classList.add("bs-halo-rendered");
+        worker.postMessage({ type: s.phase === "halo" ? "resume" : "pause" });
         advance();
       };
       worker.onerror = dropHalo;
@@ -243,16 +279,19 @@
       s.phase = p;
     }
     function showHalo() {
-      if (s.phase === "halo" || !s.frame || !s.haloReady) return;
+      if (s.phase === "halo" || !s.progressComplete || !s.ready) return;
       s.haloAt = performance.now();
       setPhase("halo");
-      try { s.frame.worker.postMessage({ type: "resume" }); } catch (e) {}
+      if (s.frame && s.haloReady) {
+        try { s.frame.worker.postMessage({ type: "resume" }); } catch (e) { dropHalo(); }
+      }
+      // No OffscreenCanvas or worker failure: the visible CSS ring still lasts five seconds.
     }
     function finish() {
       if (s.out) return;
       s.out = true;
-      timers.forEach(clearTimeout); clearTimeout(s.haloTimer); clearTimeout(s.readyTimer); clearInterval(clockTimer);
-      setPct(100);
+      timers.forEach(clearTimeout); clearTimeout(s.haloTimer); clearTimeout(s.readyTimer);
+      clearInterval(s.progressTick); clearInterval(clockTimer);
       window.removeEventListener("keydown", onKey);
       if (s.frame) { try { s.frame.worker.postMessage({ type: "pause" }); } catch (e) {} }   // free the CPU for the game while fading
       el.classList.add("bs-out");
@@ -260,18 +299,18 @@
       el.addEventListener("transitionend", function (ev) { if (ev.target === el) remove(); });
       setTimeout(remove, 1200);
     }
-    function advance() {                                  // decides what to show next, whenever something changes
+    function advance() {                                  // changes phase only after the game confirms readiness
       if (s.out || !s.introDone) return;
       el.classList.add("bs-intro-done");
-      if (hold) { showHalo(); return; }                   // design review: only a tap ends it
-      if (s.ready) {
-        if (!s.haloAt && s.frame && s.haloReady) showHalo();   // ready before the ring appeared: show it now, not skip it
-        if (!s.haloAt) { finish(); return; }                   // no worker at all (old browser): nothing to loop, leave at once
-        var wait = Math.max(0, haloMinMs - (performance.now() - s.haloAt));
-        if (wait > 0) { clearTimeout(s.readyTimer); s.readyTimer = setTimeout(finish, wait + 20); } else finish();
-        return;
-      }
-      showHalo();                                         // not loaded yet: loop the light ring
+      if (!s.ready) return;                               // never display 100% for a world still loading
+      if (!s.progressComplete) { completeProgress(); return; }
+      if (reduced) { finish(); return; }                  // motion accessibility: no forced animated hold
+      showHalo();
+      if (hold) return;                                   // design review: only a tap ends it
+      var wait = Math.max(0, haloMinMs - (performance.now() - s.haloAt));
+      clearTimeout(s.readyTimer);
+      if (wait > 0) s.readyTimer = setTimeout(finish, wait + 20);
+      else finish();
     }
     function introFinished() { if (!s.introDone) { s.introDone = true; advance(); } }
     function skipIntro() { s.skip = true; el.querySelector(".bs-win").classList.remove("show"); introFinished(); }   // stays on the terminal until the light ring is ready
@@ -293,10 +332,10 @@
     window.addEventListener("touchend", enterFullscreen, true);
     el.addEventListener("click", function () {
       if (!s.introDone) skipIntro();
-      else if (s.slow || hold) finish();
+      else if (hold || (s.slow && !s.ready)) finish();
     });
 
-    // schedule: terminal log (full on the first visit of the tab session, one line on a repeat visit) -> light ring
+    // schedule: terminal -> confirmed ready -> visible 100% -> HALOFLUX (or CSS fallback) for 5 s -> game
     later(function () {
       if (s.out) return;
       (seen && !reduced ? runShort() : runTerm()).then(function () { introFinished(); });
@@ -311,8 +350,9 @@
 
     window.__bootSplash = {
       done: function (state) {
-        if (hold) return;
-        if (state === "ready") { s.ready = true; setPct(96); advance(); }
+        // Review hold mode keeps the finished ring on screen, but still needs
+        // readiness to complete 100% and enter its ring phase.
+        if (state === "ready") { s.ready = true; advance(); } // fill the remaining 64→100% visibly after the log
         else if (state === "unsupported" || state === "failed") finish();
       }
     };
