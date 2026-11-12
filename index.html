@@ -156,9 +156,9 @@
         setPct(from + (100 - from) * (1 - (1 - t) * (1 - t)));
         if (t < 1) { s.progressFrame = requestAnimationFrame(frame); return; }
         setPct(100);
-        s.progressing = false;
-        // The terminal must visibly display a full bar before it becomes the ring.
-        later(function () { s.progressComplete = true; advance(); }, reduced ? 0 : 350);
+        // Keep the transition locked through the visible 100% hold, even if the
+        // worker reports "ready" again during this 350 ms interval.
+        later(function () { s.progressComplete = true; s.progressing = false; advance(); }, reduced ? 0 : 350);
       }
       frame(performance.now());
     }
