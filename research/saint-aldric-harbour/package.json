@@ -1,0 +1,11 @@
+{
+  "name": "saint-aldric-harbour-prototype",
+  "private": true,
+  "type": "module",
+  "description": "Standalone procedural medieval harbour town prototype (research archive, not part of the game entry)",
+  "scripts": {
+    "build": "vite build && node inline.mjs saint-aldric-harbour.html"
+  },
+  "dependencies": { "three": "0.187.0" },
+  "devDependencies": { "vite": "8.3.5" }
+}
