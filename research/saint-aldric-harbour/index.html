@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>聖奧爾德里克港 — 擬真中世紀小鎮</title>
+<style>
+:root{--ink:#f4efe4;--dim:#cfc7b5;--panel:rgba(20,18,14,.55);--line:rgba(255,246,225,.18);--acc:#e8b863}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:"Noto Serif TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+#hud{position:fixed;inset:0;pointer-events:none}
+#cross{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.65);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+#top{position:absolute;left:max(14px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));padding:8px 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(6px);font-size:13px;line-height:1.5}
+#top b{color:var(--acc);font-weight:600}
+#hint{position:absolute;left:50%;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 74px);transform:translateX(-50%);padding:7px 14px;background:var(--panel);border:1px solid var(--line);border-radius:999px;font-size:14px;white-space:nowrap;opacity:0;transition:opacity .25s}
+#hint.on{opacity:1}
+#tension{position:absolute;left:50%;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 120px);transform:translateX(-50%);width:min(320px,70vw);height:12px;border-radius:7px;background:rgba(0,0,0,.45);border:1px solid var(--line);overflow:hidden;display:none}
+#tension i{position:absolute;top:0;bottom:0;background:rgba(120,200,120,.45);left:35%;right:35%}
+#tension u{position:absolute;top:-2px;bottom:-2px;width:5px;background:#fff;border-radius:3px;left:50%}
+#prog{position:absolute;left:50%;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 104px);transform:translateX(-50%);width:min(320px,70vw);height:4px;background:rgba(0,0,0,.4);display:none}
+#prog i{display:block;height:100%;width:0;background:var(--acc)}
+#catch{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));width:230px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(6px);transform:translateY(-12px);opacity:0;transition:all .35s}
+#catch.on{opacity:1;transform:none}
+#catch h3{margin:0 0 4px;font-size:16px;color:var(--acc)} #catch p{margin:2px 0;font-size:13px;color:var(--dim)}
+#catch svg{width:100%;height:46px;display:block;margin-top:6px}
+#log{position:absolute;right:max(14px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));font-size:12px;color:var(--dim);text-align:right;text-shadow:0 1px 2px #000;line-height:1.55}
+#fps{position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));font-size:11px;color:var(--dim);text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+#intro{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:radial-gradient(ellipse at 50% 40%,rgba(30,26,20,.35),rgba(8,7,6,.82));text-align:center;padding:24px;transition:opacity .6s;z-index:5}
+#intro h1{margin:0;font-weight:500;font-size:clamp(26px,5vw,46px);letter-spacing:.08em;text-shadow:0 2px 24px #000}
+#intro p{margin:0;max-width:560px;color:var(--dim);font-size:14px;line-height:1.7}
+#intro button{pointer-events:auto;margin-top:8px;padding:12px 30px;font:inherit;font-size:16px;color:#1b1710;background:var(--acc);border:0;border-radius:999px;cursor:pointer}
+#intro small{color:#9d9686;font-size:12px}
+#bar{position:fixed;left:0;bottom:0;height:3px;background:var(--acc);width:0;transition:width .2s;z-index:6}
+#touch{position:fixed;inset:0;pointer-events:none;display:none}
+.tb{position:absolute;pointer-events:auto;width:64px;height:64px;border-radius:50%;background:rgba(20,18,14,.5);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink);backdrop-filter:blur(4px)}
+#stick{position:absolute;left:max(26px,env(safe-area-inset-left));bottom:max(30px,env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:rgba(20,18,14,.35);border:1px solid var(--line);pointer-events:auto}
+#stick i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px;border-radius:50%;background:rgba(255,246,225,.35)}
+body.touch #touch{display:block}
+#menuBtn{position:absolute;left:max(14px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 54px);width:46px;height:46px;border-radius:10px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;pointer-events:auto;backdrop-filter:blur(6px);cursor:pointer}
+#menu{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;background:rgba(6,5,4,.6);pointer-events:auto}
+#menu.on{display:flex}
+#inv{position:fixed;inset:0;z-index:8;display:none;align-items:center;justify-content:center;background:rgba(6,5,4,.6);pointer-events:auto}
+#inv.on{display:flex}
+#inv .coins{margin:4px 0 8px;color:var(--dim)} #inv .coins b{color:var(--acc)}
+.ir{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
+#inv .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#inv button{font:inherit;color:var(--ink);background:rgba(255,246,225,.08);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+#inv button.wide{width:100%}
+.mcard{width:min(460px,92vw);max-height:90vh;overflow:auto;padding:16px 18px;background:rgba(24,21,16,.94);border:1px solid var(--line);border-radius:14px;font-size:14px}
+.mcard h4{margin:14px 0 6px;color:var(--acc);font-weight:600}.mh{display:flex;justify-content:space-between;align-items:center;font-size:16px}.mh span{cursor:pointer;padding:4px 8px}
+.seg{display:flex;gap:6px}.seg button,.grid button,.fbtn,.warn{font:inherit;color:var(--ink);background:rgba(255,246,225,.08);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;text-align:center}
+.seg button{flex:1}.seg button.on{background:var(--acc);color:#1b1710;border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.warn{width:100%;color:#ffb4a0}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}.dim{color:var(--dim);font-size:12px;line-height:1.6;margin:4px 0}
+#toast{position:fixed;left:50%;top:max(16px,env(safe-area-inset-top));transform:translateX(-50%);padding:8px 16px;background:rgba(24,21,16,.9);border:1px solid var(--line);border-radius:999px;font-size:13px;opacity:0;transition:opacity .3s;z-index:9;pointer-events:none}
+#toast.on{opacity:1}
+#intro .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#cont{display:none;background:transparent;color:var(--ink);border:1px solid var(--line)}
+@media (max-width:640px){#top{font-size:15px}#catch{width:210px}}
+/* HUD (round 4): text at least 15 px, panels 0.66 opaque; crosshair hidden unless a rod or tool is in hand, then small and faint; touch buttons >= 44 px */
+:root{--panel:rgba(20,18,14,.66)}
+#top,#hint,#log,#fps,#catch p,#catch h3,#toast,#menu .dim{font-size:15px !important}
+#cross{display:none;width:4px;height:4px;margin:-2px;opacity:.4}
+body.tool-cross #cross{display:block}
+.tb{min-width:48px;min-height:48px}
+.seg button,.grid button,.fbtn,.warn,#inv button{min-height:44px}
+.tabs{margin:10px 0 12px}.fbtn{display:flex;align-items:center;justify-content:center}.mh span{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.dim{font-size:14px}.mcard h4{font-size:16px}
+#stick.floating{transition:none}
+</style></head><body>
+<canvas id="view"></canvas>
+<div id="hud"><div id="cross"></div>
+ <div id="top"><div><b id="clock">--:--</b> · <span id="wx">晴</span> · <span id="where"></span></div></div>
+ <div id="catch"><h3 id="cn"></h3><p id="cl"></p><p id="cx"></p><svg id="cs" viewBox="0 0 200 46"></svg></div>
+ <div id="prog"><i></i></div><div id="tension"><i></i><u></u></div>
+ <div id="menuBtn">☰</div><div id="hint"></div><div id="log"></div><div id="fps"></div></div>
+<div id="menu"></div><div id="inv"></div><div id="toast"></div>
+<div id="touch"><div id="stick"><i></i></div>
+ <div class="tb" id="bAct" style="right:max(24px,env(safe-area-inset-right));bottom:max(36px,env(safe-area-inset-bottom))">釣魚</div>
+ <div class="tb" id="bUse" style="right:max(104px,calc(env(safe-area-inset-right) + 80px));bottom:max(78px,calc(env(safe-area-inset-bottom) + 50px))">互動</div>
+ <div class="tb" id="bWx" style="right:max(24px,env(safe-area-inset-right));bottom:max(116px,calc(env(safe-area-inset-bottom) + 90px));width:48px;height:48px">天氣</div>
+ <div class="tb" id="bInv" style="right:max(24px,env(safe-area-inset-right));bottom:max(188px,calc(env(safe-area-inset-bottom) + 160px));width:48px;height:48px">背包</div>
+ <div class="tb" id="bSeed" style="right:max(80px,calc(env(safe-area-inset-right) + 56px));bottom:max(196px,calc(env(safe-area-inset-bottom) + 168px));width:48px;height:48px">種子</div>
+ <div class="tb" id="bTm" style="right:max(80px,calc(env(safe-area-inset-right) + 56px));bottom:max(140px,calc(env(safe-area-inset-bottom) + 112px));width:48px;height:48px">時間</div></div>
+<div id="intro"><h1>聖奧爾德里克港</h1><p>一座全程式生成的寫實中世紀海港小鎮。地形、建築、材質、天空、海水與天氣都在瀏覽器裡即時計算，沒有任何外部圖片、模型或音檔。</p>
+<p>走進街巷、登上碼頭，划一艘小船出海，或在日落時分垂釣。</p><div class="btns"><button id="go">新遊戲</button><button id="cont">繼續上次進度</button></div><small id="ld">載入中…</small></div>
+<div id="bar"></div>
+<script type="module" src="/src/main.js"></script></body></html>
