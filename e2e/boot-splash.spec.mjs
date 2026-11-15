@@ -57,7 +57,29 @@ test("a tap skips the log and ?splash=hold ignores the game until it is tapped",
   await expect(splash(page)).toBeVisible();          // hold mode: the game state does not end it
   // Use the overlay as the click target after fullscreen may have resized the viewport.
   await splash(page).click({ position: { x: 20, y: 200 } });
+  await expect(splash(page)).toHaveClass(/bs-out/, { timeout: 3000 });  // distinguish event delivery from fade cleanup
   await expect(splash(page)).toHaveCount(0, { timeout: 14000 });
+});
+
+test("hold ignores a second tap before readiness; keyboard exits only after the halo", async ({ page }) => {
+  await blockGame(page);
+  await page.addInitScript(() => {
+    Element.prototype.requestFullscreen = function () { return Promise.resolve(); };
+  });
+  await page.goto("./?splash=hold");
+  await page.mouse.click(20, 200);
+  await expect(splash(page)).toHaveClass(/bs-intro-done/, { timeout: 3000 });
+
+  // A repeat tap must never dismiss a still-loading world in hold mode.
+  await splash(page).click({ position: { x: 20, y: 200 } });
+  await expect(splash(page)).toBeVisible();
+  await expect(splash(page)).not.toHaveClass(/bs-out/);
+
+  await page.evaluate(() => window.__bootSplash.done("ready"));
+  await expect(page.locator("#boot-splash .bs-pct")).toHaveText("100%", { timeout: 8000 });
+  await expect(splash(page)).toHaveClass(/bs-ph-halo/, { timeout: 8000 });
+  await page.keyboard.press("Enter");
+  await expect(splash(page)).toHaveCount(0, { timeout: 8000 });
 });
 
 test("reduced motion shows the whole log at once, without the permit window or the light ring", async ({ page }) => {
