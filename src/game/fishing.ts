@@ -35,7 +35,7 @@ export function createFishingView(opts:{
   const viewMap=new THREE.Matrix4().makeBasis(new THREE.Vector3(0,0,1),new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0));
   const dir=new THREE.Vector3(),eye=new THREE.Vector3(),target=new THREE.Vector3(),origin={x:0,z:0};
   const right=new THREE.Vector3(),forward=new THREE.Vector3(),tip=new THREE.Vector3(),zAxis=new THREE.Vector3();
-  const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),matrix=new THREE.Matrix4(),quat=new THREE.Quaternion(),scaleV=new THREE.Vector3();
+  const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),mid=new THREE.Vector3(),matrix=new THREE.Matrix4(),quat=new THREE.Quaternion(),scaleV=new THREE.Vector3();
 
   // ============ the rod: a spinning combo modelled in rod-model.ts (bending carbon blank, guides, EVA grip, reel) ============
   const rodModel=createRodModel(scope);
@@ -437,7 +437,7 @@ export function createFishingView(opts:{
         tmp.set(rp0[0],rp0[1],rp0[2]);tmp2.set(rp1[0],rp1[1],rp1[2]);
         const len=tmp.distanceTo(tmp2)||1e-4;
         quat.setFromUnitVectors(yUp,dirTmp.copy(tmp2).sub(tmp).normalize());
-        matrix.compose(tmp.clone().add(tmp2).multiplyScalar(.5),quat,scaleV.set(.0042,len,.0042));
+        matrix.compose(mid.copy(tmp).add(tmp2).multiplyScalar(.5),quat,scaleV.set(.0042,len,.0042));   // no clone per segment per frame (O-10)
         lineMesh.setMatrixAt(i,matrix);
       }
       lineMesh.instanceMatrix.needsUpdate=true;

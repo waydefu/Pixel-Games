@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { groundHeight } from "./navigation.js";
+import { planarMove } from "./planar-move.js";
 
 export type CameraMode="quarter"|"first"|"vista";
 const modes:CameraMode[]=["quarter","first","vista"];
@@ -59,12 +60,7 @@ export function createCameraRig(player:{x:number;z:number},avatar:THREE.Object3D
       x:(quarterRight.x*input.x+quarterForward.x*(-input.y))*speed,
       z:(quarterRight.z*input.x+quarterForward.z*(-input.y))*speed,
     };
-    const front=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
-    const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-    return {
-      x:(right.x*input.x-front.x*input.y)*speed,
-      z:(right.z*input.x-front.z*input.y)*speed,
-    };
+    return planarMove(yaw,input.x,input.y,speed);
   }
   function resize(width:number,height:number){
     if(width<=0||height<=0)return;

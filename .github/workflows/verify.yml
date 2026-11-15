@@ -105,19 +105,23 @@ jobs:
           exit 1
       - name: Browser tests (${{ matrix.project }}, shard ${{ matrix.shard }} of ${{ matrix.total }})
         run: npm run test:e2e -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.total }}
+      - name: Summarise tests that passed only on retry (flaky, not a failure)
+        if: ${{ always() }}
+        run: node scripts/flaky-summary.mjs test-results/results.json
       # Expensive PNG capture is opt-in for future PRs; G2 gets an initial
       # source-backed visual baseline without charging every tiny code change.
       - name: Capture G2 visual audit PNG and metrics (opt-in)
-        if: ${{ matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        if: ${{ matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'visual-audit') }}
         # Screenshots need the CJK fonts that the test shards no longer install.
         run: |
           npx playwright install-deps chromium
-          npm run visual:audit
+          # Runs the audit on the dist this run already built and verified (no second build); the label is the only trigger.
+          node scripts/run-visual-audit.mjs
         env:
           # G4 must actually render its HDR/DoF path in the captured screenshots.
-          VISUAL_AUDIT_QUALITY: ${{ github.head_ref == 'feat/g4-cinematic-post-and-visual-overhaul-20261105' && 'high' || 'balanced' }}
+          VISUAL_AUDIT_QUALITY: ${{ contains(github.event.pull_request.labels.*.name, 'visual-audit-high') && 'high' || 'balanced' }}
       - name: Upload G2 visual audit evidence
-        if: ${{ always() && matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && (github.head_ref == 'feat/g2-reproducible-visual-audit-20261105' || contains(github.event.pull_request.labels.*.name, 'visual-audit')) }}
+        if: ${{ always() && matrix.project == 'desktop-chromium' && matrix.shard == 1 && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'visual-audit') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 (Node 24), SHA-pinned
         with:
           name: visual-audit-${{ github.run_id }}

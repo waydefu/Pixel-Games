@@ -8,7 +8,8 @@ export default defineConfig({
   expect: { timeout: 12_000 },
   workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "line" : "list",
+  // CI keeps the line reporter and also writes a JSON report, which scripts/flaky-summary.mjs reads (#48, O-29).
+  reporter: process.env.CI ? [["line"], ["json", { outputFile: "test-results/results.json" }]] : "list",
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"], launchOptions: { args: ["--enable-webgl", "--use-gl=angle", "--use-angle=swiftshader"] } } },
     { name: "mobile-chromium", use: { ...devices["Pixel 7"], launchOptions: { args: ["--enable-webgl", "--use-gl=angle", "--use-angle=swiftshader"] } } },

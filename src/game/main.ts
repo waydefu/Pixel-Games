@@ -263,6 +263,10 @@ projectionPicker.addEventListener("change",()=>{
 viewToggle.addEventListener("click",()=>setCameraMode(rig.cycle()));
 // ---- sound: synthesised coast soundscape, started by the first click / key / touch (browsers forbid sound before) ----
 let sound:Soundscape|null=null,soundCtx:AudioContext|null=null;
+// Per-frame scratch, reused so the render loop allocates nothing for sound (#121, O-06/O-07).
+const soundFwd=new THREE.Vector3();
+const soundListener={x:0,y:0,z:0,fx:0,fy:0,fz:0};
+let frameSprint=false,lastPickupLabel="";
 const AUDIO_KEY="pixel-games.audio.v1";
 const audioSettings:AudioSettings={...DEFAULT_AUDIO};
 try{Object.assign(audioSettings,JSON.parse(window.localStorage.getItem(AUDIO_KEY)??"{}"));}catch{/* storage may be unavailable */}
@@ -520,8 +524,10 @@ function resize(){
   diagnostics.bufferWidth=buffer.width;diagnostics.bufferHeight=buffer.height;
 }
 function update(dt:number,walkingElapsed=dt){
+  frameSprint=false;
   if(!settings.hidden||inventoryOpen()||farmOpen())return;
   const values=input.read();
+  frameSprint=values.sprint;
   if(boating.update(dt,boatDrive??values,elapsed))return;   // boat physics retains its bounded timestep
   if(Math.abs(values.x)+Math.abs(values.y)<.02)return;
   // The render loop awaits GPU drawing, so a 50ms frame clamp alone slows walking
@@ -623,7 +629,7 @@ async function start(){
       if(measureCpu&&now-perfStarted-lastResourceAt>=1000){const stats=host.stats();lastResourceAt=now-perfStarted;perfResources.push({atMs:lastResourceAt,geometries:stats.geometries,textures:stats.textures,programs:stats.programs});}
       let cpuTime=measureCpu?performance.now():0;
       update(dt,document.visibilityState==='visible'?wallDt:0);
-      updateFarmVisual();if(farmOpen())renderFarm();const plot=nearPlot(),pickup=nearPickup();pickupButton.hidden=(!plot&&!pickup)||inventoryOpen()||farmOpen()||!settings.hidden;pickupButton.textContent=plot?(farm[plot.id]?(stage(farm[plot.id])===3?"農田：可收割 (G)":"農田：生長中 (G)"):"農田：種植 (G)"):pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";
+      updateFarmVisual();if(farmOpen())renderFarm();const plot=nearPlot(),pickup=nearPickup();pickupButton.hidden=(!plot&&!pickup)||inventoryOpen()||farmOpen()||!settings.hidden;const pickupLabel=plot?(farm[plot.id]?(stage(farm[plot.id])===3?"農田：可收割 (G)":"農田：生長中 (G)"):"農田：種植 (G)"):pickup?"拾取 "+ITEMS[pickup.item as keyof typeof ITEMS].name+" (G)":"";if(pickupLabel!==lastPickupLabel){lastPickupLabel=pickupLabel;pickupButton.textContent=pickupLabel;}
       if(now-lastSaveAt>5000){lastSaveAt=now;saveProgress();}
       const movementMs=measureCpu?performance.now()-cpuTime:0;
       if(measureCpu)cpuTime=performance.now();
@@ -634,12 +640,13 @@ async function start(){
       if(measureCpu)cpuTime=performance.now();
       fishing.update();
       if(sound){
-        const cam=rig.camera,fwd=new THREE.Vector3();cam.getWorldDirection(fwd);
+        const cam=rig.camera;cam.getWorldDirection(soundFwd);
+        soundListener.x=cam.position.x;soundListener.y=cam.position.y;soundListener.z=cam.position.z;soundListener.fx=soundFwd.x;soundListener.fy=soundFwd.y;soundListener.fz=soundFwd.z;
         const moved=Math.hypot(world.player.x-lastSoundX,world.player.z-lastSoundZ);lastSoundX=world.player.x;lastSoundZ=world.player.z;
         for(const clap of world.takeThunder(dt))sound.api.thunder(clap.loud);
         sound.update({rain:world.weather.state.rain,storm:world.weather.state.storm,time:elapsed,x:world.player.x,z:world.player.z,night:liveSky.night.value,windStrength:liveSky.windStrength.value,gust:world.gustAt(world.player.x,world.player.z),
-          aboard:boating.aboard,speed:dt>0?moved/dt:0,sprint:input.read().sprint,gulls:world.gulls(),hour,
-          listener:{x:cam.position.x,y:cam.position.y,z:cam.position.z,fx:fwd.x,fy:fwd.y,fz:fwd.z}});
+          aboard:boating.aboard,speed:dt>0?moved/dt:0,sprint:frameSprint,gulls:world.gulls(),hour,
+          listener:soundListener});
       }
       diagnostics.camera=rig.mode;
       diagnostics.projection=rig.projection;
