@@ -1,0 +1,70 @@
+name: Verify Saint Aldric (reusable)
+on:
+  workflow_call:
+    inputs:
+      pages:
+        description: Package the exact verified standalone HTML for Pages
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Build, syntax and mainline unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate real mainline sources, unit tests, standalone build and budget
+        run: npm run validate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        if: ${{ inputs.pages }}
+        with:
+          path: dist
+  e2e:
+    name: Mainline E2E ${{ matrix.project }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, mobile-chromium]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: dist
+          path: dist
+      - name: Install pinned Playwright Chromium shell
+        run: npx playwright install --only-shell chromium
+      - name: Real shaders, desktop/touch controls, inventory, save/reload and file offline
+        run: npm run test:e2e -- --project=${{ matrix.project }}
+      - name: Keep screenshots, shader observations and failure traces
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: mainline-evidence-${{ matrix.project }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: error

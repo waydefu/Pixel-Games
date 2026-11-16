@@ -4,7 +4,7 @@ export const ACCEPTANCE_FIELD_FROM=50; // PRs numbered above this must also say 
 const core=new Set(["src/game/main.ts","src/game/world.ts","src/game/camera.ts","src/game/input.ts",
   "src/rendering/renderer-port.js","src/rendering/hd2d-pipeline.js",
   "package.json","package-lock.json","docs/FEATURE-STATUS.json"]);
-export const isCorePath=p=>core.has(p)||p.startsWith(".github/workflows/")||
+export const isCorePath=p=>core.has(p)||p.startsWith(".github/workflows/")||p.startsWith("src/harbour/")||p==="index.html"||p==="vite.config.mjs"||p.startsWith("scripts/inline-mainline")||p.startsWith("scripts/check-mainline")||
   /^src\/game\/(?:save|inventory|persistence)(?:[-/.]|$)/.test(p);
 export function parseClaim(body){
   const map=new Map();

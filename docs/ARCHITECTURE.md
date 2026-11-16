@@ -1,4 +1,10 @@
-# Pixel-Games｜現行架構導覽
+# Pixel-Games｜架構導覽
+
+## 現行：Saint Aldric Harbour（#148）
+
+根 `index.html` → `src/harbour/main.js` → world/terrain/town/ecology、textures/townmat/terrainmat、ocean/water/sky/post、game/farm/inventory/save/menu。Vite 將模組編成唯一 bundle，`scripts/inline-mainline.mjs` 內嵌成 `dist/index.html`；CI 與 Pages 發布同一產物，`publicDir:false` 不帶舊素材。詳見 [主線遷移與架構](mainline/MAINLINE-MIGRATION.md)。
+
+## HISTORICAL：以下是舊 HD-2D 導覽
 
 > 核對基準：2026-11-08 main@6056e6c。這是模組導覽，不是即時 PR 或部署狀態。歷史 P1 架構研究保留在 `docs/reviews/`、`docs/plans/` 及 ADR。
 

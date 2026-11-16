@@ -328,7 +328,7 @@ export function buildHarbour(W, C) {
     T.setFrame(p.x, p.z, Math.cos(ang), Math.sin(ang), -Math.sin(ang), Math.cos(ang), 0);   // local x = out to sea, z = across
     const DY = QY - 0.15;
     // deck planks
-    T.quad([-1, DY, wid / 2], [len, DY, wid / 2], [len, DY, -wid / 2], [-1, DY, -wid / 2], o(L.wood, [1.1, 1.0, 0.9], 1, { uvFn: p2 => [p2[2] + 0.0, p2[0]] }));
+    T.quad([-1, DY, wid / 2], [len, DY, wid / 2], [len, DY, -wid / 2], [-1, DY, -wid / 2], o(L.saltOak, [1.1, 1.0, 0.9], 1, { uvFn: p2 => [p2[2] + 0.0, p2[0]] }));
     T.quad([-1, DY - 0.28, -wid / 2], [len, DY - 0.28, -wid / 2], [len, DY - 0.28, wid / 2], [-1, DY - 0.28, wid / 2], o(L.wood, [0.6, 0.55, 0.5], 0.5));
     for (const s of [-1, 1]) {
       T.quad([len, DY - 0.28, s * wid / 2], [-1, DY - 0.28, s * wid / 2], [-1, DY, s * wid / 2], [len, DY, s * wid / 2], o(L.wood, [0.85, 0.8, 0.75], 0.8, { uvFn: p2 => [p2[0], p2[1]] }));

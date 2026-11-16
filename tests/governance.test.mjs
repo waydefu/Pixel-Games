@@ -104,15 +104,17 @@ test("browser suites are skipped only for an opted-out caller or a documentation
   // the Pages deploy opts out explicitly
   assert.equal(e2eDecision({requested:false,event:"push",files:null}).run,false);
 });
-test("only the Pages deploy opts out of the browser suites, and main still runs them",()=>{
-  const read=name=>readFileSync(new URL("../.github/workflows/"+name,import.meta.url),"utf8");
-  const verify=read("verify.yml"),ci=read("ci.yml"),deploy=read("deploy-pages.yml");
-  assert.match(verify,/e2e:\n\s+description:[^\n]+\n\s+type: boolean\n\s+default: true/);
-  assert.match(verify,/if: \$\{\{ needs\.build\.outputs\.e2e == 'true' \}\}/);
-  assert.match(verify,/run: node scripts\/ci-e2e-scope\.mjs/);
-  assert.match(deploy,/e2e: false/);
-  assert.doesNotMatch(ci,/e2e: false/);
-  assert.match(ci,/push:\n\s+branches: \[main\]/);   // the post-merge browser run that the deploy no longer waits for
+test("Pages waits for mandatory mainline browser verification without duplicate main builds",()=>{
+  const read=name=>readFileSync(new URL("../.github/workflows/"+name,import.meta.url),"utf8").split(String.fromCharCode(13)).join("");
+  const verify=read("verify-mainline.yml"),ci=read("ci.yml"),deploy=read("deploy-pages.yml");
+  assert.match(verify,/needs: build/);
+  assert.match(verify,/project: \[desktop-chromium, mobile-chromium\]/);
+  assert.match(verify,/run: npm run test:e2e/);
+  assert.doesNotMatch(verify,/inputs\.e2e|scope.outputs|continue-on-error/);
+  for (const caller of [ci,deploy]) assert.match(caller,/uses: \.\/\.github\/workflows\/verify-mainline\.yml/);
+  assert.match(deploy,/needs: verify-and-package/);
+  assert.doesNotMatch(deploy,/e2e: false/);
+  assert.doesNotMatch(ci,/\n  push:/);
 });
 test("the required check keeps its name and runs the gate script",()=>{
   const ci=readFileSync(new URL("../.github/workflows/ci.yml",import.meta.url),"utf8");

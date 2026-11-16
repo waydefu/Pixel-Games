@@ -149,7 +149,7 @@ export function houseGeometry(T, G, b, detail = 2) {
   // footing: stone plinth
   const plinth = 0.55;
   const foot = (z0, z1, w) => {
-    const fo = { mat: L.rubble, tint: [1, 1, 1], ao: 0.8 };
+    const fo = { mat: L.mossStone, tint: [1, 1, 1], ao: 0.8 };
     T.quad([-w / 2, -0.4, z1 + 0.04], [w / 2, -0.4, z1 + 0.04], [w / 2, plinth, z1 + 0.04], [-w / 2, plinth, z1 + 0.04], { ...fo, uvFn: p => [p[0], p[1]] });
     T.quad([w / 2, -0.4, z0 - 0.04], [-w / 2, -0.4, z0 - 0.04], [-w / 2, plinth, z0 - 0.04], [w / 2, plinth, z0 - 0.04], { ...fo, uvFn: p => [p[0], p[1]] });
     T.quad([w / 2 + 0.04, -0.4, z1], [w / 2 + 0.04, -0.4, z0], [w / 2 + 0.04, plinth, z0], [w / 2 + 0.04, plinth, z1], { ...fo, uvFn: p => [p[2], p[1]] });

@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "lastVerified": "2026-11-08",
+  "baseline": {
+    "branch": "main",
+    "commit": "6056e6c99a708eac3c6318ebae671dcaf2ecb421",
+    "note": "歷史可核對基準；不宣稱是永遠最新的 main HEAD"
+  },
+  "features": [
+    {
+      "id": "exploration",
+      "name": "斜角／第一人稱／風景視角",
+      "status": "implemented",
+      "pr": [
+        10,
+        21
+      ],
+      "paths": [
+        "src/game/camera.ts",
+        "src/game/navigation.js"
+      ]
+    },
+    {
+      "id": "day-night",
+      "name": "日夜與時間控制",
+      "status": "implemented",
+      "pr": [
+        21,
+        31,
+        32
+      ],
+      "paths": [
+        "src/game/time-of-day.js"
+      ]
+    },
+    {
+      "id": "fishing",
+      "name": "路亞釣魚",
+      "status": "implemented",
+      "pr": [
+        27,
+        29,
+        30
+      ],
+      "paths": [
+        "src/game/fishing.ts",
+        "src/game/fishing-logic.js",
+        "src/game/fish-glb.ts",
+        "src/game/fish-glb-frame.js"
+      ]
+    },
+    {
+      "id": "rowing",
+      "name": "划船",
+      "status": "implemented",
+      "pr": [
+        29
+      ],
+      "paths": [
+        "src/game/boating.ts"
+      ]
+    },
+    {
+      "id": "weather",
+      "name": "動態天氣",
+      "status": "implemented",
+      "pr": [
+        32
+      ],
+      "paths": [
+        "src/game/weather.js"
+      ]
+    },
+    {
+      "id": "audio",
+      "name": "合成環境音效",
+      "status": "implemented",
+      "pr": [
+        32
+      ],
+      "paths": [
+        "src/game/soundscape.ts"
+      ]
+    },
+    {
+      "id": "clouds",
+      "name": "十雲屬、地面雲影",
+      "status": "implemented",
+      "pr": [
+        33,
+        34
+      ],
+      "paths": [
+        "src/game/cloud-shader.ts"
+      ]
+    },
+    {
+      "id": "performance-lab",
+      "name": "桌機效能量測與離線 A/B 報告",
+      "status": "implemented",
+      "pr": [
+        42
+      ],
+      "paths": [
+        "scripts/performance/run.mjs",
+        "scripts/performance/report.mjs"
+      ]
+    },
+    {
+      "id": "inventory",
+      "name": "統一背包、拾取物與漁獲管理",
+      "status": "implemented",
+      "pr": [
+        58
+      ],
+      "paths": [
+        "src/game/inventory.js",
+        "src/game/main.ts"
+      ]
+    },
+    {
+      "id": "save-export",
+      "name": "完整存檔／自動保存／匯入匯出",
+      "status": "implemented",
+      "pr": [
+        58
+      ],
+      "paths": [
+        "src/game/save.js",
+        "src/game/main.ts"
+      ]
+    },
+    {
+      "id": "npc-schedule",
+      "name": "NPC 完整作息與職業系統",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    },
+    {
+      "id": "world-streaming",
+      "name": "大世界串流",
+      "status": "planned",
+      "pr": [],
+      "paths": []
+    },
+    {
+      "id": "farming",
+      "name": "農田種植、生長與收割入包",
+      "status": "implemented",
+      "pr": [
+        108
+      ],
+      "paths": [
+        "src/game/farming.js",
+        "src/game/main.ts"
+      ]
+    },
+    {
+      "id": "realistic-coastal-grass",
+      "name": "全地圖寫實草地（審查中）",
+      "status": "in-progress",
+      "pr": [],
+      "paths": [
+        "src/game/coastal-grass-study.ts",
+        "src/game/grass-placement.js",
+        "src/game/coastline.ts"
+      ]
+    },
+    {
+      "id": "boot-splash",
+      "name": "進場載入畫面（遊戲日誌與入港許可 → 光環循環 → 淡入）",
+      "status": "implemented",
+      "pr": [
+        136
+      ],
+      "paths": [
+        "index.html",
+        "public/loader/haloflux-worker.js",
+        "e2e/boot-splash.spec.mjs"
+      ]
+    }
+  ],
+  "verificationBoundary": "implemented=已合併可辨識程式，不等於真機或完整遊戲品質驗收；釣魚紀錄不等於完整進度存檔"
+}
