@@ -12,7 +12,7 @@
 **結論（研究階段）：**
 - Abyssal Garden 證明：原生 WebGPU + WGSL 可用純程式生成密集景觀、GPU Compute 地形、明確畫質檔位與測試飛行路徑；但低階手機作者公布的結果仍只有約 20 FPS／670×372 Low，不能推論手機 1080p High 60 FPS。
 - Crimson Loong 證明：成熟的 Three.js / WebGL2 也能以純程式幾何、程序材質、合批、精細水體與後製產出很高的美術密度；但是 **90 秒固定敘事攝影**，不是可自由探索的完整遊戲。
-- Rust + wgpu 可以共享原生及 WebAssembly 渲染核心（原生 Android Vulkan、iOS Metal 等；瀏覽器 WebGPU，另有功能不完全相等的 WebGL2 路徑），值得做**獨立、可回退的微型 PoC**；Rust 本身不會讓 GPU 阴影、像素著色或頻寬成本自動下降。
+- Rust + wgpu 可以共享原生及 WebAssembly 渲染核心（原生 Android Vulkan、iOS Metal 等；瀏覽器 WebGPU，另有功能不完全相等的 WebGL2 路徑），值得做**獨立、可回退的微型 PoC**；Rust 本身不會讓 GPU 陰影、像素著色或頻寬成本自動下降。
 - **暫不建議立刻把主線從 Three.js 全面重寫成 Rust**。先以相同鏡頭、同等畫質與真裝置 frame time 比較，確認收益，再作 Owner 選型決策。
 
 ## 1. 來源和版本（查核於 2026-11-17）
