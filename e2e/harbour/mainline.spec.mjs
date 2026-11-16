@@ -59,7 +59,7 @@ test('standalone mainline: offline shaders, controls, inventory, save and reload
   await expect(page.locator('#tiers button')).toHaveCount(4);
   await page.locator('[data-k="save"]').click();
   await page.locator('#sv').click();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aldric.save.v1')));
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aldric.save')));
   expect(saved.v).toBe(1);
   expect(saved.player).toBeTruthy();
   await testInfo.attach('render-observations.json', { body: JSON.stringify({ browserName, isMobile, shaderState, saved, scope: 'SwiftShader functional evidence, NOT phone FPS or visual approval' }, null, 2), contentType: 'application/json' });
@@ -88,10 +88,20 @@ test('downloaded HTML boots without a server or network', async ({ page, context
   const { pathToFileURL } = await import('node:url');
   const { resolve } = await import('node:path');
   const url = pathToFileURL(resolve('dist/index.html'));
-  url.search = '?q=low&debug=1';
+  url.search = '?debug=1'; // No preset override: cover the shipping default high path, including AO/bloom/MSAA.
   await page.goto(url.href);
   await page.waitForFunction(() => window.__ready === true || window.__failed === true, null, { timeout: 150_000 });
   expect(await page.evaluate(() => window.__ready)).toBe(true);
+  const state = await page.evaluate(() => {
+    const r=window.__renderer, gl=r.getContext();
+    return { tier: window.__info.tier, shortSide: Math.min(r.domElement.width,r.domElement.height), linked:r.info.programs.map(p=>gl.getProgramParameter(p.program,gl.LINK_STATUS)) };
+  });
+  expect(state.tier).toBe('high');
+  expect(state.shortSide).toBeGreaterThanOrEqual(1080);
+  expect(state.shortSide).toBeLessThanOrEqual(1440);
+  expect(state.linked.length).toBeGreaterThan(0);
+  expect(state.linked.every(Boolean)).toBe(true);
+  await testInfo.attach('default-high-offline.json', {body:JSON.stringify(state),contentType:'application/json'});
   expect(errors).toEqual([]);
   expect(requests).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('offline-file.png') });

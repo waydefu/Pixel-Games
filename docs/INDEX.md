@@ -1,5 +1,7 @@
 # Pixel-Games 文件索引｜現行與歷史分開
 
+> **主線遷移 #148**：唯一正式遊戲為 Saint Aldric Harbour，源碼 `src/harbour/`、測試 `tests/harbour/`／`e2e/harbour/`；根入口／CI／發布契約見 [MAINLINE-MIGRATION](mainline/MAINLINE-MIGRATION.md)，Issues 見 [ISSUE-TRIAGE](mainline/ISSUE-TRIAGE.md)。下方 HD-2D／G1–G6 的舊模組與計畫只作歷史研究，不再覆蓋新主線。
+
 > 本索引是**任務導覽，不是開工必讀清單**。2026-11-09 核對時，專案即時狀態以 GitHub main／Issues／PR／CI 為準；以下各文件依工作類型按需閱讀。11/5 研究與授權是歷史快照，不是即時任務清單。
 
 這個 Repo 只有**一個正式遊戲入口**，但研究、技術決策、Agent Skills 與工程模組可以獨立保留。
@@ -10,7 +12,7 @@
 
 | 現在要做什麼 | 最小入口（再深入讀必要的檔案） |
 | --- | --- |
-| 找程式實作、模組、符號 | [ARCHITECTURE](ARCHITECTURE.md) → 搜尋 `src/game/`、`src/rendering/`；不要預設讀整份 `main.ts` |
+| 找程式實作、模組、符號 | [主線架構](mainline/MAINLINE-MIGRATION.md) → 搜尋 `src/harbour/` 的精確符號；舊 `src/game/`／`src/rendering/` 僅歷史 |
 | 接手 Issue／開 PR／查衝突 | 即時 GitHub Issues／PR／Actions → [HANDOFF](HANDOFF.md)；要認領／交付再讀 [CONTRIBUTING](CONTRIBUTING.md) |
 | 查已交付功能 | [FEATURE-STATUS](FEATURE-STATUS.json) + main 程式／已合併 PR（只有涉及功能狀態時讀） |
 | 改決策、確認舊研究有效性 | [DECISION-REGISTER](decisions/DECISION-REGISTER.md) → 相關 ADR／研究原文 |

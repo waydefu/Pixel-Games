@@ -1,185 +1,21 @@
 {
   "schemaVersion": 1,
-  "lastVerified": "2026-11-08",
-  "baseline": {
-    "branch": "main",
-    "commit": "6056e6c99a708eac3c6318ebae671dcaf2ecb421",
-    "note": "歷史可核對基準；不宣稱是永遠最新的 main HEAD"
-  },
+  "lastVerified": "2026-11-16",
+  "baseline": {"branch":"agent/aldric-procedural-evolution","commit":"fa2c5213777dea4397e23ff39798d57c0b2409ff","note":"主線遷移實作基準，非永久 main HEAD；發布與瀏覽器結果以 #147/#148 最新 SHA 為準"},
+  "mainline": "saint-aldric-harbour",
   "features": [
-    {
-      "id": "exploration",
-      "name": "斜角／第一人稱／風景視角",
-      "status": "implemented",
-      "pr": [
-        10,
-        21
-      ],
-      "paths": [
-        "src/game/camera.ts",
-        "src/game/navigation.js"
-      ]
-    },
-    {
-      "id": "day-night",
-      "name": "日夜與時間控制",
-      "status": "implemented",
-      "pr": [
-        21,
-        31,
-        32
-      ],
-      "paths": [
-        "src/game/time-of-day.js"
-      ]
-    },
-    {
-      "id": "fishing",
-      "name": "路亞釣魚",
-      "status": "implemented",
-      "pr": [
-        27,
-        29,
-        30
-      ],
-      "paths": [
-        "src/game/fishing.ts",
-        "src/game/fishing-logic.js",
-        "src/game/fish-glb.ts",
-        "src/game/fish-glb-frame.js"
-      ]
-    },
-    {
-      "id": "rowing",
-      "name": "划船",
-      "status": "implemented",
-      "pr": [
-        29
-      ],
-      "paths": [
-        "src/game/boating.ts"
-      ]
-    },
-    {
-      "id": "weather",
-      "name": "動態天氣",
-      "status": "implemented",
-      "pr": [
-        32
-      ],
-      "paths": [
-        "src/game/weather.js"
-      ]
-    },
-    {
-      "id": "audio",
-      "name": "合成環境音效",
-      "status": "implemented",
-      "pr": [
-        32
-      ],
-      "paths": [
-        "src/game/soundscape.ts"
-      ]
-    },
-    {
-      "id": "clouds",
-      "name": "十雲屬、地面雲影",
-      "status": "implemented",
-      "pr": [
-        33,
-        34
-      ],
-      "paths": [
-        "src/game/cloud-shader.ts"
-      ]
-    },
-    {
-      "id": "performance-lab",
-      "name": "桌機效能量測與離線 A/B 報告",
-      "status": "implemented",
-      "pr": [
-        42
-      ],
-      "paths": [
-        "scripts/performance/run.mjs",
-        "scripts/performance/report.mjs"
-      ]
-    },
-    {
-      "id": "inventory",
-      "name": "統一背包、拾取物與漁獲管理",
-      "status": "implemented",
-      "pr": [
-        58
-      ],
-      "paths": [
-        "src/game/inventory.js",
-        "src/game/main.ts"
-      ]
-    },
-    {
-      "id": "save-export",
-      "name": "完整存檔／自動保存／匯入匯出",
-      "status": "implemented",
-      "pr": [
-        58
-      ],
-      "paths": [
-        "src/game/save.js",
-        "src/game/main.ts"
-      ]
-    },
-    {
-      "id": "npc-schedule",
-      "name": "NPC 完整作息與職業系統",
-      "status": "planned",
-      "pr": [],
-      "paths": []
-    },
-    {
-      "id": "world-streaming",
-      "name": "大世界串流",
-      "status": "planned",
-      "pr": [],
-      "paths": []
-    },
-    {
-      "id": "farming",
-      "name": "農田種植、生長與收割入包",
-      "status": "implemented",
-      "pr": [
-        108
-      ],
-      "paths": [
-        "src/game/farming.js",
-        "src/game/main.ts"
-      ]
-    },
-    {
-      "id": "realistic-coastal-grass",
-      "name": "全地圖寫實草地（審查中）",
-      "status": "in-progress",
-      "pr": [],
-      "paths": [
-        "src/game/coastal-grass-study.ts",
-        "src/game/grass-placement.js",
-        "src/game/coastline.ts"
-      ]
-    },
-    {
-      "id": "boot-splash",
-      "name": "進場載入畫面（遊戲日誌與入港許可 → 光環循環 → 淡入）",
-      "status": "implemented",
-      "pr": [
-        136
-      ],
-      "paths": [
-        "index.html",
-        "public/loader/haloflux-worker.js",
-        "e2e/boot-splash.spec.mjs"
-      ]
-    }
-  ],
-  "verificationBoundary": "implemented=已合併可辨識程式，不等於真機或完整遊戲品質驗收；釣魚紀錄不等於完整進度存檔"
+    {"id":"exploration","name":"第一人稱行走與碰撞","status":"implemented","pr":[145,147],"paths":["src/harbour/game.js","src/harbour/world.js"],"verification":"遠端桌面／手機 viewport 鍵盤／觸控 E2E；真機 NOT RUN"},
+    {"id":"procedural-world","name":"原創程序港鎮／地形／生態","status":"implemented","pr":[145,147],"paths":["src/harbour/town.js","src/harbour/terrain.js","src/harbour/ecology.js"],"verification":"有程式與單元；史實／動線／美術待人工驗收"},
+    {"id":"materials-lod","name":"22 層分 bank 材質、樹木 LOD","status":"implemented","pr":[147],"paths":["src/harbour/textures.js","src/harbour/plants.js","src/harbour/townmat.js"],"verification":"Node／shader link；四檔 GPU 成本與畫質 NOT RUN"},
+    {"id":"day-night-weather","name":"晝夜、程序天空、動態天氣與合成音訊","status":"implemented","pr":[145,147],"paths":["src/harbour/sky.js","src/harbour/weather.js"],"verification":"啟動測試不等於天候全集或音訊人工驗收"},
+    {"id":"fft-ocean","name":"FFT 多級海洋","status":"implemented","pr":[145,147],"paths":["src/harbour/ocean.js","src/harbour/water.js"],"verification":"低／預設高 shader smoke；真機穩定性與視覺 NOT RUN"},
+    {"id":"fishing-boating","name":"釣魚、船與魚圖鑑","status":"implemented","pr":[145,147],"paths":["src/harbour/game.js","src/harbour/boats.js"],"verification":"完整釣獲／上船循環仍待端到端驗收"},
+    {"id":"farming-seasons","name":"農地與四季作物","status":"implemented","pr":[145,147],"paths":["src/harbour/farm.js","src/harbour/inventory.js","src/harbour/game.js"],"verification":"完整跨季生長與交易循環未自動化驗收"},
+    {"id":"inventory-market","name":"背包與固定價市集","status":"implemented","pr":[145,147],"paths":["src/harbour/inventory.js"],"verification":"背包開關／保存 E2E；交易完整性待後續"},
+    {"id":"save","name":"單存檔、自動／手動、匯入匯出與回復備份","status":"implemented","pr":[145,147],"paths":["src/harbour/save.js","src/harbour/menu.js"],"verification":"遷移／驗證／封鎖儲存 Node 回歸與瀏覽器保存重載；多存檔未做"},
+    {"id":"quality","name":"四檔畫質與範圍內動態解析度","status":"implemented","pr":[145,147],"paths":["src/harbour/settings.js","src/harbour/post.js","src/harbour/menu.js"],"verification":"720–1080／1080–1440 靜態契約；低與預設高 smoke，不代表四檔效能完成"},
+    {"id":"standalone-pages","name":"唯一單檔正式入口與完整驗證後部署","status":"implemented","pr":[147],"paths":["index.html","vite.config.mjs","scripts/inline-mainline.mjs",".github/workflows/verify-mainline.yml"],"verification":"驗收追蹤 #148；實際發布需讀回 Pages build SHA"},
+    {"id":"planar-reflections","name":"平面反射","status":"planned","pr":[],"paths":["src/harbour/settings.js"],"verification":"TIER.reflect 尚未使用；不得宣稱有此效果"},
+    {"id":"multi-save-npc-streaming","name":"多存檔、完整 NPC 作息與世界串流","status":"planned","pr":[],"paths":[],"verification":"未實作；舊版 Issues 需求保留／重驗，見 #148 分流台帳"}
+  ]
 }

@@ -1,4 +1,8 @@
-> **2026-11-08 現行補充**：CI 共用 `verify.yml` 一次建置與五個 Chromium 分片，`npm run check:governance` 驗證功能台帳與文件；PR 協作驗證則檢查任務及檔案交集。下方 P1/G2 所寫的 `UNSUPPORTED` 或 `NOT RUN` 是歷史里程碑狀態，不能取代最新 main 的證據。真機與人工驗收另做。
+> **現行主線 #148**：以 [MAINLINE-MIGRATION](mainline/MAINLINE-MIGRATION.md#ci-契約) 為準。verify-mainline.yml 一次建置單檔，桌面／手機 viewport 跑真正新遊戲，全部成功才部署；required check 名稱保留但新來源是 JS，不宣稱 TS 覆蓋。低檔720–1080、其他1080–1440不為過測試調降。GPU記憶體／烘焙、draw calls、LOD／剔除、陰影／反射、每幀配置、釋放與熱節流仍是效能驗收門檻，SwiftShader或估算不是手機FPS。
+
+## HISTORICAL：以下是舊 HD-2D 品質規範與當時結果
+
+舊 verify.yml、五分片、330kB gzip、HALOFLUX、G2 visualShot 與效能 harness 不再適用新主線；保留原文，不拿舊版 PASS／FAIL 直接套用新遊戲。
 
 # 品質門檻
 

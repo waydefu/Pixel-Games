@@ -1,17 +1,20 @@
 # 決策效力登錄｜CURRENT / SUPERSEDED / HISTORICAL
 
-> 基準 2026-11-08 main@6056e6c。此處管理「哪些條款還有效」，**不是**最新 PR 清單。歷史 ADR、研究、主人授權、踩坑原文保留；如有新 Owner 決定或 PR 推翻決策，同 PR 更新此表。
+> 本次 #148／PR #147 的 Owner 決定取代舊主線；實際是否部署須查 Pages run 與 build SHA。此處管理有效決策，不是即時 PR 清單；歷史原文保留，舊基準 main@6056e6c 不再代表新主線。
 
 | 決策或紀錄 | 狀態 | 生效依據與正確解讀 |
 | --- | --- | --- |
+| Saint Aldric Harbour 唯一正式主線；舊 HD-2D 僅歷史／回退 | CURRENT | Owner本次決定、#148／PR #147；[遷移決策](../mainline/MAINLINE-MIGRATION.md) |
+| 單檔離線、全程式生成、四檔畫質；根入口與 CI 測新主線 | CURRENT | #148；src/harbour → dist/index.html；低720–1080、其他1080–1440，不降規作弊 |
+| main browser E2E全過才部署，移除CI/Pages重複main建置 | CURRENT | verify-mainline.yml／deploy-pages.yml；required check與ruleset不變 |
 | 單一 `index.html` 正式遊戲入口；中世紀海岸無強制主線 | CURRENT | AGENTS / 已合併遊戲 PR；不復活舊地城 |
-| Three.js WebGL2、統一 HD-2D Renderer Port／後製 | CURRENT | PR #21；舊 `cinematic-post.js` 非現行管線 |
+| 舊 HD-2D Renderer Port／後製 | SUPERSEDED | 新主線仍用Three.js WebGL2，改為src/harbour程序材質／CSM／Post，舊renderer-port非新主線 |
 | 原創與有授權資產須保留來源／修改資訊 | CURRENT | ASSET-POLICY / ASSET-CREDITS |
 | PR + 必要 CI、Owner 當次決定合併 | CURRENT | Active Protect main ruleset / CONTRIBUTING |
-| 載入畫面光環使用非商用授權（PolyForm Noncommercial）的 HALOFLUX | CURRENT | Owner 2026-11-12 確認專案非商用並同意例外（Issue #135）；ASSET-CREDITS / ASSET-POLICY；營利前必須移除 `public/loader/haloflux-worker.js` |
-| 釣魚、划船、天氣、合成音訊已接入遊戲 | CURRENT | PR #27/#29/#30/#32；與完整背包／存檔區分 |
-| 雲採十雲屬 2D 分層＋雲影，而非 28 步體積雲 | CURRENT | PR #33；以現行 shader 實作為準 |
-| 手機渲染預先執行雲影與反射 pass | CURRENT | PR #34；真機結果仍需單獨驗收 |
+| 舊 HALOFLUX 非商用例外（#135） | HISTORICAL | 授權及檔案保留；新正式產物publicDir:false不打包此資產，不復活作新載入畫面 |
+| 釣魚、划船、天氣、合成音訊、背包、單保存、農地四季 | CURRENT | 新主線PR #145/#147；有實作不等於完整玩法／人工驗收，見FEATURE-STATUS |
+| 舊十雲屬 2D 分層＋雲影 | HISTORICAL | PR #33研究保留；新主線sky.js不繼承其驗收 |
+| 舊手機雲影／反射 prepass 修復 | HISTORICAL | PR #34證據保留；新主線須#120真機驗收，平面反射尚未實作 |
 | 「不引入重型海水／Planar Reflection」絕對限制 | SUPERSEDED | 11/5 的 PV-024 歷史方案；PR #29 已導入官方 Water 反射，不能再拿它否決目前程式 |
 | 「未加入動態天氣、音景、釣魚與日夜」 | SUPERSEDED | 舊 P1-R1 文件的當時狀態；PR #21/#27/#29/#32 已實作 |
 | 28 步高畫質體積雲與 CPU 雲圖當作現行基線 | SUPERSEDED | PR #32 初版，#33 換成 ten-genera layer/shadow 方案 |
