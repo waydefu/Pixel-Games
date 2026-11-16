@@ -278,9 +278,14 @@ export function createCoastalWater(k:StageKit,heightAt:(x:number,z:number)=>numb
   let mirrorTick=0,prepared=false;
   const originalBeforeRender=water.onBeforeRender;
   function renderMirror(renderer:THREE.WebGLRenderer,scene:THREE.Scene,camera:THREE.Camera){
+    const previousVisible=outer.visible;
     outer.visible=false;
-    originalBeforeRender.call(water,renderer,scene,camera,undefined as never,undefined as never,undefined as never);
-    outer.visible=true;
+    try {
+      originalBeforeRender.call(water,renderer,scene,camera,undefined as never,undefined as never,undefined as never);
+    } finally {
+      // A failed Water pass must never leave the endless sea permanently hidden.
+      outer.visible=previousVisible;
+    }
   }
   /** Draws the mirror image for this frame. The frame pipeline calls it BEFORE the scene pass: a render-target switch in the
    *  middle of a multisampled scene pass loses what was already drawn on phone GPUs (blank frames). */
