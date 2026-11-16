@@ -67,4 +67,4 @@ jobs:
           name: mainline-evidence-${{ matrix.project }}
           path: test-results/
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error

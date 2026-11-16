@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+
+async function retainJSON(info, name, value) {
+  const path=info.outputPath(name);
+  await mkdir(info.outputDir,{recursive:true});
+  await writeFile(path,JSON.stringify(value,null,2),'utf8');
+  await info.attach(name,{path,contentType:'application/json'});
+}
 
 // Real mainline, full low preset at its specified 720-1080 short-side resolution.
 // No rs/tex/veg overrides, no hidden scene, no mocked WebGL or storage.
@@ -62,7 +70,7 @@ test('standalone mainline: offline shaders, controls, inventory, save and reload
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aldric.save')));
   expect(saved.v).toBe(1);
   expect(saved.player).toBeTruthy();
-  await testInfo.attach('render-observations.json', { body: JSON.stringify({ browserName, isMobile, shaderState, saved, scope: 'SwiftShader functional evidence, NOT phone FPS or visual approval' }, null, 2), contentType: 'application/json' });
+  await retainJSON(testInfo,'render-observations.json',{ browserName, isMobile, shaderState, saved, scope: 'SwiftShader functional evidence, NOT phone FPS or visual approval' });
   if (!isMobile) {
     await page.locator('#mx').click();
     await page.screenshot({ path: testInfo.outputPath('mainline.png') });
@@ -105,7 +113,7 @@ test('downloaded HTML boots without a server or network', async ({ page, context
   expect(state.shortSide).toBeLessThanOrEqual(1440);
   expect(state.linked.length).toBeGreaterThan(0);
   expect(state.linked.every(Boolean)).toBe(true);
-  await testInfo.attach('default-high-offline.json', {body:JSON.stringify(state),contentType:'application/json'});
+  await retainJSON(testInfo,'default-high-offline.json',state);
   expect(errors).toEqual([]);
   expect(requests).toEqual([]);
   // Default-high shader/state evidence above is retained; visual approval remains #120.
