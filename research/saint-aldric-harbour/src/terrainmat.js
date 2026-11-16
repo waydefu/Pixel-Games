@@ -17,11 +17,12 @@ ${SEASON_GLSL}
 ${SURF_GLSL}
 // Triplanar blend for steep faces: the horizontal projection (xz) is replaced by yz / xy projections weighted by the face normal, so ditch walls
 // and hillsides are not smeared vertically. Flat ground (slope below ~0.12) keeps the plain xz sample.
-Surf triSurf(float id, vec2 uvH, vec3 wn, float steep, vec3 p) {
-  Surf a = sampleSurf(id, uvH);
+Surf triSurf(float id, vec2 uvH, vec2 uvHDx, vec2 uvHDy, vec3 wn, float steep, vec3 p, vec3 pDx, vec3 pDy) {
+  Surf a = sampleSurf(id, uvH, uvHDx, uvHDy);
   float k = smoothstep(0.12, 0.35, steep);
   if (k < 0.01) return a;
-  Surf bx = sampleSurf(id, vec2(p.z, p.y)), bz = sampleSurf(id, vec2(p.x, p.y));
+  Surf bx = sampleSurf(id, vec2(p.z, p.y), vec2(pDx.z, pDx.y), vec2(pDy.z, pDy.y));
+  Surf bz = sampleSurf(id, vec2(p.x, p.y), vec2(pDx.x, pDx.y), vec2(pDy.x, pDy.y));
   vec3 w = pow(abs(wn), vec3(4.0)); w /= max(w.x + w.y + w.z, 1e-4);
   Surf t; t.h = a.h * w.y + bx.h * w.x + bz.h * w.z; t.alb = a.alb * w.y + bx.alb * w.x + bz.alb * w.z;
   t.n = a.n * w.y + bx.n * w.x + bz.n * w.z; t.rough = a.rough * w.y + bx.rough * w.x + bz.rough * w.z; t.ao = a.ao * w.y + bx.ao * w.x + bz.ao * w.z;
@@ -31,11 +32,13 @@ Surf triSurf(float id, vec2 uvH, vec3 wn, float steep, vec3 p) {
 `)
       .replace("#include <map_fragment>", `
       vec3 wn_ = normalize(vWN); vec2 xz_ = vWPos.xz;
-      vec2 muv_ = (xz_ - uMaskRect.xy) / uMaskRect.z; vec4 mk_ = (muv_.x > 0.0 && muv_.x < 1.0 && muv_.y > 0.0 && muv_.y < 1.0) ? texture(uMask, muv_) : vec4(0.0, 0.0, 0.0, 1.0);
+      vec3 dpdx_ = dFdx(vWPos), dpdy_ = dFdy(vWPos); vec2 xzDx_ = dpdx_.xz, xzDy_ = dpdy_.xz;
+      vec2 muv_ = (xz_ - uMaskRect.xy) / uMaskRect.z, muvDx_ = xzDx_ / uMaskRect.z, muvDy_ = xzDy_ / uMaskRect.z;
+      vec4 mk_ = (muv_.x > 0.0 && muv_.x < 1.0 && muv_.y > 0.0 && muv_.y < 1.0) ? textureGrad(uMask, muv_, muvDx_, muvDy_) : vec4(0.0, 0.0, 0.0, 1.0);
       float rdist_ = mk_.a * 24.0 - 4.0;
       float nA_ = tNoise(xz_ * 0.31), nB_ = tNoise(xz_ * 2.7 + 5.0), nC_ = tNoise(xz_ * 0.045);
       // steepness from the per-pixel surface (screen derivatives), not the smoothed vertex normal: steep ditch and cliff faces become rock
-      vec3 fn_ = normalize(cross(dFdx(vWPos), dFdy(vWPos)));
+      vec3 fn_ = normalize(cross(dpdx_, dpdy_));
       float slope_ = max(1.0 - wn_.y, 1.0 - abs(fn_.y));
       float cob_ = smoothstep(0.42, 0.58, max(mk_.r, mk_.g) + (nB_ - 0.5) * 0.4);
       float yard_ = smoothstep(0.08, 0.5, mk_.b + (nB_ - 0.5) * 0.3) * (1.0 - cob_);
@@ -47,10 +50,11 @@ Surf triSurf(float id, vec2 uvH, vec3 wn, float steep, vec3 p) {
       float ID_[6]; ID_[0] = ${L.grass}.0; ID_[1] = ${L.dirt}.0; ID_[2] = ${L.rock}.0; ID_[3] = ${L.cobble}.0; ID_[4] = ${L.gravel}.0; ID_[5] = ${L.sand}.0;
       // rock is projected along the dominant horizontal axis so cliffs do not smear
       vec2 ruv_ = abs(wn_.x) > abs(wn_.z) ? vec2(vWPos.z * sign(wn_.x), vWPos.y) : vec2(-vWPos.x * sign(wn_.z), vWPos.y);
+      vec2 ruvDx_ = dFdx(ruv_), ruvDy_ = dFdy(ruv_);
       Surf S_[6]; float tot_ = 0.0, hmax_ = -1.0;
       for (int i = 0; i < 6; i++) {
         S_[i].h = 0.0; S_[i].alb = vec3(0.0); S_[i].n = vec3(0, 0, 1); S_[i].rough = 1.0; S_[i].ao = 1.0;
-        if (W_[i] > 0.015) { S_[i] = triSurf(ID_[i], i == 2 ? ruv_ : xz_, wn_, slope_, vWPos); hmax_ = max(hmax_, S_[i].h * 0.9 + W_[i]); }
+        if (W_[i] > 0.015) { S_[i] = triSurf(ID_[i], i == 2 ? ruv_ : xz_, i == 2 ? ruvDx_ : xzDx_, i == 2 ? ruvDy_ : xzDy_, wn_, slope_, vWPos, dpdx_, dpdy_); hmax_ = max(hmax_, S_[i].h * 0.9 + W_[i]); }
       }
       float tw_ = 0.0; vec3 alb_ = vec3(0.0), nTS_ = vec3(0.0), nTR_ = vec3(0.0); float rough_ = 0.0, ao_ = 0.0, wr_ = 0.0;
       for (int i = 0; i < 6; i++) if (W_[i] > 0.015) {
@@ -65,7 +69,8 @@ Surf triSurf(float id, vec2 uvH, vec3 wn, float steep, vec3 p) {
       alb_ *= 1.0 - 0.42 * wet_; rough_ = mix(rough_, 0.18, wet_ * 0.75);
       alb_ *= mix(vec3(1.0), vec3(1.25, 1.02, 0.7), seasonDry() * (1.0 - sandW_) * (0.5 + 0.5 * nC_));   // dry grass in autumn and winter
       vec2 fuv_ = (xz_ - uForestRect.xy) / uForestRect.z;
-      float fo_ = (fuv_.x > 0.0 && fuv_.x < 1.0 && fuv_.y > 0.0 && fuv_.y < 1.0) ? texture(uForest, fuv_).r : 0.0;   // broadleaf cover
+      vec2 fuvDx_ = xzDx_ / uForestRect.z, fuvDy_ = xzDy_ / uForestRect.z;
+      float fo_ = (fuv_.x > 0.0 && fuv_.x < 1.0 && fuv_.y > 0.0 && fuv_.y < 1.0) ? textureGrad(uForest, fuv_, fuvDx_, fuvDy_).r : 0.0;   // broadleaf cover
       alb_ = mix(alb_, vec3(0.13, 0.09, 0.05) * (0.8 + 0.4 * nB_), fo_ * 0.8 * (1.0 - rockW_) * (1.0 - cob_));          // beech leaf litter
       alb_ = mix(alb_, vec3(0.12, 0.2, 0.07), fo_ * smoothstep(0.5, 0.7, nA_) * 0.6);                                   // moss patches
       { // fallen leaves on the forest floor (more of them, and brighter, in autumn) and clover patches in open grass

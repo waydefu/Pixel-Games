@@ -353,17 +353,21 @@ uniform float uTexScale[${LAYERS.length}]; uniform float uTexAnti[${LAYERS.lengt
 struct Surf { vec3 alb; float rough; vec3 n; float ao; float h; };
 ${TNOISE_GLSL}
 // uvm in metres. Anti-tiling: second tap rotated/scaled, blended by a low-frequency noise.
-Surf sampleSurf(float id, vec2 uvm) {
+Surf sampleSurf(float id, vec2 uvm, vec2 dUdx, vec2 dUdy) {
   int ii = int(id + 0.5); int bank = uTexBank[ii]; float layer = float(uTexLayer[ii]);
-  vec2 uv = uvm / uTexScale[ii]; if (ii >= 19) uv += uRecipePhase;
+  vec2 uv = uvm / uTexScale[ii];
+  vec2 uvDx = dUdx / uTexScale[ii], uvDy = dUdy / uTexScale[ii];
+  if (ii >= 19) uv += uRecipePhase;
   vec4 a, n;
-  if (bank == 0) { a = texture(uTexA0, vec3(uv, layer)); n = texture(uTexN0, vec3(uv, layer)); }
-  else { a = texture(uTexA1, vec3(uv, layer)); n = texture(uTexN1, vec3(uv, layer)); }
+  if (bank == 0) { a = textureGrad(uTexA0, vec3(uv, layer), uvDx, uvDy); n = textureGrad(uTexN0, vec3(uv, layer), uvDx, uvDy); }
+  else { a = textureGrad(uTexA1, vec3(uv, layer), uvDx, uvDy); n = textureGrad(uTexN1, vec3(uv, layer), uvDx, uvDy); }
   if (uTexAnti[ii] > 0.5) {
-    vec2 uv2 = mat2(0.8, 0.6, -0.6, 0.8) * uv * 1.37 + vec2(0.37, 0.11);
+    mat2 rotateUV = mat2(0.8, 0.6, -0.6, 0.8);
+    vec2 uv2 = rotateUV * uv * 1.37 + vec2(0.37, 0.11);
+    vec2 uv2Dx = rotateUV * uvDx * 1.37, uv2Dy = rotateUV * uvDy * 1.37;
     vec4 a2, n2;
-    if (bank == 0) { a2 = texture(uTexA0, vec3(uv2, layer)); n2 = texture(uTexN0, vec3(uv2, layer)); }
-    else { a2 = texture(uTexA1, vec3(uv2, layer)); n2 = texture(uTexN1, vec3(uv2, layer)); }
+    if (bank == 0) { a2 = textureGrad(uTexA0, vec3(uv2, layer), uv2Dx, uv2Dy); n2 = textureGrad(uTexN0, vec3(uv2, layer), uv2Dx, uv2Dy); }
+    else { a2 = textureGrad(uTexA1, vec3(uv2, layer), uv2Dx, uv2Dy); n2 = textureGrad(uTexN1, vec3(uv2, layer), uv2Dx, uv2Dy); }
     float w = smoothstep(0.35, 0.65, tNoise(uvm * 0.21 + id * 7.0));
     // rotate the second normal back into the first frame (approximate: rotation of xy by the inverse angle)
     vec2 nn2 = n2.xy * 2.0 - 1.0; nn2 = mat2(0.8, -0.6, 0.6, 0.8) * nn2; n2.xy = nn2 * 0.5 + 0.5;

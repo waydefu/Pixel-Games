@@ -530,15 +530,15 @@ float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         gp_ += (vec2(h1_, h2_) - 0.5) * uGrassCell * 1.5;
         float dcam_ = length(gp_ - uGrassCam.xz);
         float keep_ = step(dcam_, uGrassR) * step(h3_, uGrassDensity * (1.0 - 0.9 * smoothstep(uGrassR * 0.5, uGrassR, dcam_)));
-        vec2 huv_ = (gp_ - uHRect.xy) / uHRect.z; float gy_ = texture(uHeight, huv_).r;
-        vec2 muv_ = (gp_ - uMaskRect.xy) / uMaskRect.z; vec4 mk_ = texture(uMask, muv_);
+        vec2 huv_ = (gp_ - uHRect.xy) / uHRect.z; float gy_ = textureLod(uHeight, huv_, 0.0).r;
+        vec2 muv_ = (gp_ - uMaskRect.xy) / uMaskRect.z; vec4 mk_ = textureLod(uMask, muv_, 0.0);
         float inMask_ = step(0.0, muv_.x) * step(muv_.x, 1.0) * step(0.0, muv_.y) * step(muv_.y, 1.0);
         float paved_ = inMask_ * max(max(mk_.r, mk_.g), mk_.b * 0.9); float rdist_ = mix(99.0, mk_.a * 24.0 - 4.0, inMask_);
         keep_ *= step(paved_, 0.12) * step(0.4, rdist_ + 0.9) * step(1.8, gy_);
         keep_ *= 1.0 - step(uFarm.x, gp_.x) * step(gp_.x, uFarm.z) * step(uFarm.y, gp_.y) * step(gp_.y, uFarm.w);   // no grass on the farm plots
-        vec2 euv_ = (gp_ - uExclRect.xy) / uExclRect.z; float ex_ = (euv_.x > 0.0 && euv_.x < 1.0 && euv_.y > 0.0 && euv_.y < 1.0) ? texture(uExcl, euv_).r : 0.0;
+        vec2 euv_ = (gp_ - uExclRect.xy) / uExclRect.z; float ex_ = (euv_.x > 0.0 && euv_.x < 1.0 && euv_.y > 0.0 && euv_.y < 1.0) ? textureLod(uExcl, euv_, 0.0).r : 0.0;
         keep_ *= 1.0 - step(0.5, ex_);   // no grass on buildings, landmarks, the wall band, the market or the castle courtyard
-        vec2 fuv_ = (gp_ - uForestRect.xy) / uForestRect.z; float fo_ = (fuv_.x > 0.0 && fuv_.x < 1.0 && fuv_.y > 0.0 && fuv_.y < 1.0) ? texture(uForestTex, fuv_).r : 0.0;
+        vec2 fuv_ = (gp_ - uForestRect.xy) / uForestRect.z; float fo_ = (fuv_.x > 0.0 && fuv_.x < 1.0 && fuv_.y > 0.0 && fuv_.y < 1.0) ? textureLod(uForestTex, fuv_, 0.0).r : 0.0;
         keep_ *= 1.0 - fo_ * 0.5 * step(0.5, uSeason);   // summer and autumn canopy: thinner, darker understory
         float anem_ = step(uSeason, 0.5) * smoothstep(0.12, 0.4, fo_);   // spring: white wood anemones in the beech woods
         float isFl_ = step(uv.x, -0.5) * step(-3.5, uv.x), isSt_ = step(uv.x, -3.5);

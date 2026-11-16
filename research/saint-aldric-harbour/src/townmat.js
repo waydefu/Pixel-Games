@@ -17,7 +17,7 @@ ${SEASON_GLSL}
 ${SURF_GLSL}
 `)
       .replace("#include <map_fragment>", `
-      Surf S_ = sampleSurf(vMat, vUvm);
+      Surf S_ = sampleSurf(vMat, vUvm, dFdx(vUvm), dFdy(vUvm));
       float macro_ = tNoise(vWPos.xz * 0.45 + vWPos.y * 0.31);
       vec3 alb_ = S_.alb * vColor.rgb * (0.86 + 0.28 * macro_);
       float wet_ = uWet * (1.0 - step(7.5, vMat) * step(vMat, 10.5) * 0.4);
