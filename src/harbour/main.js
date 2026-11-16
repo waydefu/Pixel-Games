@@ -94,14 +94,16 @@ async function boot() {
   post.expo.uniforms.uMinMax.value.set(0.02, 5.0);
   // Resolution policy per tier (short side, px): low 720-1080, others 1080-1440. Dynamic resolution moves between the tier's floor and its ceiling.
   const MINSIDE = Q.has("rs") ? num("rs", 720) : TIER.minSide, MAXSIDE = Q.has("rs") ? num("rs", 720) : TIER.maxSide;
-  let renderScale = 1, minScale = 1;
+  let renderScale = 1, minScale = 1, redraw = true;
   const resize = () => {
+    redraw = true;
     const cssShort = Math.min(innerWidth, innerHeight), native = cssShort * (devicePixelRatio || 1), target = clamp(native, MINSIDE, MAXSIDE), pr = target / cssShort;
     renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
     minScale = Math.min(1, MINSIDE / target); renderScale = clamp(renderScale, minScale, 1);
     const w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr); camera.aspect = w / h; camera.updateProjectionMatrix(); post.setSize(w, h, renderScale);
   };
   addEventListener("resize", resize); resize();
+  canvas.addEventListener("webglcontextrestored", () => { redraw = true; });
 
   const boatMat = csmify(csm, makeTownMaterial(TEX, 303)); boatMat.side = THREE.DoubleSide; boatMat.userData.key = "boat";
   const ctx = { W, camera, scene, townMat, boatMat, csm, TOWN, PLACED, weather, ambience, sky, renderer, canvas };
@@ -145,7 +147,12 @@ async function boot() {
   const lampPos = TOWN.lamps;
   const fixedCam = Q.has("cx") || Q.has("cam");
   function frame(now) {
-    const dt = Math.min(0.1, (now - last) / 1000); last = now; time += dt; ema = ema * 0.95 + dt * 1000 * 0.05;
+    const paused = !intro && game.G.paused;
+    const dt = paused ? 0 : Math.min(0.1, (now - last) / 1000); last = now;
+    // Paused menus retain the last complete frame instead of baking ocean/shadows/post again.
+    if (paused && !redraw) { requestAnimationFrame(frame); return; }
+    redraw = false; time += dt;
+    if (!paused) ema = ema * 0.95 + dt * 1000 * 0.05;
     const hourBefore = game.G.hour;
     if (intro && !fixedCam) {
       const a = time * 0.05 + 0.6; camera.position.set(80 + Math.cos(a) * 95, 24 + Math.sin(time * 0.1) * 4, 70 + Math.sin(a) * 85); camera.lookAt(30, 8, 30); game.G.hour = Q.has("still") ? game.G.hour : (game.G.hour + dt * 0.01) % 24;

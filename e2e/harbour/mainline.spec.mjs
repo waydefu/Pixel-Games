@@ -8,6 +8,18 @@ async function retainJSON(info, name, value) {
   await info.attach(name,{path,contentType:'application/json'});
 }
 
+async function verifyPausedFrame(page) {
+  const state=await page.evaluate(async()=>{
+    const before={time:window.__t,frame:window.__renderer.info.render.frame};
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    return {before,after:{time:window.__t,frame:window.__renderer.info.render.frame},paused:window.__game.G.paused};
+  });
+  expect(state.paused).toBe(true);
+  expect(Number.isInteger(state.before.frame)).toBe(true);
+  expect(state.after).toEqual(state.before);
+  return state;
+}
+
 // Real mainline, full low preset at its specified 720-1080 short-side resolution.
 // No rs/tex/veg overrides, no hidden scene, no mocked WebGL or storage.
 test('standalone mainline: offline shaders, controls, inventory, save and reload', async ({ page, context, browserName, isMobile }, testInfo) => {
@@ -47,6 +59,7 @@ test('standalone mainline: offline shaders, controls, inventory, save and reload
     await page.keyboard.press('i');
   }
   await expect(page.locator('#inv')).toHaveClass('on');
+  await verifyPausedFrame(page);
   await page.locator('#invX').click();
   if (!isMobile) {
     await page.keyboard.down('w');
@@ -64,13 +77,14 @@ test('standalone mainline: offline shaders, controls, inventory, save and reload
   }
   await page.locator('#menuBtn').click();
   await expect(page.locator('#menu')).toHaveClass('on');
+  const pausedFrame=await verifyPausedFrame(page);
   await expect(page.locator('#tiers button')).toHaveCount(4);
   await page.locator('[data-k="save"]').click();
   await page.locator('#sv').click();
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('aldric.save')));
   expect(saved.v).toBe(1);
   expect(saved.player).toBeTruthy();
-  await retainJSON(testInfo,'render-observations.json',{ browserName, isMobile, shaderState, saved, scope: 'SwiftShader functional evidence, NOT phone FPS or visual approval' });
+  await retainJSON(testInfo,'render-observations.json',{ browserName, isMobile, shaderState, pausedFrame, saved, scope: 'SwiftShader functional evidence, NOT phone FPS or visual approval' });
   if (!isMobile) {
     await page.locator('#mx').click();
     await page.screenshot({ path: testInfo.outputPath('mainline.png') });

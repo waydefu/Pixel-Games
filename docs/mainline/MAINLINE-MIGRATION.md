@@ -47,6 +47,14 @@ main deploy-pages.yml → SAME full verify → deploy exact Pages artifact
 - 第一輪 mobile trace 實測：boot 約27s、touch每次21–30s、UI actionability每次15–32s（SwiftShader 排隊）。完整保存＋reload測試界線設360s，單一wait仍有時限、retry=0；這不是效能合格或手機速度的證據。
 - 證據 artifacts 保存14日：桌面低檔實際 PNG、各平台 shader/存檔 JSON、失敗 trace。第二輪已證實桌面保存重載與預設 high 離線／shader 通過，但高檔 PNG 截圖卡住；mobile trace 的 PNG 佔105秒並擠壓 reload 時限。故保留所有功能／shader／解析度檢查，取消 mobile／high 的額外 PNG 捕捉，不再提高 timeout，不修改或降低遊戲畫質；mobile/high 視覺仍 NOT RUN。中文字型不屬遊戲依賴；runner 截圖不是人工視覺驗收。
 
+## 暫停時的重複渲染
+
+最新 mobile trace（d177ca4）顯示 reload 在總時限中等待約114秒；取消額外 PNG 後仍能再現，故不能只歸因截圖或繼續加 timeout。程式的暫停旗標原本只限制部分遊戲／天氣邏輯，海洋 FFT、天空、陰影、場景及後製仍每幀執行。新增直接執行實際 frame prefix 的輕量回歸：修正前2/4 fail（暫停仍進入渲染路徑、時間仍前進），修正後4/4 pass，全套43/43 pass。
+
+最小修正只在已進入遊戲且選單／背包暫停時保留最後完整畫面，停止重做世界更新與GL渲染；每個rAF仍更新last，避免恢復時dt突跳或把暫停算成高FPS。resize／context restore可重繪一次、dt=0；開場環繞與正常遊玩、解析度／材質／陰影／效果不變。遠端E2E另外讀取實際renderer.info.render.frame及遊戲時間，跨兩個rAF必須保持不變，再驗證恢復移動與保存重載；不以單元測試宣稱GPU效能提升。
+
+規格參考：[MDN requestAnimationFrame](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame)、[Three.js r187 WebGLInfo](https://github.com/mrdoob/three.js/blob/r187/src/renderers/webgl/WebGLInfo.js)。驅動、真機效能與BFCache仍需另驗，不把此控制流修正說成全部裝置的GPU故障已修復。
+
 ## Issues／PR 整理
 
 原有43張 open Issues 逐項讀 body 分流，見 [ISSUE-TRIAGE](ISSUE-TRIAGE.md)。治理／安全／驗收沿用，產品需求沿用或標新主線重驗，舊版限定標歷史但不說已修好。#137/#142/#143 的作者工作與討論保留，明確告知新主線不自動套用其舊源碼變更；未做自動合併／覆寫／關閉他人PR。
