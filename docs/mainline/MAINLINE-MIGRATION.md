@@ -45,7 +45,7 @@ main deploy-pages.yml → SAME full verify → deploy exact Pages artifact
 - 桌面／手機 viewport 以**完整低檔**測試：無 rs/tex/veg/mocked renderer override，短邊必須 720–1080。桌面 file:// 用**未指定畫質的預設 high**，短邊必須 1080–1440，檢查 AO/bloom/MSAA 路徑 shader link；不降解析度／刪效果來過 CI。
 - 測試涵蓋：真正 shader link、console error、DOM/meta、鍵盤或真 touch dispatch 位移、背包、四檔選單、保存／reload／繼續、舊 storage 保留、外部請求 0；保存 schema／備份／損壞／封鎖另以 Node 測。
 - 第一輪 mobile trace 實測：boot 約27s、touch每次21–30s、UI actionability每次15–32s（SwiftShader 排隊）。完整保存＋reload測試界線設360s，單一wait仍有時限、retry=0；這不是效能合格或手機速度的證據。
-- 證據 artifacts 保存14日：實際 PNG、shader/存檔 JSON、失敗 trace。中文字型並非遊戲依賴；runner 截圖不能替代人工字型／視覺驗收。
+- 證據 artifacts 保存14日：桌面低檔實際 PNG、各平台 shader/存檔 JSON、失敗 trace。第二輪已證實桌面保存重載與預設 high 離線／shader 通過，但高檔 PNG 截圖卡住；mobile trace 的 PNG 佔105秒並擠壓 reload 時限。故保留所有功能／shader／解析度檢查，取消 mobile／high 的額外 PNG 捕捉，不再提高 timeout，不修改或降低遊戲畫質；mobile/high 視覺仍 NOT RUN。中文字型不屬遊戲依賴；runner 截圖不是人工視覺驗收。
 
 ## Issues／PR 整理
 

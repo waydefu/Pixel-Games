@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Build and validate once, then the browser suites in parallel shards (see verify.yml).
+  # Build once, then verify the same standalone artifact in desktop/mobile browsers.
   verify:
     name: Verify
     uses: ./.github/workflows/verify-mainline.yml
