@@ -7,8 +7,12 @@ export const LAYERS = [
   ["grass", 4.0, 1], ["dirt", 3.0, 1], ["rock", 6.0, 1], ["cobble", 2.4, 0], ["gravel", 2.0, 1], ["sand", 3.0, 1], ["wood", 2.0, 0],
   ["plaster", 2.5, 1], ["clay", 1.6, 0], ["slate", 1.6, 0], ["thatch", 1.5, 0], ["ashlar", 2.4, 0], ["rubble", 3.0, 0], ["beam", 2.0, 0], ["bark", 1.2, 0],
   ["brick", 2.4, 0], ["tileRed2", 1.6, 0], ["birch", 1.2, 0], ["beechbark", 1.2, 0],   // 15 brick (North German Backstein, black-glazed headers), 16 older red roof tile
+  ["saltOak", 2.4, 0], ["mossStone", 1.6, 0], ["linenCanvas", 1.2, 0],
 ];
 export const L = Object.fromEntries(LAYERS.map((l, i) => [l[0], i]));
+const DETAIL_LAYERS = new Set(["saltOak", "mossStone", "linenCanvas"]);
+const LAYER_BANK = LAYERS.map(([name]) => Number(DETAIL_LAYERS.has(name)));
+const BANK_LAYERS = [0, 1].map(bank => LAYER_BANK.flatMap((id, layer) => id === bank ? [layer] : []));
 
 const NOISE = /* glsl */`
 uvec2 pcg2d(uvec2 v) { v = v * 1664525u + 1013904223u; v.x += v.y * 1664525u; v.y += v.x * 1664525u; v ^= v >> 16u; v.x += v.y * 1664525u; v.y += v.x * 1664525u; v ^= v >> 16u; return v; }
@@ -226,10 +230,59 @@ M beechbark(vec2 uv) {   // Fagus: smooth pewter-grey bark with fine wrinkles, p
   float moss = smoothstep(0.7, 0.9, fbm(uv * vec2(1.0, 0.5) + 31.0, 3.0, 3) + 0.5); base = mix(base, vec3(0.14, 0.22, 0.08), moss * 0.5);
   m.a = base; m.h = 0.5 + 0.2 * w + 0.1 * n; m.ao = 0.7 + 0.3 * w; m.r = 0.8; m.b = 0.8; return m;
 }
+M saltOak(vec2 uv) { // salt-bleached dock boards; grain runs along v
+  M m; float boardX = uv.x * 8.0, bx = fract(boardX);
+  float grain = gnoise(vec2(uv.x * 56.0, uv.y * 8.0), vec2(56.0, 8.0)) * 0.5 + 0.5;
+  float pore = gnoise(vec2(uv.x * 24.0, uv.y * 3.0), vec2(24.0, 3.0)) * 0.5 + 0.5;
+  float salt = smoothstep(0.62, 0.82, fbm(uv + 7.3, 3.0, 4) + 0.5) * (0.55 + 0.45 * grain);
+  float wet = smoothstep(0.58, 0.76, fbm(uv + 17.2, 2.0, 4) + 0.5);
+  float gap = 1.0 - smoothstep(0.0, 0.035, min(bx, 1.0 - bx));
+  vec3 c = mix(vec3(0.10, 0.065, 0.038), vec3(0.23, 0.16, 0.095), grain) * (0.88 + 0.22 * pore);
+  c = mix(c, vec3(0.31, 0.30, 0.27), salt * 0.68); c = mix(c, vec3(0.065, 0.05, 0.035), wet * 0.42);
+  m.a = clamp(mix(c, vec3(0.04, 0.032, 0.024), gap * 0.82), vec3(0.02), vec3(0.72));
+  m.h = clamp(0.48 + grain * 0.16 + pore * 0.05 + salt * 0.05 - wet * 0.06 - gap * 0.3, 0.0, 1.0);
+  m.ao = clamp(0.98 - gap * 0.58 - wet * 0.1 - salt * 0.08, 0.25, 1.0);
+  m.r = clamp(0.72 + salt * 0.18 - wet * 0.15 + gap * 0.2, 0.55, 1.0); m.b = clamp(1.25, 0.5, 2.0); return m;
+}
+M mossStone(vec2 uv) { // damp ashlar courses with moss concentrated at the repeating waterline
+  M m; float row = floor(uv.y * 4.0), fy = fract(uv.y * 4.0);
+  float xo = uv.x * 4.0 + mod(row, 2.0) * 0.5, ci = floor(xo), fx = fract(xo);
+  float hs = hash12(vec2(mod(ci, 4.0), mod(row, 4.0)) + 9.0);
+  float jx = 1.0 - smoothstep(0.0, 0.045, min(fx, 1.0 - fx)), jy = 1.0 - smoothstep(0.0, 0.055, min(fy, 1.0 - fy));
+  float joint = clamp(jx + jy, 0.0, 1.0), stone = 1.0 - joint;
+  float n = fbm(uv + 2.1, 7.0, 4) + 0.5, grit = gnoise(uv * vec2(48.0, 48.0), vec2(48.0, 48.0)) * 0.5 + 0.5;
+  vec3 v = voro(uv, 5.0, 0.9);
+  float waterline = exp(-pow((fract(uv.y + 0.5) - 0.5) / 0.24, 2.0));
+  float damp = clamp(waterline * (0.65 + 0.35 * (fbm(uv + 11.0, 2.0, 4) + 0.5)), 0.0, 1.0);
+  float moss = damp * (1.0 - smoothstep(0.16, 0.37, v.x)) * smoothstep(0.48, 0.72, v.z) * stone;
+  vec3 c = mix(vec3(0.20, 0.19, 0.16), vec3(0.36, 0.34, 0.29), hs) * (0.82 + 0.25 * n + 0.08 * grit);
+  c = mix(c, vec3(0.11, 0.135, 0.09), damp * 0.34); c = mix(c, vec3(0.075, 0.13, 0.055), moss * 0.85);
+  m.a = clamp(mix(vec3(0.17, 0.16, 0.135) * (0.7 + 0.4 * n), c, stone), vec3(0.02), vec3(0.68));
+  m.h = clamp(0.22 + stone * (0.42 + n * 0.1 + grit * 0.05) - joint * 0.12 + moss * 0.05, 0.0, 1.0);
+  m.ao = clamp(0.96 - joint * 0.48 - damp * stone * 0.06 - moss * 0.1, 0.25, 1.0);
+  m.r = clamp(0.94 - stone * 0.15 - damp * stone * 0.11 + moss * 0.12 + joint * 0.04, 0.55, 1.0); m.b = clamp(1.8, 0.5, 2.6); return m;
+}
+M linenCanvas(vec2 uv) { // interlaced warp/weft; uv.x crosses the cloth, uv.y follows the sail height
+  M m; vec2 grid = uv * 16.0, cell = floor(grid), f = fract(grid);
+  float warpThread = 1.0 - smoothstep(0.2, 0.48, abs(f.x - 0.5));
+  float weftThread = 1.0 - smoothstep(0.2, 0.48, abs(f.y - 0.5));
+  float over = mod(cell.x + cell.y, 2.0), warpTop = mix(0.78, 1.0, 1.0 - over), weftTop = mix(0.78, 1.0, over);
+  float yarn = max(warpThread * warpTop, weftThread * weftTop), voids = (1.0 - warpThread) * (1.0 - weftThread);
+  float fw = gnoise(vec2(uv.x * 24.0, uv.y * 4.0), vec2(24.0, 4.0)) * 0.5 + 0.5;
+  float ff = gnoise(vec2(uv.x * 4.0, uv.y * 24.0), vec2(4.0, 24.0)) * 0.5 + 0.5;
+  float fiber = mix(fw, ff, over), macro = fbm(uv + 3.7, 4.0, 4) + 0.5;
+  vec3 flax = vec3(0.34, 0.27, 0.19) * (0.9 + 0.12 * macro);
+  vec3 thread = flax * (0.88 + 0.22 * fiber) + vec3(0.045, 0.038, 0.026) * yarn;
+  m.a = clamp(mix(flax * 0.72, thread, clamp(yarn, 0.0, 1.0)) * (1.0 - 0.14 * voids), vec3(0.02), vec3(0.62));
+  m.h = clamp(0.48 + yarn * 0.18 + (fiber - 0.5) * 0.04 - voids * 0.07, 0.0, 1.0);
+  m.ao = clamp(0.94 + yarn * 0.04 - voids * 0.2, 0.25, 1.0);
+  m.r = clamp(0.94 - yarn * 0.11 + voids * 0.03, 0.55, 1.0); m.b = clamp(0.7, 0.5, 2.0); return m;
+}
 M evalLayer(int id, vec2 uv) {
   if (id == 0) return grass(uv); if (id == 1) return dirt(uv); if (id == 2) return rock(uv); if (id == 3) return cobble(uv); if (id == 4) return gravel(uv);
   if (id == 5) return sand(uv); if (id == 6) return wood(uv); if (id == 7) return plaster(uv); if (id == 8) return clay(uv); if (id == 9) return slate(uv);
-  if (id == 10) return thatch(uv); if (id == 11) return ashlar(uv); if (id == 12) return rubble(uv); if (id == 13) return beam(uv); if (id == 14) return bark(uv); if (id == 15) return brick(uv); if (id == 17) return birch(uv); if (id == 18) return beechbark(uv); return tileRed2(uv);
+  if (id == 10) return thatch(uv); if (id == 11) return ashlar(uv); if (id == 12) return rubble(uv); if (id == 13) return beam(uv); if (id == 14) return bark(uv); if (id == 15) return brick(uv); if (id == 16) return tileRed2(uv); if (id == 17) return birch(uv); if (id == 18) return beechbark(uv);
+  if (id == 19) return saltOak(uv); if (id == 20) return mossStone(uv); if (id == 21) return linenCanvas(uv); return tileRed2(uv);
 }
 `;
 
@@ -250,25 +303,42 @@ void main() {
 }`;
 
 export function bakeTextures(renderer, size = 512) {
-  const n = LAYERS.length;
-  const mk = (srgb) => {
-    const rt = new THREE.WebGLArrayRenderTarget(size, size, n, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: true, depthBuffer: false, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
-    rt.texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; rt.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    return rt;
-  };
-  const A = mk(true), Nn = mk(false);
-  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
-  const mat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: "out vec2 vUv; void main(){ vUv = position.xy*0.5+0.5; gl_Position = vec4(position.xy,0.,1.); }", fragmentShader: BAKE_FS, depthTest: false, depthWrite: false, uniforms: { uLayer: { value: 0 }, uPass: { value: 0 }, uTexel: { value: 1 / size } } });
-  const mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; const scene = new THREE.Scene(); scene.add(mesh); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const prev = renderer.getRenderTarget();
-  for (let i = 0; i < n; i++) {
-    mat.uniforms.uLayer.value = i;
-    mat.uniforms.uPass.value = 0; renderer.setRenderTarget(A, i); renderer.render(scene, cam);
-    mat.uniforms.uPass.value = 1; renderer.setRenderTarget(Nn, i); renderer.render(scene, cam);
+  const makeTarget = (bankSize, layerCount) => new THREE.WebGLArrayRenderTarget(bankSize, bankSize, layerCount, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: true, mipmapsAutoUpdate: false, depthBuffer: false, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
+  const targets = [], banks = [], layerIndex = Array(LAYERS.length);
+  let geo, mat, mesh;
+  const prev = renderer.getRenderTarget(), prevFace = renderer.getActiveCubeFace?.() ?? 0, prevMip = renderer.getActiveMipmapLevel?.() ?? 0, autoClear = renderer.autoClear;
+  try {
+    geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+    mat = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: "out vec2 vUv; void main(){ vUv = position.xy*0.5+0.5; gl_Position = vec4(position.xy,0.,1.); }", fragmentShader: BAKE_FS, depthTest: false, depthWrite: false, uniforms: { uLayer: { value: 0 }, uPass: { value: 0 }, uTexel: { value: 1 / size } } });
+    mesh = new THREE.Mesh(geo, mat); mesh.frustumCulled = false; const scene = new THREE.Scene(); scene.add(mesh); const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    for (const [bankId, layers] of BANK_LAYERS.entries()) {
+      const bankSize = bankId === 0 ? size : Math.max(1, Math.floor(size / 2));
+      const A = makeTarget(bankSize, layers.length); targets.push(A);
+      A.texture.colorSpace = THREE.SRGBColorSpace; A.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const Nn = makeTarget(bankSize, layers.length); targets.push(Nn);
+      Nn.texture.colorSpace = THREE.NoColorSpace; Nn.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      banks.push({ albedo: A.texture, normal: Nn.texture, size: bankSize, layers });
+      for (let local = 0; local < layers.length; local++) {
+        const layer = layers[local]; layerIndex[layer] = local; mat.uniforms.uLayer.value = layer; mat.uniforms.uTexel.value = 1 / bankSize;
+        mat.uniforms.uPass.value = 0; renderer.setRenderTarget(A, local); renderer.render(scene, cam);
+        mat.uniforms.uPass.value = 1; renderer.setRenderTarget(Nn, local); renderer.render(scene, cam);
+      }
+    }
+    // WebGLRenderer regenerates an array's whole mip chain after every render; update once after all its layers are baked.
+    for (const rt of targets) rt.texture.mipmapsAutoUpdate = true;
+    mesh.visible = false; renderer.autoClear = false;
+    for (const rt of targets) { renderer.setRenderTarget(rt); renderer.render(scene, cam); }
+    let disposed = false;
+    return { albedo: banks[0].albedo, normal: banks[0].normal, banks, layerBank: LAYER_BANK, layerIndex, scales: LAYERS.map(l => l[1]), anti: LAYERS.map(l => l[2]), rts: targets,
+      dispose() { if (disposed) return; disposed = true; for (const rt of targets) rt.dispose(); } };
+  } catch (error) {
+    for (const rt of targets) rt.dispose();
+    throw error;
+  } finally {
+    if (mesh) mesh.visible = true; renderer.autoClear = autoClear;
+    try { renderer.setRenderTarget(prev, prevFace, prevMip); }
+    finally { geo?.dispose(); mat?.dispose(); }
   }
-  renderer.setRenderTarget(prev);
-  geo.dispose(); mat.dispose();
-  return { albedo: A.texture, normal: Nn.texture, scales: LAYERS.map(l => l[1]), anti: LAYERS.map(l => l[2]), rts: [A, Nn] };
 }
 
 // ---------------------------------------------------------------------------------------------------------------- shader-side sampling
@@ -277,16 +347,23 @@ float tHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
 float tNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(tHash(i), tHash(i + vec2(1, 0)), f.x), mix(tHash(i + vec2(0, 1)), tHash(i + vec2(1, 1)), f.x), f.y); }
 `;
 export const SURF_GLSL = /* glsl */`
-uniform highp sampler2DArray uTexA; uniform highp sampler2DArray uTexN; uniform float uTexScale[${LAYERS.length}]; uniform float uTexAnti[${LAYERS.length}];
+uniform highp sampler2DArray uTexA0; uniform highp sampler2DArray uTexN0; uniform highp sampler2DArray uTexA1; uniform highp sampler2DArray uTexN1;
+uniform highp int uTexBank[${LAYERS.length}]; uniform highp int uTexLayer[${LAYERS.length}];
+uniform float uTexScale[${LAYERS.length}]; uniform float uTexAnti[${LAYERS.length}]; uniform vec2 uRecipePhase;
 struct Surf { vec3 alb; float rough; vec3 n; float ao; float h; };
 ${TNOISE_GLSL}
 // uvm in metres. Anti-tiling: second tap rotated/scaled, blended by a low-frequency noise.
 Surf sampleSurf(float id, vec2 uvm) {
-  int ii = int(id + 0.5); vec2 uv = uvm / uTexScale[ii];
-  vec4 a = texture(uTexA, vec3(uv, id)), n = texture(uTexN, vec3(uv, id));
+  int ii = int(id + 0.5); int bank = uTexBank[ii]; float layer = float(uTexLayer[ii]);
+  vec2 uv = uvm / uTexScale[ii]; if (ii >= 19) uv += uRecipePhase;
+  vec4 a, n;
+  if (bank == 0) { a = texture(uTexA0, vec3(uv, layer)); n = texture(uTexN0, vec3(uv, layer)); }
+  else { a = texture(uTexA1, vec3(uv, layer)); n = texture(uTexN1, vec3(uv, layer)); }
   if (uTexAnti[ii] > 0.5) {
     vec2 uv2 = mat2(0.8, 0.6, -0.6, 0.8) * uv * 1.37 + vec2(0.37, 0.11);
-    vec4 a2 = texture(uTexA, vec3(uv2, id)), n2 = texture(uTexN, vec3(uv2, id));
+    vec4 a2, n2;
+    if (bank == 0) { a2 = texture(uTexA0, vec3(uv2, layer)); n2 = texture(uTexN0, vec3(uv2, layer)); }
+    else { a2 = texture(uTexA1, vec3(uv2, layer)); n2 = texture(uTexN1, vec3(uv2, layer)); }
     float w = smoothstep(0.35, 0.65, tNoise(uvm * 0.21 + id * 7.0));
     // rotate the second normal back into the first frame (approximate: rotation of xy by the inverse angle)
     vec2 nn2 = n2.xy * 2.0 - 1.0; nn2 = mat2(0.8, -0.6, 0.6, 0.8) * nn2; n2.xy = nn2 * 0.5 + 0.5;
@@ -302,6 +379,15 @@ mat3 surfTBN(vec3 N, vec3 p, vec2 uv) {
 }
 `;
 
-export function surfUniforms(tex) {
-  return { uTexA: { value: tex.albedo }, uTexN: { value: tex.normal }, uTexScale: { value: tex.scales }, uTexAnti: { value: tex.anti } };
+function recipePhase(seed) {
+  const s = Math.trunc(seed) >>> 0;
+  return [((Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296, ((Math.imul(s, 22695477) + 1) >>> 0) / 4294967296];
+}
+export function surfUniforms(tex, seed = 0) {
+  return {
+    uTexA0: { value: tex.banks[0].albedo }, uTexN0: { value: tex.banks[0].normal },
+    uTexA1: { value: tex.banks[1].albedo }, uTexN1: { value: tex.banks[1].normal },
+    uTexBank: { value: Int32Array.from(tex.layerBank) }, uTexLayer: { value: Int32Array.from(tex.layerIndex) },
+    uTexScale: { value: tex.scales }, uTexAnti: { value: tex.anti }, uRecipePhase: { value: recipePhase(seed) },
+  };
 }

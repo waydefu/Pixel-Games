@@ -48,7 +48,7 @@ function cloth(T, x0, yTop, yBot, wT, wB, bulge, tint, nx = 8, ny = 5, skew = 0)
   const P = (i, j) => { const u = i / nx * 2 - 1, v = j / ny, w = wT + (wB - wT) * v; return [x0 + bulge * (1 - u * u) * Math.sin(Math.PI * (0.08 + 0.84 * v)) + skew * v, yTop + (yBot - yTop) * v + 0.25 * bulge * (1 - u * u) * Math.sin(Math.PI * v) * 0.0, u * w]; };
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const A = P(i, j), B = P(i + 1, j), C = P(i + 1, j + 1), D = P(i, j + 1), sh = 0.94 + 0.06 * Math.sin((i + j * 0.5) * 2.1);
-    for (const q of [[A, B, C, D], [B, A, D, C]]) T.quad(q[0], q[1], q[2], q[3], { mat: L.plaster, tint: [tint[0] * sh, tint[1] * sh, tint[2] * sh], ao: 1, uvFn: p => [p[2] * 0.35, p[1] * 0.35] });
+    for (const q of [[A, B, C, D], [B, A, D, C]]) T.quad(q[0], q[1], q[2], q[3], { mat: L.linenCanvas, tint: [tint[0] * sh, tint[1] * sh, tint[2] * sh], ao: 1, uvFn: p => [p[2] * 0.35, p[1] * 0.35] });
   }
 }
 

@@ -62,9 +62,10 @@ async function boot() {
   const TEX = bakeTextures(renderer, TIER.tex);
   const MASKT = buildMaskTexture(W); setBar(0.2, "建造地形…"); await nextFrame();
   const FOREST = makeForestMap();   // broadleaf cover texture, filled once the forest is placed; read by terrain and grass
-  const terrain = buildTerrain(W, csmify(csm, makeTerrainMaterial(TEX, MASKT, FOREST, FOREST_RECT))); scene.add(terrain);
+  const terrainMat = csmify(csm, makeTerrainMaterial(TEX, MASKT, FOREST, FOREST_RECT));
+  const terrain = buildTerrain(W, terrainMat); scene.add(terrain);
   const HT = bakeHeightTexture(W);
-  const townMat = csmify(csm, makeTownMaterial(TEX)), glassMat = csmify(csm, makeGlassMaterial());
+  const townMat = csmify(csm, makeTownMaterial(TEX, 101)), glassMat = csmify(csm, makeGlassMaterial());
   setBar(0.32, "建造房屋、教堂與城牆…"); await nextFrame();
   const TOWN = buildTown(W, { detail: TIER.detail }); scene.add(TOWN.chunks.meshes(townMat, glassMat));
   log("town", Math.round(TOWN.stats.tris), "tris");
@@ -102,7 +103,7 @@ async function boot() {
   };
   addEventListener("resize", resize); resize();
 
-  const boatMat = csmify(csm, makeTownMaterial(TEX)); boatMat.side = THREE.DoubleSide; boatMat.userData.key = "boat";
+  const boatMat = csmify(csm, makeTownMaterial(TEX, 303)); boatMat.side = THREE.DoubleSide; boatMat.userData.key = "boat";
   const ctx = { W, camera, scene, townMat, boatMat, csm, TOWN, PLACED, weather, ambience, sky, renderer, canvas };
   const game = createGame(ctx); bindOcean(OCEAN);
   // ?doy= sets the GAME calendar (HUD, season, shaders, sky all read game.calendar()): day-of-year 80 = spring equinox, 365 days over 32 game days
@@ -128,7 +129,12 @@ async function boot() {
   else if (!intro) { $("intro")?.remove(); game.setStarted(true); }
   // autosave every 30 s while playing, and when the tab is hidden / closed
   const autosave = () => { if (game.G.started && !debugShot) { if (writeSave(game.collect())) ctx.tip?.("save"); } };
-  setInterval(autosave, 30000); addEventListener("pagehide", autosave); document.addEventListener("visibilitychange", () => { if (document.hidden) autosave(); });
+  setInterval(autosave, 30000);
+  addEventListener("pagehide", event => {
+    autosave();
+    if (!event.persisted) { TEX.dispose(); terrainMat.dispose(); townMat.dispose(); boatMat.dispose(); glassMat.dispose(); }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) autosave(); });
   if (Q.has("cx")) { camera.position.set(num("cx", 0), num("cy", 5), num("cz", 0)); camera.lookAt(num("tx", 0), num("ty", 3), num("tz", 0)); game.G.started = false; game.setStarted(false); }
   const CAMS = [[60, 30, 20, -10, 6, -30], [-6, 6.5, 30, -6, 6, -10], [250, 40, 230, 0, 5, 0], [16, 6.5, 18, -12, 7, -4]];
   if (Q.has("cam")) { const c = CAMS[num("cam", 0)] || CAMS[0]; camera.position.set(c[0], c[1], c[2]); camera.lookAt(c[3], c[4], c[5]); game.setStarted(false); }
@@ -148,11 +154,12 @@ async function boot() {
     const cal = game.calendar(); if (!game.G.paused && !Q.has("wx") && game.G.started) weather.tickAuto(dt, cal.season);
     // season for shaders: from the game calendar, or from ?doy= when a screenshot pins the date (80 = spring equinox start)
     const SEASON = { season: cal.season, seasonT: cal.seasonT };   // the only source of the season for every shader and for weather
-    weather.setSeason(SEASON.season); ECO.setSeason(SEASON.season); if (TREES.vis && frameN % 30 === 0) TREES.vis.update(camera.position.x, camera.position.z); AU.uSeason.value = SEASON.season; AU.uSeasonT.value = SEASON.seasonT;
+    weather.setSeason(SEASON.season); ECO.setSeason(SEASON.season); AU.uSeason.value = SEASON.season; AU.uSeasonT.value = SEASON.seasonT;
     const ws = weather.update(dt, camera, time, smoothstep(-0.05, 0.4, sky.state.sunEl)); AU.uSnow.value = Math.max(ws.snowCover, cal.season === 3 ? 0.42 * smoothstep(0.03, 0.3, cal.seasonT) : (cal.season === 0 ? 0.3 * (1 - smoothstep(0.0, 0.3, cal.seasonT)) : 0));   // winter keeps a snow cover even on clear days; it melts in early spring
     OCEAN.update(time, ws.sea);
     { const sk = smoothstep(0.4, 1.0, ws.rain); post.comp.uniforms.uSat.value = 1.08 - 0.3 * sk; post.exposureBias = Math.pow(2, -0.5 * sk); }   // storm: -30% saturation, -0.5 EV
     if (!fixedCam) game.update(dt, time, ws.sea);
+    if (TREES.vis) TREES.vis.update(camera.position.x, camera.position.z);
     const S = sky.update(game.G.hour, ws.cover, ws.over, time, camera, cal.dayOfYear);
     post.comp.uniforms.uDark.value = S.darkness;
     // sun / moon drive the cascaded light

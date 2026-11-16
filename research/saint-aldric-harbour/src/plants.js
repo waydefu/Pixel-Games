@@ -266,7 +266,7 @@ export function buildPlantLibrary(quality = 1) {
   const mk = (name, variants, detail, set) => { set[name] = []; for (let v = 0; v < variants; v++) { const r = mulberry32(4000 + name.length * 131 + v * 977), s = SPECIES[name](r, detail); const far = set === lib.far && FOREST_SP.includes(name); set[name].push({ trunk: far ? simpleTrunk(s.height, name) : (s.T.count ? s.T.toGeometry() : null), fol: foliageGeometry(s.F), kind: s.kind }); } };
   for (const n of ["oak", "linden", "birch", "poplar", "willow", "apple", "beech", "alder", "spruce", "pine"]) mk(n, 3, quality, lib.near);
   for (const n of ["shrub", "bloom"]) mk(n, 3, quality, lib.near);
-  for (const n of ["oak", "linden", "birch", "poplar", "beech", "alder", "willow", "spruce", "pine"]) mk(n, 2, quality * 0.38, lib.far);
+  for (const n of ["oak", "linden", "birch", "poplar", "willow", "apple", "beech", "alder", "spruce", "pine"]) mk(n, 3, quality * 0.38, lib.far);
   for (const n of FOREST_SP) { mk(n, 5, quality, lib.near); mk(n, 3, quality * 0.35, lib.far); }   // 5 near / 3 far variants per species   // far: 45% of the crown cards, still a closed canopy
   return lib;
 }
@@ -392,8 +392,8 @@ function forestStands(W, { N, WG, q, inKeepOut, buildDist, castle, rnd }) {
 }
 
 // ------------------------------------------------------------------------------------------------ BatchedMesh placement (one batch per material)
-// jobs: [{ geo, items:[{x,y,z,s,r,tint?}], zone? }]. All geometries in one batch share an attribute set (the caller guarantees this). Instances get
-// per-instance frustum culling and multi-draw in three r187. zone 'near' / 'far' entries are toggled by distance (see visibility below).
+// jobs: [{ geo, items:[{x,y,z,s,r,tint?}], zone?, lod? }]. All geometries in one batch share an attribute set (the caller guarantees this). Instances get
+// per-instance frustum culling and multi-draw in three r187. `lod` near/far entries switch by distance; `zone` keeps batch/shadow policy separate.
 export function batchPlace(scene, mat, jobs, { dummy = new THREE.Object3D(), shadow = true, name = "" } = {}) {
   const uniq = new Map(); let V = 0, I = 0, N = 0;
   for (const j of jobs) { if (!j.items.length) continue; if (!uniq.has(j.geo)) { uniq.set(j.geo, true); V += j.geo.attributes.position.count; I += j.geo.index ? j.geo.index.count : j.geo.attributes.position.count; } N += j.items.length; }
@@ -405,27 +405,51 @@ export function batchPlace(scene, mat, jobs, { dummy = new THREE.Object3D(), sha
   for (const j of jobs) for (const t of j.items) {
     const id = bm.addInstance(gid.get(j.geo)); dummy.position.set(t.x, t.y, t.z); dummy.rotation.set(0, t.r, 0); dummy.scale.setScalar(t.s); dummy.updateMatrix(); bm.setMatrixAt(id, dummy.matrix);
     if (t.tint) bm.setColorAt(id, new THREE.Color(t.tint[0], t.tint[1], t.tint[2]));
-    out.push({ bm, id, zone: j.zone || null, x: t.x, z: t.z });
+    out.push({ bm, id, tree: t, zone: j.zone || null, lod: j.lod ?? j.zone ?? null, x: t.x, z: t.z });
   }
   scene.add(bm); return out;
 }
-export function batchVisibility(entries, { near = 150 } = {}) {
-  const list = entries.filter(e => e.zone); const R2 = near * near;
-  return { update(cx, cz) { for (const e of list) { const d2 = (e.x - cx) ** 2 + (e.z - cz) ** 2; e.bm.setVisibleAt(e.id, e.zone === "near" ? d2 < R2 : d2 >= R2); } }, count: list.length };
+export function batchVisibility(entries, { near = 150, hysteresis = 10 } = {}) {
+  const groups = new Map(), list = entries.filter(e => e.lod || e.zone), R2 = near * near, enter2 = Math.max(0, near - hysteresis) ** 2, exit2 = (near + hysteresis) ** 2;
+  for (const e of list) {
+    const key = e.tree ?? `${e.x},${e.z}`;
+    let g = groups.get(key);
+    if (!g) { g = { x: e.x, z: e.z, entries: [], near: null, visible: false, hasNear: false, hasFar: false }; groups.set(key, g); }
+    g.entries.push(e); if ((e.lod ?? e.zone) === "near") g.hasNear = true; else g.hasFar = true;
+  }
+  let lastX = null, lastZ = null;
+  return { update(cx, cz) {
+    if (!Number.isFinite(cx) || !Number.isFinite(cz) || (lastX !== null && (cx - lastX) ** 2 + (cz - lastZ) ** 2 < 0.25)) return;
+    lastX = cx; lastZ = cz;
+    for (const g of groups.values()) {
+      if (!g.hasNear || !g.hasFar) {
+        if (!g.visible) { for (const e of g.entries) e.bm.setVisibleAt(e.id, true); g.visible = true; }
+        continue;
+      }
+      const d2 = (g.x - cx) ** 2 + (g.z - cz) ** 2;
+      const isNear = g.near === null ? d2 < R2 : g.near ? d2 <= exit2 : d2 < enter2;
+      if (g.near === isNear) continue;
+      g.near = isNear;
+      for (const e of g.entries) e.bm.setVisibleAt(e.id, (e.lod ?? e.zone) === "near" ? isNear : !isNear);
+    }
+  }, count: list.length };
 }
 
 export function buildPlantMeshesBatched(scene, placed, lib, tex, townMat, csm, opts = {}) {
   const leaf = makeFoliageMaterial(tex, csm, "leaf"), needle = makeFoliageMaterial(tex, csm, "needle"), bloomM = makeFoliageMaterial(tex, csm, "blossom"), dummy = new THREE.Object3D();
   const J = { trunk: [], leaf: [], needle: [], blossom: [] }, kindOf = k => (k === "needle" ? "needle" : k === "blossom" ? "blossom" : "leaf");
   let count = 0;
-  const addTree = (t, set, zone, cellTint) => {
+  const addTree = (t, set, zone, lod = zone) => {
     const sp = set[t.sp] ? t.sp : "oak", v = t.v % set[sp].length, e = set[sp][v], items = [t];
-    if (e.trunk) J.trunk.push({ geo: e.trunk, items, zone });   // far copies keep their trunks (crowns must not float without one)
-    J[kindOf(e.kind)].push({ geo: e.fol, items, zone }); count++;
+    if (e.trunk) J.trunk.push({ geo: e.trunk, items, zone, lod });
+    J[kindOf(e.kind)].push({ geo: e.fol, items, zone, lod }); count++;
   };
   const forestNear = placed.forest.filter(t => t.sp && lib.near[t.sp]), forestFar = placed.forest.filter(t => t.sp && lib.far[t.sp]);
-  for (const t of placed.trees) addTree(t, lib.near, null);
-  // forest: a near copy (full canopy, shown within 150 m) and a far copy (45 % cards, shown beyond); both are culled per instance
+  for (const t of placed.trees) {
+    if (t.sp && lib.far[t.sp]) { addTree(t, lib.near, null, "near"); addTree(t, lib.far, null, "far"); }
+    else addTree(t, lib.near, null);
+  }
+  // Town LOD copies keep the original shadow batch; forest copies keep their existing near/far shadow policy.
   for (const t of forestNear) addTree(t, lib.near, "near");
   for (const t of forestFar) addTree(t, lib.far, "far");
   const sh = { shrub: [], bloom: [] }; for (const s of placed.shrubs) sh[s.bloom ? "bloom" : "shrub"].push(s);

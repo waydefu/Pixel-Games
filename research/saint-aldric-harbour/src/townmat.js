@@ -3,10 +3,10 @@ import * as THREE from "three";
 import { patch, SEASON_GLSL } from "./materials.js";
 import { SURF_GLSL, surfUniforms } from "./textures.js";
 
-export function makeTownMaterial(tex) {
+export function makeTownMaterial(tex, recipeSeed = 0) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, vertexColors: true });
   const edit = function townEdit(sh) {
-    Object.assign(sh.uniforms, surfUniforms(tex));
+    Object.assign(sh.uniforms, surfUniforms(tex, recipeSeed));
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nattribute vec2 aUv; attribute float aMat; varying vec2 vUvm; flat varying float vMat;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvUvm = aUv; vMat = aMat;");

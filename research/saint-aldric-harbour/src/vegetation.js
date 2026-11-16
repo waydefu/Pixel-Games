@@ -121,10 +121,13 @@ export function foliageCards(rnd, centre, R, count, sizeMin, sizeMax, tintBase, 
     out.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
 }
+export const FOLIAGE_WIND_BOUNDS = 0.25; // shortcut: 0.25 m covers current shader wind displacement for uWind <= 1; increase if weather exceeds 1.
 export function foliageGeometry(out) {
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(out.pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(out.nor, 3));
-  g.setAttribute("uv", new THREE.Float32BufferAttribute(out.uv, 2)); g.setAttribute("color", new THREE.Float32BufferAttribute(out.col, 3)); g.setIndex(out.idx); g.computeBoundingSphere(); return g;
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(out.uv, 2)); g.setAttribute("color", new THREE.Float32BufferAttribute(out.col, 3)); g.setIndex(out.idx);
+  g.computeBoundingBox(); g.boundingBox.expandByScalar(FOLIAGE_WIND_BOUNDS); g.computeBoundingSphere(); g.boundingSphere.radius += FOLIAGE_WIND_BOUNDS;
+  return g;
 }
 export const newFol = () => ({ pos: [], nor: [], uv: [], col: [], idx: [] });
 
