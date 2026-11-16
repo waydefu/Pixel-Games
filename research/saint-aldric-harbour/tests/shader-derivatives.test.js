@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import * as THREE from "three";
 
 const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
 const textures = source("../src/textures.js");
 const terrain = source("../src/terrainmat.js");
 const town = source("../src/townmat.js");
 const plants = source("../src/plants.js");
+const water = source("../src/water.js");
 const sampleSurf = textures.match(/Surf sampleSurf\([\s\S]*?\n\}/)?.[0];
+
+test("water height lookups use a non-mipmapped linear DataTexture", () => {
+  assert.equal(THREE.REVISION, "187");
+  assert.ok(water.includes("new THREE.DataTexture(data, n, n, THREE.RedFormat, THREE.HalfFloatType)"));
+  const texture = new THREE.DataTexture(new Uint16Array(1), 1, 1, THREE.RedFormat, THREE.HalfFloatType);
+  assert.equal(texture.generateMipmaps, false);
+  assert.ok(water.includes("t.minFilter = t.magFilter = THREE.LinearFilter"));
+  assert.ok(water.includes("t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping"));
+  assert.equal(water.split("texture(uHeight, uv)").length - 1, 2);
+});
 
 test("surface array reads use explicit gradients through bank and anti-tile branches", () => {
   assert.ok(sampleSurf, "sampleSurf exists");

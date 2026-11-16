@@ -4,6 +4,7 @@ import test from "node:test";
 import * as THREE from "three";
 import { batchVisibility, buildPlantLibrary, buildPlantMeshesBatched } from "../src/plants.js";
 import { FOLIAGE_WIND_BOUNDS } from "../src/vegetation.js";
+import { TIERS } from "../src/settings.js";
 
 const TREE_SPECIES = ["oak", "linden", "birch", "poplar", "willow", "apple", "beech", "alder", "spruce", "pine"];
 const library = buildPlantLibrary(0.55);
@@ -103,6 +104,24 @@ test("distance LOD uses hysteresis, never hides both levels, and survives telepo
   vis.update(1000, 0); check("far");
   vis.update(0, 0); check("near");
   assert.ok(writes.length > 0);
+});
+
+test("forest LOD shadow casting follows each quality tier", () => {
+  const tree = { x: 200, y: 0, z: 0, s: 1, r: 0, v: 0, sp: "fOak" };
+  const tex = { leaf: new THREE.Texture(), needle: new THREE.Texture(), blossom: new THREE.Texture() };
+  for (const [tier, config] of Object.entries(TIERS)) {
+    const allShadows = config.vegShadow === "all";
+    if (allShadows) assert.ok(config.sfar > tree.x, `${tier} shadow distance includes the 200 m tree`);
+    const scene = new THREE.Scene();
+    const built = buildPlantMeshesBatched(scene, { trees: [], forest: [tree], shrubs: [], beds: [] }, library, tex, new THREE.MeshStandardMaterial(), null, { vegShadow: config.vegShadow });
+    built.vis.update(0, 0);
+    const farEntries = built.entries.filter(entry => entry.tree === tree && entry.lod === "far");
+    const nearEntries = built.entries.filter(entry => entry.tree === tree && entry.lod === "near");
+    assert.ok(farEntries.length > 0 && nearEntries.length > 0, "both forest LODs exist");
+    assert.ok(farEntries.every(entry => entry.bm.getVisibleAt(entry.id)), "the 200 m tree selects its far LOD");
+    assert.ok(farEntries.every(entry => entry.bm.castShadow === allShadows), `${tier} far LOD shadow policy matches its tier`);
+    assert.ok(nearEntries.every(entry => entry.bm.castShadow === (config.vegShadow !== "none")), `${tier} near LOD shadow policy matches its tier`);
+  }
 });
 
 test("batched town trees are wired to both LOD levels", () => {

@@ -449,15 +449,15 @@ export function buildPlantMeshesBatched(scene, placed, lib, tex, townMat, csm, o
     if (t.sp && lib.far[t.sp]) { addTree(t, lib.near, null, "near"); addTree(t, lib.far, null, "far"); }
     else addTree(t, lib.near, null);
   }
-  // Town LOD copies keep the original shadow batch; forest copies keep their existing near/far shadow policy.
+  // Town LOD copies keep the original shadow batch; forest shadows follow the configured tier below.
   for (const t of forestNear) addTree(t, lib.near, "near");
   for (const t of forestFar) addTree(t, lib.far, "far");
   const sh = { shrub: [], bloom: [] }; for (const s of placed.shrubs) sh[s.bloom ? "bloom" : "shrub"].push(s);
   for (const k of ["shrub", "bloom"]) for (let v = 0; v < 3; v++) { const items = sh[k].filter(s => s.v % 3 === v); if (!items.length) continue; const e = lib.near[k][v]; J[kindOf(e.kind)].push({ geo: e.fol, items }); count += items.length; }
-  // one batch per material and zone; the far forest does not cast shadows (it lies beyond the shadow cascades)
+  // one batch per material and zone; shadow casting follows the quality tier
   // vegetation shadows by quality tier: none (low), near trees only (medium), everything (high and up)
-  const vs = opts.vegShadow || "all", shadowOf = zone => (vs === "all" ? zone !== "far" : vs === "near" ? zone !== "far" : false);
-  const place = (mat, jobs, name) => { const out = []; for (const zone of [null, "near", "far"]) { const js = jobs.filter(j => (j.zone || null) === zone); out.push(...batchPlace(scene, mat, js, { dummy, name: name + (zone ? "-" + zone : ""), shadow: shadowOf(zone) && (vs !== "near" || zone !== "far") })); } return out; };
+  const vs = opts.vegShadow || "all", shadowOf = zone => vs === "all" || (vs === "near" && zone !== "far");
+  const place = (mat, jobs, name) => { const out = []; for (const zone of [null, "near", "far"]) { const js = jobs.filter(j => (j.zone || null) === zone); out.push(...batchPlace(scene, mat, js, { dummy, name: name + (zone ? "-" + zone : ""), shadow: shadowOf(zone) })); } return out; };
   const entries = [...place(townMat, J.trunk, "trunks"), ...place(leaf, J.leaf, "leaves"), ...place(needle, J.needle, "needles"), ...place(bloomM, J.blossom, "blossom")];
   const vis = batchVisibility(entries, { near: 150 });
   // flower beds stay as plain instanced meshes (a handful of draw calls)
