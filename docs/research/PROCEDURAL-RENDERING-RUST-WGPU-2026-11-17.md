@@ -115,3 +115,112 @@
 研究已能回答「兩個 repo 怎麼做到大量純程式畫面」與「Rust 能否寫」。若後續另行核准 PoC：先建立最小場景＋相同固定鏡頭的 Rust/wgpu WebGPU 演示，在真機基線前絕不重寫主線；如果瀏覽器/WebGPU 不可用，須明確列相容與視覺降級，不得暗中替換品質標準。
 
 **研究評估完成 ≠ 程式整合完成 ≠ 可玩性／美術驗收完成。**
+
+
+## 9. 高效能混合引擎候選架構（Owner 2026-11-17 補充）
+
+> **範圍：效能優先的架構研究，不是已採用設計或已通過實測。** 候選：**TypeScript + Rust/Wasm + WebGPU/WGSL + Web Workers**。依運算特性、平行度、資料所有權、搬移成本與能源限制分工，而非追求 Rust/WGSL 使用率。既有 #146/#148 單檔、離線、Pages、玩法和品質要求暫不修改。
+
+### 9.1 元件責任與資料所有權
+
+| 元件 | 優先責任 | 不應做的事 / 主要風險 |
+| --- | --- | --- |
+| TypeScript Main Thread | DOM、HUD、輸入、可及性、事件與生命週期、Worker 指令、網路/資源調度 | 逐實體 JS 物件搬運、同步等待大量模擬或 GPU 回讀 |
+| Rust/Wasm Simulation Core | Archetype ECS / SoA、NPC AI、路徑尋找、物理、空間索引、區塊狀態、確定性運算 | 未分析熱點就將所有邏輯跨語言搬入；小任務的 FFI 成本可能超過計算 |
+| Simulation Worker（可選） | 執行 CPU 高成本模擬，將已發佈狀態快照交給渲染器 | 阻塞主執行緒、每幀 postMessage 大物件、無界工作佇列 |
+| Render Worker（可選） | 在支援的平台以 WorkerNavigator.gpu、OffscreenCanvas 擁有 WebGPU device、buffers、render graph 與 command submission | 把 Render Worker 當所有瀏覽器必備；跨 Worker 傳 GPUBuffer；GPU context 復原不明 |
+| WebGPU + WGSL | GPU Compute、植被/粒子更新、可見性篩選、實例動畫、Raster/PBR、陰影、水體與後製 | 將高分歧、相依性強或需要頻繁 GPU→CPU 讀回的工作硬塞 Compute |
+| 資料交換層 | 發布固定布局 TypedArray 或共享環狀緩衝區，序號/版本號管理，批次寫入 GPU buffer | 錯把 Wasm Linear Memory 與 GPUBuffer 視為同一塊零拷貝共享記憶體 |
+
+**推薦初始拓樸（尚未實作）：** Main Thread (TypeScript DOM/UI) → Simulation Worker (單執行緒 Rust/Wasm ECS、物理/AI) → 版本化 SoA snapshot → Render Worker (若支援 OffscreenCanvas + WebGPU；否則主執行緒渲染) → WebGPU Compute + Render Graph → Present。額外 Workers 視可平行的任務與真機熱限制增減，不硬設 4 個。渲染元件擁有 GPU 資源並提交 commands，CPU 模擬元件只發佈必要差量及 snapshot。
+
+**CPU/GPU 運算依特性選擇，而不以物件數直接決定：**
+
+| 工作 | 預設候選 | 條件式替代與測量重點 |
+| --- | --- | --- |
+| 少量玩家/相機、UI、互動 | TypeScript | 若已在 Wasm 的權威世界狀態中，維持資料一致性優先；勿為語言拆分製造跨境更新 |
+| ECS、AI、A*、Chunk、BVH/Octree | Rust/Wasm | 小型純 TS 也可很快；觀察 CPU p95、cache locality、跨境呼叫 |
+| 剛體、窄相碰撞與複雜依賴 | Rust/Wasm | GPU 碰撞僅考慮特定高度同質的批次任務，且需避免 GPU→CPU readback |
+| 程序地形/建築預生成 | Rust/Wasm 或 WGSL | 看編輯頻率、CPU collision mesh 需求、生成和上傳/讀回峰值成本；兩者可互補 |
+| 草/葉片/粒子/骨骼動畫 | WGSL/Vertex Shader | 小數量不一定值得 Compute；盡量讓狀態 GPU-resident |
+| Frustum / Occlusion Culling | CPU Chunk 粗剔除 + GPU Instance 細剔除 | 先測 draw count、工作量與 GPU occupancy；Occlusion 需深度資訊，勿讓 readback 阻塞 |
+| Render Graph、批次 draw 指令 | TypeScript 控制 WebGPU（可在 Render Worker） | 研究 CPU 命令成本與平台 limits；避免頻繁極小 dispatch |
+| 光照、陰影、水體、後製 | WGSL GPU Pipeline | 設 pass/RT/帶寬預算，避免多層 full-res HDR 消耗手機記憶體頻寬 |
+
+### 9.2 GPU-resident data + Render Graph
+
+- 靜態建築、地形、材質/Instance 參數和大量低頻植物應盡量常駐 GPU；只上傳改變部分。以 Render Graph 管理 Upload → Visibility/Culling → Animation/Effects → Shadow → Opaque → Water/Transparent → Post → Present 的依賴，並視設備合併/重用短命 render targets。
+- GPU-driven rendering 是候選，而非萬靈丹；Compute 更新可見實例列表/Indirect Draw arguments，Render Pass 消費相同 GPUBuffer，盡量不回傳 CPU。**GPU→CPU readback（例如 mapAsync）不得每幀成為同步點**。
+- WebGPU 的 drawIndirect / drawIndexedIndirect 是標準機制，但當 firstInstance 非零時，依賴可選的 indirect-first-instance feature；須檢查 adapter.features / limits 並設計降級。不要假設所有手機都具備無限制的 multi-draw、完整 Bindless 或桌機級硬體光追。
+- CPU 負責大區塊及實體可見性粗篩，GPU 負責大批次同質細節；對 occlusion 應先有可重現的 depth / Hi-Z 管線及 GPU 時間證據，不得只因「GPU Culling」名稱就宣布較快。
+- 資源池/aliasing 與暫存紋理格式都要按 Render Graph 生命週期處理。手機 tile-based GPU 對 full-screen pass、平面水鏡反射與大量 render target 的頻寬非常敏感；時間/品質均要真機測量。
+
+來源：[WebGPU API / WorkerNavigator.gpu（MDN）](https://developer.mozilla.org/en-US/docs/Web/API/WorkerNavigator/gpu)、[drawIndirect / indirect-first-instance（MDN）](https://developer.mozilla.org/en-US/docs/Web/API/GPURenderPassEncoder/drawIndirect)。
+
+### 9.3 CPU / GPU Pipeline、資料交換與同步
+
+1. 模擬端固定時間步長（例 60 Hz 作為候選，不是所有 NPC 每幀同頻）；render loop 可消費最近一份**完整且一致**的 snapshot，做插值或以受控預測降低觀感延遲。不要讓 GPU 畫第 N 幀時強制等待 CPU 完成第 N+1 幀。
+2. 使用 SoA、Archetype Chunk、預分配 Buffer、Dirty Ranges、批次更新，不為每個 NPC 建立新的 JS 物件。Rust 單次執行更新大量實體，TS 建立或重用 Wasm linear memory 上的 TypedArray view，再以 queue.writeBuffer 批量提交；**writeBuffer 仍是到 GPU 的資料傳輸，不可宣稱 GPU 零拷貝**。
+3. 若共享記憶體可用，以 SharedArrayBuffer + Atomics 的版本號/寫入完成標誌發布雙/三緩衝快照；先驗證一致性、讀寫競爭、延遲及記憶體壓力。缺少 SharedArrayBuffer 時，使用 transferable ArrayBuffer、雙佇列或單 Worker 的 message 通道，避免 Structured Clone 大量深拷貝。
+4. Wasm linear memory 若發生 memory.grow，既有 TypedArray view 可能失效，需要重建；大型共享資料結構應在初始化就規劃容量，並測量增長、內部對齊、更新 dirty range 與峰值記憶體。
+5. 雙/三緩衝可降低爭用但增加記憶體占用、緩衝深度與輸入延遲。評估 frame pacing、buffered frames、latest-complete-snapshot 政策以及主執行緒的 input-to-photon latency；**CPU/GPU 並行有機會重疊，但不是保證完全互不等待**。
+6. 若遊戲同時需要 CPU 碰撞與 GPU 程序地形，須界定權威地形資料來源、固定 seed 與可重現的碰撞代理；頻繁將 GPU 三角形讀回來做 CPU 碰撞可能抵銷 GPU Compute 收益。
+
+### 9.4 Web Workers、Wasm Threads、SIMD：相容性 Gate
+
+- **一般 Web Workers ≠ Wasm Threads**。普通 Worker 可用 postMessage + transferable Buffer，不等於共享 Rust/Rayon 執行緒池。Rust Wasm 多執行緒通常需 SharedArrayBuffer、Atomics、cross-origin isolated 與對應的編譯工具鏈。
+- 跨來源隔離由伺服器回應 HTTP headers 建立，例如 Cross-Origin-Opener-Policy: same-origin 與 Cross-Origin-Embedder-Policy: require-corp（或符合條件的 credentialless）；請於每個支援瀏覽器讀取 self.crossOriginIsolated，不能以 localhost 成功推論 GitHub Pages 成功。
+- **目前 GitHub Pages 靜態託管沒有一般可設定任意 COOP/COEP HTTP header 的正式途徑**；若 Wasm threads 是必要性能條件，需另行對照可控制 headers 的靜態託管（例如 Cloudflare Pages _headers），或維持無共享執行緒降級。任何改託管均需另提 Owner/部署授權；不在本 PR 變更 Pages。
+- wasm-bindgen-rayon 的實作文件列出 Wasm shared-memory、特定工具鏈/構建旗標、bundler 與 Worker 啟動限制；**不能直接把桌面 Rayon 用法視為可編譯到瀏覽器**。正式採用前須固定版本、在 CI 做線程版及單線程版分別編譯並於真機啟動/回退。
+- Wasm SIMD 需要檢查編譯 target feature、程式能否被有效向量化、實際 SIMD 路徑是否執行；不要將 SIMD 支援視為必然加速。手機同時開太多 Workers 會增加排程/耗電/熱降頻。
+- WebGPU 在 Worker 上可用但瀏覽器/OS/裝置存在差異；先 feature-detect WorkerNavigator.gpu、OffscreenCanvas、GPUAdapter，再決定 Render Worker 或主執行緒實作及 WebGL2 備援。
+
+來源：[MDN crossOriginIsolated](https://developer.mozilla.org/en-US/docs/Web/API/Window/crossOriginIsolated)、[MDN SharedArrayBuffer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer)、[wasm-bindgen-rayon 官方 crate 文件](https://docs.rs/wasm-bindgen-rayon/latest/wasm_bindgen_rayon/)、[GitHub Pages headers 討論（GitHub 社群）](https://github.com/orgs/community/discussions/54257)、[Cloudflare Pages 自訂 headers（官方文件）](https://developers.cloudflare.com/pages/configuration/headers/)。
+
+### 9.5 Simulation LOD 與空間索引：不等於只有模型 LOD
+
+| 範圍（示例） | 模擬頻率候選 | 工作類型 |
+| --- | --- | --- |
+| 近景互動圈 | 60 Hz | 玩家/NPC 完整碰撞、局部戰鬥、即時事件 |
+| 中景 | 10–20 Hz | 簡化決策/尋路、跨影格插值、按需局部碰撞 |
+| 遠景/不可見 | 1–5 Hz 或事件驅動 | 群體與聚落統計、狀態推進、區塊卸載 |
+
+以上更新頻率只是**實驗候選，不是所有系統的固定值**。須保護可觀察的遊戲語義：玩家附近逐漸喚醒、NPC 不能瞬間跳位、遠處任務與種田/天氣/存檔的時間邏輯一致。採取 spatial hash / grid 作近距離查詢、BVH 或樹結構處理複雜空間；實測查詢複雜度和增量更新負擔再決定選型。對幾萬 NPC 不只看單幀 FPS，還要測存檔、跨區塊遷移和長時資料膨脹。
+
+### 9.6 四組公平效能實驗：A / B / C / D
+
+| 版本 | 比較目標 | 唯一主要變因 |
+| --- | --- | --- |
+| A：現有 Three.js / WebGL2 | 正式遊戲性能/畫質基準 | 維持現況；固定 scene snapshot |
+| B：TypeScript + 直接 WebGPU | 測 GPU 管線本身的收益 | 用相等場景/實際 buffer pixels 改 API 與 GPU pipeline |
+| C：TypeScript + Rust/Wasm + WebGPU | 測 Data-Oriented Rust CPU 核心增益 | 相同 B GPU 管線，只更換明確熱點的 CPU 模擬 |
+| D：C + Worker/SIMD/Threading | 測並行與向量化總體收益 | 同 C，逐項開/關 Worker、SIMD、Rayon threads；勿將其混為一個不透明效果 |
+
+**實驗中的非控制變數禁止偷換：** 相同建築/草葉/海面幾何、同 seed、固定六鏡頭、相同 shading/RT 格式、陰影品質、實際 drawing buffer 像素、動態解析度開關狀態、可視距離、NPC 數及行為；記錄不同 backend 功能無法對等時的品質差距，**不得用更低畫質聲稱更快**。若 A 與 B 後製本質不等價，先報告視覺差異與管線成本，再做近似等價版本。
+
+**D 組還需拆解微基準：**
+- D0 單執行緒 / Main Render；D1 Simulation Worker；D2 Render Worker；D3 Wasm SIMD；D4 Wasm Threads（僅在 crossOriginIsolated 可用）；D5 GPU Culling + GPU-resident animation；每項單獨量測，再測選定組合及相互作用。
+- 測資料交換：10k / 100k（只作合成壓力測試）NPC；分別量測 ECS tick、JS-Wasm 邊界、snapshot 發布、CPU→GPU bytes/frame、GPU pipeline time、Worker 同步/傳輸與三種佇列深度。這些是**測試工作量，不是遊戲預定 NPC 數量**。
+- 每種模式包含冷啟動/暖機/穩態/連續 10–20 分鐘、快速鏡頭旋轉、區塊切換與資源重建；記錄 CPU main-thread blocking、GPU frame time（若裝置可提供）、p50/p95/p99 frame time、99th input latency、WebGPU limits/features、context loss/恢復、裝置溫度/功耗（有量測能力才填數字）、RAM/VRAM（不可得則 N/A）。
+- 目標 **1080p 真輸出 / 60 FPS** 對應 16.67ms/frame 畫面預算；評估渲染/模擬的並行階段時不可把各階段毫秒數天真相加或相減。若 2K 無法通過，應明確區分畫質與解析度政策；30 FPS 時也需說明取捨。
+- 先以 POCO F8 Ultra 和實體 iPhone 為重點，另外桌機獨顯/內顯與中階 Android；取真瀏覽器版本、真 GPU，CI SwiftShader 僅做功能 smoke。結果不可提前標 PASS。
+
+### 9.7 建議的技術優先研究序（收益假說，不是實測排行）
+
+1. Data-Oriented Design / SoA / Buffer Reuse：先找 CPU 與傳輸的重複工作。
+2. GPU-resident instance data / GPU-driven visibility：先減少不必要的上傳與 Draw Calls。
+3. Simulation LOD：避免所有 NPC、物理、AI 同時以最高頻率工作。
+4. Spatial Partitioning / Chunk Streaming：控制可見、互動與載入工作集。
+5. Render Graph / Frame Pacing / 多幀資源生命週期：降低 pass 互依與手機 bandwidth。
+6. Archetype ECS：當實體數/查詢模式足夠大才值得。
+7. Rust/Wasm SIMD / Workers：基於 profiling 改造 CPU 熱點。
+8. 多執行緒 Rust/Rayon：跨來源隔離與維護成本先過 Gate，不以 threads 越多越好。
+9. 選用 async pipeline 和 memory pools：驗證少分配/少等待，而非只增加抽象層。
+10. glTF/KTX2 僅作可選**匯入/快取資產管線**；純程式生成仍是本專案主要方向，沒有必要強加模型與貼圖下載。
+
+### 9.8 風險、採用條件與交接
+
+- **可證實的能力 ≠ 實測勝利**。資料結構、CPU/GPU 分工、傳輸與並行程度比語言比例重要。更複雜的混合架構也可能因 Worker 同步、Wasm 初始化與渲染管線重複，慢於精心優化的 TypeScript 或純 Rust 架構。
+- 本節只給出**候選最佳化模型**。不得根據表格直接宣稱 Rust/Wasm + WebGPU 最快，也不預設超越 UE、桌機 RTX、遊戲引擎整體品質。
+- 當前 PR 僅編輯本文；**不開新 PoC、不改主線、不改 Pages hosting/COOP/COEP、不改部署與受保護配置、不合併 PR**。需有 Owner 的新一輪實作授權才能建立 A/B/C/D 對照實驗。
+- 未執行：Rust/Wasm 編譯、Workers 測試、各實驗基準、手機真機、電腦 GPU 測試、畫質人工 A/B，全部 **NOT RUN**。
