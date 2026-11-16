@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import * as THREE from "three";
-import { batchVisibility, buildPlantLibrary, buildPlantMeshesBatched } from "../src/plants.js";
-import { FOLIAGE_WIND_BOUNDS } from "../src/vegetation.js";
-import { TIERS } from "../src/settings.js";
+import { batchVisibility, buildPlantLibrary, buildPlantMeshesBatched } from "../../src/harbour/plants.js";
+import { FOLIAGE_WIND_BOUNDS } from "../../src/harbour/vegetation.js";
+import { TIERS } from "../../src/harbour/settings.js";
 
 const TREE_SPECIES = ["oak", "linden", "birch", "poplar", "willow", "apple", "beech", "alder", "spruce", "pine"];
 const library = buildPlantLibrary(0.55);
 const vertices = tree => tree.fol.attributes.position.count + (tree.trunk?.attributes.position.count || 0);
-const vegetationSource = readFileSync(new URL("../src/vegetation.js", import.meta.url), "utf8");
-const weatherSource = readFileSync(new URL("../src/weather.js", import.meta.url), "utf8");
+const vegetationSource = readFileSync(new URL("../../src/harbour/vegetation.js", import.meta.url), "utf8");
+const weatherSource = readFileSync(new URL("../../src/harbour/weather.js", import.meta.url), "utf8");
 
 test("foliage wind bound covers the current weather and shader displacement", () => {
   assert.match(vegetationSource, /w1_ = [^;]*\* 0\.06, w2_ = [^;]*\* 0\.03;/);

@@ -3,10 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bakeTextures, LAYERS, SURF_GLSL, surfUniforms } from "../src/textures.js";
+import { bakeTextures, LAYERS, SURF_GLSL, surfUniforms } from "../../src/harbour/textures.js";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const read = path => readFileSync(resolve(root, path), "utf8");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../src/harbour");
+const read = path => readFileSync(resolve(root, path.replace(/^src\//, "")), "utf8");
 const textures = read("src/textures.js");
 const layerBlock = textures.match(/export const LAYERS = \[([\s\S]*?)\n\];/)?.[1];
 assert.ok(layerBlock, "LAYERS declaration exists");

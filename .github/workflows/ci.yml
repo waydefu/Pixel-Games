@@ -1,8 +1,7 @@
 name: Pixel-Games CI
 on:
   pull_request:
-  push:
-    branches: [main]
+  # main is verified by the Pages workflow; avoid duplicate push builds.
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,7 @@ jobs:
   # Build and validate once, then the browser suites in parallel shards (see verify.yml).
   verify:
     name: Verify
-    uses: ./.github/workflows/verify.yml
+    uses: ./.github/workflows/verify-mainline.yml
 
   # Keep the branch protection's existing required check name. The gate fails unless the build and *every* browser shard pass.
   collaboration:

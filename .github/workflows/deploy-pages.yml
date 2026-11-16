@@ -13,15 +13,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build and validate once, plus the Pages artifact. The browser suites are not repeated here: main only accepts pull requests
-  # that are up to date and green (strict branch protection), so this tree already passed them, and ci.yml runs them again on
-  # main as a post-merge check. If strict protection is ever turned off, remove `e2e: false`.
+  # Build, verify the real mainline in both browsers, then deploy the same artifact.
   verify-and-package:
     name: Verify and package site
-    uses: ./.github/workflows/verify.yml
+    uses: ./.github/workflows/verify-mainline.yml
     with:
       pages: true
-      e2e: false
+      # Browser verification is mandatory before deployment.
 
   deploy:
     name: Deploy verified dist to Pages

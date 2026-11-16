@@ -5,7 +5,7 @@ const TIER_NOTES = {
   low: "低：陰影 2 級、無泛光、無環境光遮蔽、植被不投影、海洋 1 級波、草 90 叢。解析度 720–1080p。",
   med: "中：MSAA ×2、陰影 3 級、泛光、植被只在近處投影、海洋 2 級波、草 120 叢。解析度 1080–1440p。",
   high: "高：MSAA ×4、陰影 3 級、泛光與環境光遮蔽、植被全部投影、海洋 2 級波、草 170 叢。",
-  ultra: "極高：MSAA ×4、陰影 4 級、泛光與環境光遮蔽、平面反射、海洋 3 級波（含 chop）、草 200 叢、植被密度 ×1.4。",
+  ultra: "極高：MSAA ×4、陰影 4 級、泛光與環境光遮蔽、海洋 3 級波（含 chop）、草 200 叢、植被密度 ×1.4。平面反射尚未實作。",
 };
 import { exportSave, importSave, writeSave, readSave, clearSave } from "./save.js";
 import { FISH_PRICE } from "./inventory.js";

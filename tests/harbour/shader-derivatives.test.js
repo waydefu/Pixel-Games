@@ -4,11 +4,11 @@ import test from "node:test";
 import * as THREE from "three";
 
 const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
-const textures = source("../src/textures.js");
-const terrain = source("../src/terrainmat.js");
-const town = source("../src/townmat.js");
-const plants = source("../src/plants.js");
-const water = source("../src/water.js");
+const textures = source("../../src/harbour/textures.js");
+const terrain = source("../../src/harbour/terrainmat.js");
+const town = source("../../src/harbour/townmat.js");
+const plants = source("../../src/harbour/plants.js");
+const water = source("../../src/harbour/water.js");
 const sampleSurf = textures.match(/Surf sampleSurf\([\s\S]*?\n\}/)?.[0];
 
 test("water height lookups use a non-mipmapped linear DataTexture", () => {
